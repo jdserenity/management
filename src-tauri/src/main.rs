@@ -36,8 +36,8 @@ use sqlx;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_sql::{DbInstances, Migration, MigrationKind};
 
-mod pose_analysis;
-use pose_analysis::PoseAnalyzer;
+mod posture_bridge;
+use posture_bridge::{posture_recommendations, PostureDebouncer, PostureIngestPayload};
 
 pub struct Translations {
     data: HashMap<String, HashMap<String, String>>,
@@ -46,7 +46,7 @@ pub struct Translations {
 impl Translations {
     pub fn new<R: Runtime>(path_resolver: &PathResolver<R>) -> Self {
         let mut data = HashMap::new();
-        let locales = vec!["en", "ko", "ja", "zh", "tr"];
+        let locales = vec!["en"];
 
         for lang in locales {
             if let Ok(resource_path) =
@@ -86,19 +86,8 @@ impl Translations {
     }
 }
 
-fn normalize_language_code(lang: &str) -> String {
-    let normalized = lang.to_ascii_lowercase();
-    if normalized.starts_with("ko") {
-        "ko".to_string()
-    } else if normalized.starts_with("ja") {
-        "ja".to_string()
-    } else if normalized.starts_with("zh") {
-        "zh".to_string()
-    } else if normalized.starts_with("tr") {
-        "tr".to_string()
-    } else {
-        "en".to_string()
-    }
+fn normalize_language_code(_lang: &str) -> String {
+    "en".to_string()
 }
 
 // --- App State ---
@@ -110,7 +99,7 @@ struct CameraDetail {
 
 #[derive(Clone)]
 struct AppState {
-    pose_analyzer: Arc<PoseAnalyzer>,
+    posture_debouncer: Arc<Mutex<PostureDebouncer>>,
     monitoring_active: Arc<Mutex<bool>>,
     force_capture_now: Arc<Mutex<bool>>,
     last_alert_time: Arc<Mutex<Instant>>,
@@ -197,33 +186,97 @@ fn stop_and_release_camera(state: &AppState, reason: &str) {
 
 // --- Tauri Commands ---
 #[tauri::command]
-async fn analyze_pose_data(
-    state: State<'_, AppState>,
-    image_data: String,
-) -> Result<String, String> {
-    match state.pose_analyzer.analyze_image_sync(&image_data) {
-        Ok(result_str) => Ok(result_str),
-        Err(e) => {
-            warn!("Pose analysis failed during calibration: {}", e);
-            Err(e.to_string())
-        }
-    }
+fn initialize_pose_model() -> Result<(), String> {
+    info!("Pose model lives in the webview (MediaPipe); Rust init is a no-op.");
+    Ok(())
 }
 
 #[tauri::command]
-async fn initialize_pose_model(
+fn clear_posture_debouncer(state: State<'_, AppState>) -> Result<(), String> {
+    lock_or_recover(&state.posture_debouncer).clear();
+    Ok(())
+}
+
+#[tauri::command]
+async fn submit_posture_analysis(
+    app: AppHandle,
     state: State<'_, AppState>,
-    handle: tauri::AppHandle,
+    payload: PostureIngestPayload,
 ) -> Result<(), String> {
-    info!("Initializing pose model");
-    state
-        .pose_analyzer
-        .initialize_model(handle)
-        .await
-        .map_err(|e| {
-            error!("Pose model initialization failed: {}", e);
-            e.to_string()
-        })
+    let (final_turtle, final_shoulder) = {
+        let mut d = lock_or_recover(&state.posture_debouncer);
+        d.push(payload.turtle_neck, payload.shoulder_misalignment)
+    };
+    let recommendations = posture_recommendations(final_turtle, final_shoulder);
+    let score_u8 = payload.posture_score.round().clamp(0.0, 100.0) as u8;
+    let metrics_value: Value = payload
+        .metrics_json
+        .as_ref()
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .unwrap_or(Value::Null);
+    let result_json = serde_json::json!({
+        "turtle_neck": final_turtle,
+        "shoulder_misalignment": final_shoulder,
+        "posture_score": score_u8,
+        "recommendations": recommendations,
+        "confidence": payload.confidence,
+        "metrics": metrics_value,
+        "status": "mediapipe_analysis_success"
+    });
+    let _ = app.emit("analysis-update", &result_json);
+
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or_else(|error| {
+            warn!("Failed to convert system time (before UNIX_EPOCH): {}", error);
+            0
+        });
+
+    let instances = app.state::<DbInstances>();
+    let db_map = instances.0.read().await;
+
+    if let Some(tauri_plugin_sql::DbPool::Sqlite(sqlite_pool)) = db_map.get("sqlite:posture_data.db") {
+        let query =
+            "INSERT INTO posture_log (score, is_turtle_neck, is_shoulder_misaligned, timestamp, metrics_json) VALUES (?, ?, ?, ?, ?)";
+        if let Err(e) = sqlx::query(query)
+            .bind(score_u8 as i64)
+            .bind(final_turtle)
+            .bind(final_shoulder)
+            .bind(timestamp)
+            .bind(payload.metrics_json.clone())
+            .execute(sqlite_pool)
+            .await
+        {
+            error!("Database write failed: {}", e);
+        }
+    }
+
+    if final_turtle || final_shoulder {
+        let mut last_alert = lock_or_recover(&state.last_alert_time);
+        if last_alert.elapsed() >= Duration::from_secs(10) {
+            let lang = lock_or_recover(&state.current_language).clone();
+            let translations = &state.translations;
+
+            let message_key = if final_turtle && final_shoulder {
+                "alert_both"
+            } else if final_turtle {
+                "alert_turtle"
+            } else {
+                "alert_shoulder"
+            };
+
+            info!("Resolving translation: lang='{}', key='{}'", lang, message_key);
+            let message = translations.get(&lang, message_key);
+            info!("Resolved translation: '{}'", message);
+
+            lock_or_recover(&state.alert_messages).push(message);
+            *last_alert = Instant::now();
+            lock_or_recover(&state.posture_debouncer).clear();
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -290,33 +343,6 @@ async fn stop_monitoring(app: AppHandle, state: State<'_, AppState>) -> Result<(
 }
 
 #[tauri::command]
-async fn calibrate_user_posture(
-    state: State<'_, AppState>,
-    handle: tauri::AppHandle,
-    image_data: String,
-) -> Result<(), String> {
-    info!("Starting user posture calibration");
-    state
-        .pose_analyzer
-        .set_baseline_posture(&image_data, &handle)
-        .map_err(|e| {
-            error!("User posture calibration failed: {}", e);
-            e.to_string()
-        })
-}
-
-#[tauri::command]
-fn get_pose_recommendations() -> Result<Vec<String>, String> {
-    Ok(vec![
-        "목을 곧게 펴고 어깨를 뒤로 당기세요".to_string(),
-        "모니터를 눈높이에 맞춰 조정하세요".to_string(),
-        "30분마다 스트레칭을 해주세요".to_string(),
-        "의자에 등을 완전히 기대고 앉으세요".to_string(),
-        "발은 바닥에 평평하게 놓으세요".to_string(),
-    ])
-}
-
-#[tauri::command]
 fn get_alert_messages(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let mut alert_messages = lock_or_recover(&state.alert_messages);
     let messages = alert_messages.clone();
@@ -340,11 +366,8 @@ fn request_preview_frame(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn test_model_status(state: State<'_, AppState>) -> Result<String, String> {
-    state
-        .pose_analyzer
-        .test_analysis()
-        .map_err(|e| e.to_string())
+fn test_model_status() -> Result<String, String> {
+    Ok(r#"{"status": "mediapipe_frontend", "test": "success"}"#.to_string())
 }
 
 #[tauri::command]
@@ -434,16 +457,10 @@ async fn set_selected_camera(state: State<'_, AppState>, index: u32) -> Result<(
 async fn set_detection_settings(
     state: State<'_, AppState>,
     frequency: u8,
-    turtle_sensitivity: u8,
-    shoulder_sensitivity: u8,
+    _turtle_sensitivity: u8,
+    _shoulder_sensitivity: u8,
 ) -> Result<(), String> {
-    state.pose_analyzer.set_notification_frequency(frequency);
-    state
-        .pose_analyzer
-        .set_turtle_neck_sensitivity(turtle_sensitivity);
-    state
-        .pose_analyzer
-        .set_shoulder_sensitivity(shoulder_sensitivity);
+    lock_or_recover(&state.posture_debouncer).set_frequency_level(frequency);
     Ok(())
 }
 
@@ -687,76 +704,6 @@ async fn background_monitoring_task(app_handle: AppHandle, state: AppState) {
                             error!("Failed to generate preview frame: {}", e);
                         }
                     }
-
-                    if let Ok(result_str) = state.pose_analyzer.analyze_image_buffer(&rgb_image) {
-                        info!("Battery-saving mode: pose analysis succeeded");
-                        if let Ok(result_json) = serde_json::from_str::<Value>(&result_str) {
-                            let _ = app_handle.emit("analysis-update", &result_json);
-                            let score = result_json
-                                .get("posture_score")
-                                .and_then(|v| v.as_i64())
-                                .unwrap_or(0);
-                            let is_turtle = result_json
-                                .get("turtle_neck")
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(false);
-                            let is_shoulder = result_json
-                                .get("shoulder_misalignment")
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(false);
-                            info!("Battery-saving mode: turtle_neck={}, shoulder_misalignment={}", is_turtle, is_shoulder);
-                            let timestamp = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .map(|duration| duration.as_secs() as i64)
-                                .unwrap_or_else(|error| {
-                                    warn!("Failed to convert system time (before UNIX_EPOCH): {}", error);
-                                    0
-                                });
-
-                            let instances = app_handle.state::<DbInstances>();
-                            let db_map = instances.0.read().await;
-
-                            if let Some(tauri_plugin_sql::DbPool::Sqlite(sqlite_pool)) =
-                                db_map.get("sqlite:posture_data.db")
-                            {
-                                let query = "INSERT INTO posture_log (score, is_turtle_neck, is_shoulder_misaligned, timestamp) VALUES (?, ?, ?, ?)";
-                                if let Err(e) = sqlx::query(query)
-                                    .bind(score)
-                                    .bind(is_turtle)
-                                    .bind(is_shoulder)
-                                    .bind(timestamp)
-                                    .execute(sqlite_pool)
-                                    .await
-                                {
-                                    error!("Database write failed: {}", e);
-                                }
-                            }
-
-                            if is_turtle || is_shoulder {
-                                let mut last_alert = lock_or_recover(&state.last_alert_time);
-                                if last_alert.elapsed() >= Duration::from_secs(10) {
-                                    let lang = lock_or_recover(&state.current_language).clone();
-                                    let translations = &state.translations;
-
-                                    let message_key = if is_turtle && is_shoulder {
-                                        "alert_both"
-                                    } else if is_turtle {
-                                        "alert_turtle"
-                                    } else {
-                                        "alert_shoulder"
-                                    };
-
-                                    info!("Resolving translation: lang='{}', key='{}'", lang, message_key);
-                                    let message = translations.get(&lang, message_key);
-                                    info!("Resolved translation: '{}'", message);
-
-                                    lock_or_recover(&state.alert_messages).push(message);
-                                    *last_alert = Instant::now();
-            state.pose_analyzer.clear_recent_results();
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -792,15 +739,23 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::new()
             .add_migrations(
                 "sqlite:posture_data.db",
-                vec![Migration {
+                vec![
+                    Migration {
                     version: 1,
                     description: "create posture log table",
                     sql: "CREATE TABLE IF NOT EXISTS posture_log (id INTEGER PRIMARY KEY AUTOINCREMENT, score INTEGER NOT NULL, is_turtle_neck BOOLEAN NOT NULL, is_shoulder_misaligned BOOLEAN NOT NULL, timestamp INTEGER NOT NULL);",
                     kind: MigrationKind::Up,
-                }],
+                },
+                    Migration {
+                        version: 2,
+                        description: "posture_log_metrics_json",
+                        sql: "ALTER TABLE posture_log ADD COLUMN metrics_json TEXT;",
+                        kind: MigrationKind::Up,
+                    },
+                ],
             ).build())
         .setup(|app| {
-            let quit = PredefinedMenuItem::quit(app, Some("Quit Pose Nudge"))?;
+            let quit = PredefinedMenuItem::quit(app, Some("Quit Management"))?;
             let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>)?;
             let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>)?;
             let stop_monitoring_item = MenuItem::with_id(app, "stop_monitoring", "Stop Monitoring", true, None::<&str>)?;
@@ -820,7 +775,7 @@ pub fn run() {
             let translations = Arc::new(Translations::new(&app.path()));
 
             let app_state = AppState {
-                pose_analyzer: Arc::new(PoseAnalyzer::new()),
+                posture_debouncer: Arc::new(Mutex::new(PostureDebouncer::new())),
                 monitoring_active: Arc::new(Mutex::new(true)),
                 force_capture_now: Arc::new(Mutex::new(false)),
                 last_alert_time: Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60))),
@@ -847,18 +802,7 @@ pub fn run() {
                 background_monitoring_task(monitor_app_handle, monitor_state).await;
             });
 
-            let init_app_handle = app.handle().clone();
-            let init_state = app_state.clone();
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = init_state.pose_analyzer.initialize_model(init_app_handle.clone()).await {
-                    error!("Model initialization failed: {}", e);
-                } else {
-                    if let Err(e) = init_state.pose_analyzer.load_baseline_from_file(&init_app_handle) {
-                        error!("Failed to load baseline: {}", e);
-                    }
-                }
-            });
-
+            info!("Posture analysis runs in the webview; Rust captures preview frames only.");
             let default_icon = app
                 .default_window_icon()
                 .cloned()
@@ -866,7 +810,7 @@ pub fn run() {
 
             let tray = TrayIconBuilder::new()
                 .icon(default_icon)
-                .tooltip("Pose Nudge")
+                .tooltip("Management")
                 .menu(&menu)
                 .on_menu_event(move |app, event| {
                     let state = app.state::<AppState>();
@@ -921,7 +865,7 @@ pub fn run() {
                 })
                 .build(app)?;
             *lock_or_recover(&app_state.tray) = Some(tray);
-            info!("Pose Nudge application initialized");
+            info!("Management application initialized");
             Ok(())
         })
         .on_window_event(|window, event| match event {
@@ -939,13 +883,12 @@ pub fn run() {
             initialize_pose_model,
             start_monitoring,
             stop_monitoring,
-            analyze_pose_data,
-            get_pose_recommendations,
+            submit_posture_analysis,
+            clear_posture_debouncer,
             get_alert_messages,
             get_monitoring_status,
             request_preview_frame,
             test_model_status,
-            calibrate_user_posture,
             save_calibrated_image,
             set_detection_settings,
             get_available_cameras,

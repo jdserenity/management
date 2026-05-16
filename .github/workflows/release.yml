@@ -118,7 +118,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ steps.release-tag.outputs.value }}
-          releaseName: Pose Nudge ${{ steps.release-tag.outputs.value }}
+          releaseName: Management ${{ steps.release-tag.outputs.value }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

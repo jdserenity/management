@@ -11,16 +11,16 @@ import { invoke } from '@tauri-apps/api/core';
 import { check } from '@tauri-apps/plugin-updater';
 import { useTheme } from 'next-themes';
 
-// --- LocalStorage Keys ---
-const LANGUAGE_KEY = "pose_nudge_language";
-const NOTIFICATION_FREQUENCY_KEY = "pose_nudge_notification_frequency";
-const TURTLE_NECK_SENSITIVITY_KEY = "pose_nudge_turtle_neck_sensitivity";
-const SHOULDER_SENSITIVITY_KEY = "pose_nudge_shoulder_sensitivity";
-const CAMERA_INDEX_KEY = "pose_nudge_camera_index";
-const CAMERA_NAME_KEY = "pose_nudge_camera_name";
-const LEGACY_CAMERA_DEVICE_KEY = "pose_nudge_camera";
-const MONITORING_INTERVAL_KEY = "pose_nudge_monitoring_interval";
-const BATTERY_SAVING_MODE_KEY = "pose_nudge_battery_saving_mode";
+import { MGMT_LS } from '@/lib/mgmtLocalStorage';
+
+const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
+const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
+const SHOULDER_SENSITIVITY_KEY = MGMT_LS.shoulderSensitivity;
+const CAMERA_INDEX_KEY = MGMT_LS.cameraIndex;
+const CAMERA_NAME_KEY = MGMT_LS.cameraName;
+const LEGACY_CAMERA_DEVICE_KEY = MGMT_LS.cameraDeviceLegacy;
+const MONITORING_INTERVAL_KEY = MGMT_LS.monitoringInterval;
+const BATTERY_SAVING_MODE_KEY = MGMT_LS.batterySavingMode;
 
 // --- Type Definitions ---
 interface CameraDetail {
@@ -32,54 +32,6 @@ const normalizeCameraName = (value: string): string =>
     value.toLowerCase().replace(/\s+/g, ' ').trim();
 
 // --- Components ---
-
-const LanguageSettings = () => {
-    const { i18n, t } = useTranslation();
-    const [lang, setLang] = useState(() => localStorage.getItem(LANGUAGE_KEY) || i18n.language || 'ko');
-
-    useEffect(() => {
-        const initialLang =
-            localStorage.getItem(LANGUAGE_KEY) ||
-            i18n.language ||
-            'en';
-
-        if (initialLang !== i18n.language) {
-            i18n.changeLanguage(initialLang);
-        }
-        setLang(initialLang);
-        localStorage.setItem(LANGUAGE_KEY, initialLang);
-        invoke('set_current_language', { lang: initialLang }).catch(console.error);
-
-    }, [i18n]);
-
-    const handleChange = (value: string) => {
-        i18n.changeLanguage(value);
-        setLang(value);
-        localStorage.setItem(LANGUAGE_KEY, value);
-        invoke('set_current_language', { lang: value }).catch(console.error);
-    };
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('settings.languageTitle', '언어 설정')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Select value={lang} onValueChange={handleChange}>
-                    <SelectTrigger className="w-[250px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="ko">{t('settings.languageKorean', '한국어')}</SelectItem>
-                        <SelectItem value="en">{t('settings.languageEnglish', 'English')}</SelectItem>
-                        <SelectItem value="ja">{t('settings.languageJapanese', '日本語')}</SelectItem>
-                        <SelectItem value="zh">{t('settings.languageChinese', '简体中文')}</SelectItem>
-                        <SelectItem value="tr">{t('settings.languageTurkish', 'Türkçe')}</SelectItem>
-                    </SelectContent>
-                </Select>
-            </CardContent>
-        </Card>
-    );
-};
-
 
 const DetectionSettings = () => {
     const { t } = useTranslation();
@@ -316,7 +268,7 @@ const CameraSettings = () => {
                 alert(
                     t(
                         'settings.cameraPermissionLinux',
-                        'Linux may not provide a direct camera permission window for this app. Close other apps using the webcam, restart Pose Nudge, and re-select the camera. If you use Flatpak or Snap, also verify portal/sandbox camera permissions.'
+                        'Linux may not provide a direct camera permission window for this app. Close other apps using the webcam, restart Management, and re-select the camera. If you use Flatpak or Snap, also verify portal/sandbox camera permissions.'
                     )
                 );
             } else {
@@ -556,7 +508,6 @@ const NotificationSettings = () => {
 const SettingsPage = () => {
     return (
         <div className="space-y-6 p-4 md:p-6">
-            <LanguageSettings />
             <ThemeSettings />
             <DetectionSettings />
             <CameraSettings />

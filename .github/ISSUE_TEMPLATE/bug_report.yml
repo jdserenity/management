@@ -64,7 +64,7 @@ body:
     id: app-version
     attributes:
       label: "Application Version"
-      description: "Which version of Pose Nudge are you using?"
+        description: "Which version of Management are you using?"
       placeholder: "e.g., v1.0.0"
     validations:
       required: true
