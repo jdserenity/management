@@ -19,7 +19,7 @@ Definition of done (keep this short)
 A change is done only when:
 1. It does what we agreed it should do.
 2. Automated tests cover that behavior (new tests for new behavior; changed tests when behavior changes). Say which test file(s) or command proves it so anyone can rerun the same check.
-3. If facts changed for the product or system, docs/ARCHITECTURE.md / docs/TODO.md are updated (minimal deltas; no padding).
+3. If facts changed for the product or system, docs/ARCHITECTURE.md / docs/TODO.md are updated (minimal deltas; no padding). That includes the mermaid system maps under **High-level system maps** in docs/ARCHITECTURE.md whenever those maps would otherwise misdescribe the repo.
 How to pick test type (project default):
 1. Unit: small pieces of logic with no real database or network.
 2. Integration: behavior that really depends on HTTP + DB, or webhooks / OAuth / Stripe — exercise real boundaries with test keys, stubs, or recorded fixtures as appropriate.
