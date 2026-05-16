@@ -1,0 +1,124 @@
+name: Publish Tauri Artifacts
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tagName:
+        description: Existing release tag to publish assets for (for manual reruns)
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tagName:
+        description: Release tag to publish assets for
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target aarch64-apple-darwin --verbose
+          - platform: ubuntu-22.04
+            args: --bundles appimage,deb,rpm --verbose
+          - platform: windows-latest
+            args: --bundles nsis,msi --verbose
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: release-tag
+        shell: bash
+        env:
+          INPUT_TAG_NAME: ${{ inputs.tagName }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+          DISPATCH_TAG_NAME: ${{ github.event.inputs.tagName }}
+        run: |
+          TAG_NAME="${INPUT_TAG_NAME:-}"
+
+          if [ -z "$TAG_NAME" ]; then
+            TAG_NAME="${RELEASE_TAG_NAME:-}"
+          fi
+
+          if [ -z "$TAG_NAME" ]; then
+            TAG_NAME="${DISPATCH_TAG_NAME:-}"
+          fi
+
+          if [ -z "$TAG_NAME" ]; then
+            echo "::error::Release tag could not be resolved from event '${{ github.event_name }}'."
+            exit 1
+          fi
+
+          echo "value=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies (Ubuntu only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Apple Certificate and Keychain
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: temp_keychain_password
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-keychain-settings -t 7200 -u build.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain > /dev/null
+
+      - name: Build and upload release assets
+        uses: tauri-apps/tauri-action@v0.5.23
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: "Developer ID Application: jaeseok song (A38V4K2DHS)"
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: ${{ steps.release-tag.outputs.value }}
+          releaseName: Pose Nudge ${{ steps.release-tag.outputs.value }}
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

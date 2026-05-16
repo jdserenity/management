@@ -1,0 +1,28 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "store:default",
+    "notification:default",
+    "sql:default",
+    "sql:allow-load",
+    "sql:allow-execute",
+    "updater:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "open-settings",
+          "cmd": "open",
+          "args": true
+        }
+      ]
+    }
+  ]
+}
