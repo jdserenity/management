@@ -15,7 +15,7 @@ import {
   type ExerciseUnit,
   type SessionType
 } from '@/lib/workoutPlanner';
-import { canConvertFocusSession, isFlowLongEnoughToDisplay } from '@/lib/sessionProgress';
+import { canConvertFocusSession, isFlowLongEnoughToDisplay, showSessionChainControls } from '@/lib/sessionProgress';
 
 const Dashboard = () => {
   const {
@@ -94,7 +94,7 @@ const Dashboard = () => {
     (breakVariant === 'short' || (breakVariant === 'long' && longBreakStage === 'exercise'));
 
   const isStandaloneExerciseBreak = phase === 'break' && !activeSessionType;
-  const showChainControls = phase === 'focus' || (phase === 'break' && activeSessionType !== null);
+  const showChainControls = showSessionChainControls(phase);
 
   const breakPreview = useMemo(() => {
     if (phase === 'idle' || isStandaloneExerciseBreak) return null;

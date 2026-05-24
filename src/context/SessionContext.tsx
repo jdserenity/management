@@ -37,6 +37,7 @@ import {
   isResumableFlow
 } from '@/lib/flowState';
 import {
+  breakTimerEndAction,
   canConvertFocusSession,
   computeCompletionRatio,
   creditFocusMinutes,
@@ -555,7 +556,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       if (phaseRef.current === 'break') {
-        if (breakVariantRef.current === 'long' && longBreakStageRef.current === 'exercise') {
+        const afterBreak = breakTimerEndAction(breakVariantRef.current, longBreakStageRef.current, nextSessionTypeRef.current);
+        if (afterBreak === 'long_relax') {
           logActiveWorkoutIfNeeded(1);
           setLongBreakStage('relax');
           setActiveWorkout(null);
@@ -566,7 +568,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
           setPhaseTimer(secs, secs);
           return;
         }
-        if (!nextSessionTypeRef.current) {
+        if (afterBreak === 'finish') {
           finishFlow();
           return;
         }
