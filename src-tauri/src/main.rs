@@ -236,7 +236,7 @@ async fn submit_posture_analysis(
     let instances = app.state::<DbInstances>();
     let db_map = instances.0.read().await;
 
-    if let Some(tauri_plugin_sql::DbPool::Sqlite(sqlite_pool)) = db_map.get("sqlite:posture_data.db") {
+    if let Some(tauri_plugin_sql::DbPool::Sqlite(sqlite_pool)) = db_map.get("sqlite:mgmt.db") {
         let query =
             "INSERT INTO posture_log (score, is_turtle_neck, is_shoulder_misaligned, timestamp, metrics_json) VALUES (?, ?, ?, ?, ?)";
         if let Err(e) = sqlx::query(query)
@@ -738,7 +738,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_sql::Builder::new()
             .add_migrations(
-                "sqlite:posture_data.db",
+                "sqlite:mgmt.db",
                 vec![
                     Migration {
                     version: 1,
@@ -752,9 +752,34 @@ pub fn run() {
                         sql: "ALTER TABLE posture_log ADD COLUMN metrics_json TEXT;",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 3,
+                        description: "session_focus_workout_logs_and_app_kv",
+                        sql: "CREATE TABLE IF NOT EXISTS focus_log (id TEXT PRIMARY KEY NOT NULL, session_type TEXT NOT NULL, completed_at INTEGER NOT NULL, duration_minutes INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS workout_log (id TEXT PRIMARY KEY NOT NULL, workout_id TEXT NOT NULL, workout_name TEXT NOT NULL, completed_at INTEGER NOT NULL, exercises_json TEXT NOT NULL, total_reps INTEGER NOT NULL, total_timed_seconds INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS app_kv (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL, updated_at INTEGER NOT NULL); CREATE INDEX IF NOT EXISTS idx_focus_log_completed_at ON focus_log (completed_at DESC); CREATE INDEX IF NOT EXISTS idx_workout_log_completed_at ON workout_log (completed_at DESC);",
+                        kind: MigrationKind::Up,
+                    },
+                    Migration {
+                        version: 4,
+                        description: "partial_session_completion_columns",
+                        sql: "ALTER TABLE focus_log ADD COLUMN planned_duration_minutes INTEGER; ALTER TABLE focus_log ADD COLUMN completion_ratio REAL; ALTER TABLE workout_log ADD COLUMN completion_ratio REAL; UPDATE focus_log SET planned_duration_minutes = duration_minutes, completion_ratio = 1.0 WHERE planned_duration_minutes IS NULL; UPDATE workout_log SET completion_ratio = 1.0 WHERE completion_ratio IS NULL;",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {
+            if let Ok(config_dir) = app.path().app_config_dir() {
+                let legacy_db = config_dir.join("posture_data.db");
+                let mgmt_db = config_dir.join("mgmt.db");
+                if legacy_db.exists() {
+                    if mgmt_db.exists() {
+                        let _ = fs::remove_file(&mgmt_db);
+                    }
+                    match fs::copy(&legacy_db, &mgmt_db) {
+                        Ok(_) => info!("Copied legacy posture_data.db to mgmt.db"),
+                        Err(e) => error!("Failed to copy posture_data.db to mgmt.db: {}", e),
+                    }
+                }
+            }
             let quit = PredefinedMenuItem::quit(app, Some("Quit Management"))?;
             let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>)?;
             let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>)?;

@@ -21,55 +21,40 @@ import {
   type WorkoutDefinition,
   type WorkoutLogEntry
 } from '@/lib/workoutPlanner';
+import {
+  type BreakVariant,
+  type DeskPosture,
+  type FlowPhase,
+  type LongBreakStage,
+  type PersistedFlowState,
+  isResumableFlow
+} from '@/lib/flowState';
+import {
+  computeCompletionRatio,
+  creditFocusMinutes,
+  isPhaseLongEnoughToLog,
+  scaleExercisesByRatio
+} from '@/lib/sessionProgress';
+import {
+  clearActiveFlowState,
+  loadSessionStorage,
+  MAX_HISTORY_ITEMS,
+  persistFocusLog,
+  persistWorkoutLog,
+  saveActiveFlowState,
+  saveAllowedWorkoutIds,
+  saveLastFlowSummary,
+  type LastFlowSummaryRecord
+} from '@/lib/sessionDb';
 
-const ALLOWED_WORKOUTS_KEY = 'management_allowed_workouts';
-const WORKOUT_LOGS_KEY = 'management_workout_logs';
-const FOCUS_LOGS_KEY = 'management_focus_logs';
-const MAX_HISTORY_ITEMS = 1500;
-
-type Phase = 'idle' | 'focus' | 'break';
-
-export type BreakVariant = 'short' | 'long';
-
-export type LongBreakStage = 'exercise' | 'relax';
-
-export type DeskPosture = 'sitting' | 'standing';
-
-export interface LastFlowSummary {
-  startedAt: number;
-  endedAt: number;
-  pomodoros: number;
-  deepWork: number;
-  exerciseTotals: Record<string, ExerciseRunAgg>;
-}
+export type { BreakVariant, DeskPosture, LongBreakStage };
+export type Phase = FlowPhase;
+export type LastFlowSummary = LastFlowSummaryRecord;
 
 const createId = (prefix: string): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `${prefix}-${crypto.randomUUID()}`;
   return `${prefix}-${Date.now()}-${Math.round(Math.random() * 100000)}`;
 };
-
-const readStoredData = <T,>(key: string, fallback: T): T => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch (error) {
-    console.error(`Failed to parse local storage key ${key}:`, error);
-    return fallback;
-  }
-};
-
-const normalizeWorkoutLogs = (raw: WorkoutLogEntry[]): WorkoutLogEntry[] =>
-  raw.map((log) => {
-    const exercises = log.exercises ?? [];
-    const vol = sumExerciseVolume(exercises);
-    return {
-      ...log,
-      exercises,
-      totalReps: typeof log.totalReps === 'number' ? log.totalReps : vol.reps,
-      totalTimedSeconds: typeof log.totalTimedSeconds === 'number' ? log.totalTimedSeconds : vol.timedSeconds
-    };
-  });
 
 const emptyExerciseTotals = (): Record<string, ExerciseRunAgg> => ({});
 
@@ -114,35 +99,117 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [workoutLogged, setWorkoutLogged] = useState(false);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [lastSummary, setLastSummary] = useState<LastFlowSummary | null>(null);
-  const [allowedWorkoutIds, setAllowedWorkoutIds] = useState<string[]>(
-    () => resolveAllowedWorkoutIds(readStoredData<string[]>(ALLOWED_WORKOUTS_KEY, DEFAULT_ALLOWED_WORKOUT_IDS))
-  );
-  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLogEntry[]>(
-    () => normalizeWorkoutLogs(readStoredData<WorkoutLogEntry[]>(WORKOUT_LOGS_KEY, []))
-  );
-  const [focusLogs, setFocusLogs] = useState<FocusLogEntry[]>(
-    () => readStoredData<FocusLogEntry[]>(FOCUS_LOGS_KEY, [])
-  );
+  const [allowedWorkoutIds, setAllowedWorkoutIds] = useState<string[]>(DEFAULT_ALLOWED_WORKOUT_IDS);
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLogEntry[]>([]);
+  const [focusLogs, setFocusLogs] = useState<FocusLogEntry[]>([]);
+  const [sessionStorageReady, setSessionStorageReady] = useState(false);
   const [runExerciseTotals, setRunExerciseTotals] = useState<Record<string, ExerciseRunAgg>>(() => emptyExerciseTotals());
-  const runExerciseTotalsRef = useRef<Record<string, ExerciseRunAgg>>(emptyExerciseTotals());
   const [runPomodoros, setRunPomodoros] = useState(0);
   const [runDeepWork, setRunDeepWork] = useState(0);
+  const [pomodoroPosture, setPomodoroPosture] = useState<DeskPosture>('sitting');
+
+  const phasePlannedSecondsRef = useRef(0);
+  const phaseEndsAtMsRef = useRef(0);
+  const phaseStartedAtMsRef = useRef(0);
+  const runExerciseTotalsRef = useRef<Record<string, ExerciseRunAgg>>(emptyExerciseTotals());
   const runPomodorosRef = useRef(0);
   const runDeepWorkRef = useRef(0);
   const lastPomodoroPostureRef = useRef<DeskPosture | null>(null);
-  const [pomodoroPosture, setPomodoroPosture] = useState<DeskPosture>('sitting');
+  const activeWorkoutRef = useRef(activeWorkout);
+  activeWorkoutRef.current = activeWorkout;
+  const workoutLoggedRef = useRef(workoutLogged);
+  workoutLoggedRef.current = workoutLogged;
+  const flowPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const processTimerEndRef = useRef<() => void>(() => {});
 
-  useEffect(() => {
-    localStorage.setItem(ALLOWED_WORKOUTS_KEY, JSON.stringify(allowedWorkoutIds));
-  }, [allowedWorkoutIds]);
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const breakVariantRef = useRef(breakVariant);
+  breakVariantRef.current = breakVariant;
+  const longBreakStageRef = useRef(longBreakStage);
+  longBreakStageRef.current = longBreakStage;
+  const activeSessionTypeRef = useRef(activeSessionType);
+  activeSessionTypeRef.current = activeSessionType;
+  const remainingSecondsRef = useRef(remainingSeconds);
+  remainingSecondsRef.current = remainingSeconds;
+  const nextSessionTypeRef = useRef(nextSessionType);
+  nextSessionTypeRef.current = nextSessionType;
+  const allowedWorkoutIdsRef = useRef(allowedWorkoutIds);
+  allowedWorkoutIdsRef.current = allowedWorkoutIds;
+  const pomodoroPostureRef = useRef(pomodoroPosture);
+  pomodoroPostureRef.current = pomodoroPosture;
+  const runStartedAtRef = useRef(runStartedAt);
+  runStartedAtRef.current = runStartedAt;
 
-  useEffect(() => {
-    localStorage.setItem(WORKOUT_LOGS_KEY, JSON.stringify(workoutLogs));
-  }, [workoutLogs]);
+  const markPhaseStarted = useCallback(() => {
+    phaseStartedAtMsRef.current = Date.now();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem(FOCUS_LOGS_KEY, JSON.stringify(focusLogs));
-  }, [focusLogs]);
+  const setPhaseTimer = useCallback((seconds: number, plannedSeconds?: number) => {
+    const planned = plannedSeconds ?? seconds;
+    phasePlannedSecondsRef.current = planned;
+    phaseEndsAtMsRef.current = Date.now() + seconds * 1000;
+    setRemainingSeconds(seconds);
+  }, []);
+
+  const buildPersistedFlow = useCallback((): PersistedFlowState => ({
+    version: 1,
+    phase: phaseRef.current,
+    breakVariant: breakVariantRef.current,
+    longBreakStage: longBreakStageRef.current,
+    activeSessionType: activeSessionTypeRef.current,
+    remainingSeconds: remainingSecondsRef.current,
+    phasePlannedSeconds: phasePlannedSecondsRef.current,
+    phaseStartedAtMs: phaseStartedAtMsRef.current,
+    nextSessionType: nextSessionTypeRef.current,
+    activeWorkout: activeWorkoutRef.current,
+    workoutLogged: workoutLoggedRef.current,
+    runStartedAt: runStartedAtRef.current,
+    runPomodoros: runPomodorosRef.current,
+    runDeepWork: runDeepWorkRef.current,
+    runExerciseTotals: { ...runExerciseTotalsRef.current },
+    pomodoroPosture: pomodoroPostureRef.current,
+    lastPomodoroPosture: lastPomodoroPostureRef.current
+  }), []);
+
+  const schedulePersistFlow = useCallback(() => {
+    if (flowPersistTimerRef.current) clearTimeout(flowPersistTimerRef.current);
+    flowPersistTimerRef.current = setTimeout(() => {
+      if (phaseRef.current === 'idle') return;
+      void saveActiveFlowState(buildPersistedFlow()).catch((error) => {
+        console.error('Failed to persist active flow:', error);
+      });
+    }, 400);
+  }, [buildPersistedFlow]);
+
+  const applyPersistedFlow = useCallback(
+    (flow: PersistedFlowState) => {
+      phasePlannedSecondsRef.current = flow.phasePlannedSeconds;
+      phaseStartedAtMsRef.current =
+        flow.phaseStartedAtMs ??
+        Date.now() - Math.max(0, flow.phasePlannedSeconds - flow.remainingSeconds) * 1000;
+      phaseEndsAtMsRef.current = Date.now() + flow.remainingSeconds * 1000;
+      setPhase(flow.phase);
+      setBreakVariant(flow.breakVariant);
+      setLongBreakStage(flow.longBreakStage);
+      setActiveSessionType(flow.activeSessionType);
+      setRemainingSeconds(flow.remainingSeconds);
+      setNextSessionType(flow.nextSessionType);
+      setActiveWorkout(flow.activeWorkout);
+      setWorkoutLogged(flow.workoutLogged);
+      workoutLoggedRef.current = flow.workoutLogged;
+      setRunStartedAt(flow.runStartedAt);
+      runPomodorosRef.current = flow.runPomodoros;
+      runDeepWorkRef.current = flow.runDeepWork;
+      setRunPomodoros(flow.runPomodoros);
+      setRunDeepWork(flow.runDeepWork);
+      runExerciseTotalsRef.current = { ...flow.runExerciseTotals };
+      setRunExerciseTotals(flow.runExerciseTotals);
+      setPomodoroPosture(flow.pomodoroPosture);
+      lastPomodoroPostureRef.current = flow.lastPomodoroPosture;
+    },
+    []
+  );
 
   const applyExerciseTotals = useCallback((next: Record<string, ExerciseRunAgg>) => {
     runExerciseTotalsRef.current = next;
@@ -159,40 +226,64 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const startFlow = useCallback((sessionType: SessionType) => {
-    const empty = emptyExerciseTotals();
-    setRunStartedAt(Date.now());
-    setLastSummary(null);
-    setPhase('focus');
-    setBreakVariant(null);
-    setLongBreakStage(null);
-    setActiveSessionType(sessionType);
-    setRemainingSeconds(SESSION_DURATIONS_MINUTES[sessionType] * 60);
-    setNextSessionType(sessionType === 'pomodoro' ? 'pomodoro' : 'pomodoro');
-    setActiveWorkout(null);
-    setWorkoutLogged(false);
-    lastPomodoroPostureRef.current = null;
-    if (sessionType === 'pomodoro') {
-      setPomodoroPosture('sitting');
-    }
-    applyExerciseTotals(empty);
-    runPomodorosRef.current = 0;
-    runDeepWorkRef.current = 0;
-    setRunPomodoros(0);
-    setRunDeepWork(0);
-  }, [applyExerciseTotals]);
-
-  const finishFlow = useCallback(() => {
-    const finishedAt = Date.now();
-    if (runStartedAt !== null) {
-      setLastSummary({
-        startedAt: runStartedAt,
-        endedAt: finishedAt,
-        pomodoros: runPomodorosRef.current,
-        deepWork: runDeepWorkRef.current,
-        exerciseTotals: { ...runExerciseTotalsRef.current }
+  const recordFocusSession = useCallback(
+    (sessionType: SessionType, completionRatio: number) => {
+      if (!isPhaseLongEnoughToLog(phaseStartedAtMsRef.current)) return;
+      const ratio = Math.min(1, Math.max(0, completionRatio));
+      if (ratio <= 0) return;
+      const planned = SESSION_DURATIONS_MINUTES[sessionType];
+      const entry: FocusLogEntry = {
+        id: createId('focus'),
+        type: sessionType,
+        completedAt: Date.now(),
+        plannedDurationMinutes: planned,
+        completionRatio: ratio,
+        durationMinutes: creditFocusMinutes(planned, ratio)
+      };
+      setFocusLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
+      void persistFocusLog(entry).catch((error) => {
+        console.error('Failed to persist focus log:', error);
       });
-    }
+      incrementFocusCount(sessionType);
+    },
+    [incrementFocusCount]
+  );
+
+  const logActiveWorkoutIfNeeded = useCallback(
+    (completionRatio: number) => {
+      if (!isPhaseLongEnoughToLog(phaseStartedAtMsRef.current)) return;
+      const workout = activeWorkoutRef.current;
+      if (!workout || workoutLoggedRef.current) return;
+      const ratio = Math.min(1, Math.max(0, completionRatio));
+      if (ratio <= 0) return;
+      const scaled = scaleExercisesByRatio(workout.exercises, ratio);
+      if (scaled.length === 0) return;
+      const { reps, timedSeconds } = sumExerciseVolume(scaled);
+      const workoutLog: WorkoutLogEntry = {
+        id: createId('workout'),
+        workoutId: workout.id,
+        workoutName: workout.name,
+        completedAt: Date.now(),
+        exercises: scaled,
+        totalReps: reps,
+        totalTimedSeconds: timedSeconds,
+        completionRatio: ratio
+      };
+      setWorkoutLogs((current) => [workoutLog, ...current].slice(0, MAX_HISTORY_ITEMS));
+      void persistWorkoutLog(workoutLog).catch((error) => {
+        console.error('Failed to persist workout log:', error);
+      });
+      setWorkoutLogged(true);
+      workoutLoggedRef.current = true;
+      applyExerciseTotals(mergeWorkoutExercisesIntoTotals(runExerciseTotalsRef.current, scaled));
+    },
+    [applyExerciseTotals]
+  );
+
+  const resetToIdle = useCallback(() => {
+    void clearActiveFlowState().catch((error) => {
+      console.error('Failed to clear active flow:', error);
+    });
     setPhase('idle');
     setBreakVariant(null);
     setLongBreakStage(null);
@@ -201,6 +292,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     setNextSessionType(null);
     setActiveWorkout(null);
     setWorkoutLogged(false);
+    workoutLoggedRef.current = false;
     lastPomodoroPostureRef.current = null;
     setPomodoroPosture('sitting');
     setRunStartedAt(null);
@@ -209,12 +301,121 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     runDeepWorkRef.current = 0;
     setRunPomodoros(0);
     setRunDeepWork(0);
-  }, [runStartedAt, applyExerciseTotals]);
+    phasePlannedSecondsRef.current = 0;
+    phaseEndsAtMsRef.current = 0;
+    phaseStartedAtMsRef.current = 0;
+  }, [applyExerciseTotals]);
+
+  const startFlow = useCallback(
+    (sessionType: SessionType) => {
+      const empty = emptyExerciseTotals();
+      const startedAt = Date.now();
+      setRunStartedAt(startedAt);
+      runStartedAtRef.current = startedAt;
+      setLastSummary(null);
+      setPhase('focus');
+      setBreakVariant(null);
+      setLongBreakStage(null);
+      setActiveSessionType(sessionType);
+      setNextSessionType(sessionType === 'pomodoro' ? 'pomodoro' : 'pomodoro');
+      setActiveWorkout(null);
+      setWorkoutLogged(false);
+      workoutLoggedRef.current = false;
+      lastPomodoroPostureRef.current = null;
+      if (sessionType === 'pomodoro') setPomodoroPosture('sitting');
+      applyExerciseTotals(empty);
+      runPomodorosRef.current = 0;
+      runDeepWorkRef.current = 0;
+      setRunPomodoros(0);
+      setRunDeepWork(0);
+      const secs = SESSION_DURATIONS_MINUTES[sessionType] * 60;
+      markPhaseStarted();
+      setPhaseTimer(secs, secs);
+      schedulePersistFlow();
+    },
+    [applyExerciseTotals, markPhaseStarted, setPhaseTimer, schedulePersistFlow]
+  );
+
+  const finishFlow = useCallback(() => {
+    if (phaseRef.current === 'focus' && activeSessionTypeRef.current) {
+      const ratio = computeCompletionRatio(phasePlannedSecondsRef.current, remainingSecondsRef.current);
+      recordFocusSession(activeSessionTypeRef.current, ratio);
+    }
+    // Stopping during a break does not log a workout (no scaled partial credit).
+    const finishedAt = Date.now();
+    if (runStartedAtRef.current !== null) {
+      const summary: LastFlowSummary = {
+        startedAt: runStartedAtRef.current,
+        endedAt: finishedAt,
+        pomodoros: runPomodorosRef.current,
+        deepWork: runDeepWorkRef.current,
+        exerciseTotals: { ...runExerciseTotalsRef.current }
+      };
+      setLastSummary(summary);
+      void saveLastFlowSummary(summary).catch((error) => {
+        console.error('Failed to persist last flow summary:', error);
+      });
+    }
+    resetToIdle();
+  }, [recordFocusSession, resetToIdle]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSessionStorage()
+      .then((snapshot) => {
+        if (cancelled) return;
+        setAllowedWorkoutIds(snapshot.allowedWorkoutIds);
+        setWorkoutLogs(snapshot.workoutLogs);
+        setFocusLogs(snapshot.focusLogs);
+        setLastSummary(snapshot.lastSummary);
+        if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
+          applyPersistedFlow(snapshot.activeFlow);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load session storage from SQLite:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setSessionStorageReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyPersistedFlow]);
+
+  useEffect(() => {
+    if (!sessionStorageReady) return;
+    void saveAllowedWorkoutIds(allowedWorkoutIds).catch((error) => {
+      console.error('Failed to save allowed workouts:', error);
+    });
+  }, [allowedWorkoutIds, sessionStorageReady]);
+
+  useEffect(() => {
+    if (phase === 'idle' || !sessionStorageReady) return;
+    schedulePersistFlow();
+  }, [
+    phase,
+    breakVariant,
+    longBreakStage,
+    activeSessionType,
+    remainingSeconds,
+    nextSessionType,
+    activeWorkout,
+    workoutLogged,
+    runStartedAt,
+    runPomodoros,
+    runDeepWork,
+    runExerciseTotals,
+    pomodoroPosture,
+    sessionStorageReady,
+    schedulePersistFlow
+  ]);
 
   useEffect(() => {
     if (phase === 'idle') return;
     const intervalId = window.setInterval(() => {
-      setRemainingSeconds((current) => (current > 0 ? current - 1 : 0));
+      const rem = Math.max(0, Math.ceil((phaseEndsAtMsRef.current - Date.now()) / 1000));
+      setRemainingSeconds(rem);
     }, 1000);
     return () => {
       window.clearInterval(intervalId);
@@ -222,80 +423,85 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [phase]);
 
   useEffect(() => {
-    if (remainingSeconds !== 0) return;
-    if (phase === 'focus' && activeSessionType) {
-      const completedAt = Date.now();
-      const newFocusLog: FocusLogEntry = {
-        id: createId('focus'),
-        type: activeSessionType,
-        completedAt,
-        durationMinutes: SESSION_DURATIONS_MINUTES[activeSessionType]
-      };
-      setFocusLogs((current) => [newFocusLog, ...current].slice(0, MAX_HISTORY_ITEMS));
-      incrementFocusCount(activeSessionType);
-      if (activeSessionType === 'pomodoro') {
-        lastPomodoroPostureRef.current = pomodoroPosture;
-        setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIds));
+    const onTimerEnd = () => {
+      if (phaseRef.current === 'idle') return;
+      if (remainingSecondsRef.current !== 0) return;
+      if (phaseRef.current === 'focus' && activeSessionTypeRef.current) {
+        const sessionType = activeSessionTypeRef.current;
+        recordFocusSession(sessionType, 1);
+        if (sessionType === 'pomodoro') {
+          lastPomodoroPostureRef.current = pomodoroPostureRef.current;
+          setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIdsRef.current));
+          setWorkoutLogged(false);
+          workoutLoggedRef.current = false;
+          setBreakVariant('short');
+          setLongBreakStage(null);
+          setPhase('break');
+          markPhaseStarted();
+          const secs = SESSION_DURATIONS_MINUTES.break * 60;
+          setPhaseTimer(secs, secs);
+          return;
+        }
+        setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIdsRef.current));
         setWorkoutLogged(false);
-        setBreakVariant('short');
-        setLongBreakStage(null);
+        workoutLoggedRef.current = false;
+        setBreakVariant('long');
+        setLongBreakStage('exercise');
         setPhase('break');
-        setRemainingSeconds(SESSION_DURATIONS_MINUTES.break * 60);
+        markPhaseStarted();
+        const secs = SESSION_DURATIONS_MINUTES.break * 60;
+        setPhaseTimer(secs, secs);
         return;
       }
-      setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIds));
-      setWorkoutLogged(false);
-      setBreakVariant('long');
-      setLongBreakStage('exercise');
-      setPhase('break');
-      setRemainingSeconds(SESSION_DURATIONS_MINUTES.break * 60);
-      return;
-    }
-    if (phase === 'break') {
-      if (breakVariant === 'long' && longBreakStage === 'exercise') {
-        setLongBreakStage('relax');
+      if (phaseRef.current === 'break') {
+        if (breakVariantRef.current === 'long' && longBreakStageRef.current === 'exercise') {
+          logActiveWorkoutIfNeeded(1);
+          setLongBreakStage('relax');
+          setActiveWorkout(null);
+          setWorkoutLogged(false);
+          workoutLoggedRef.current = false;
+          markPhaseStarted();
+          const secs = (SESSION_DURATIONS_MINUTES.longBreak - SESSION_DURATIONS_MINUTES.break) * 60;
+          setPhaseTimer(secs, secs);
+          return;
+        }
+        if (!nextSessionTypeRef.current) {
+          finishFlow();
+          return;
+        }
+        logActiveWorkoutIfNeeded(1);
+        const next = nextSessionTypeRef.current;
+        setPhase('focus');
+        setBreakVariant(null);
+        setLongBreakStage(null);
+        setActiveSessionType(next);
+        markPhaseStarted();
+        const secs = SESSION_DURATIONS_MINUTES[next] * 60;
+        setPhaseTimer(secs, secs);
+        setNextSessionType(next === 'pomodoro' ? 'pomodoro' : null);
+        if (next === 'pomodoro') {
+          const prev = lastPomodoroPostureRef.current;
+          setPomodoroPosture(prev === null ? 'sitting' : prev === 'sitting' ? 'standing' : 'sitting');
+        }
         setActiveWorkout(null);
         setWorkoutLogged(false);
-        setRemainingSeconds((SESSION_DURATIONS_MINUTES.longBreak - SESSION_DURATIONS_MINUTES.break) * 60);
-        return;
+        workoutLoggedRef.current = false;
       }
-      if (!nextSessionType) {
-        finishFlow();
-        return;
-      }
-      setPhase('focus');
-      setBreakVariant(null);
-      setLongBreakStage(null);
-      setActiveSessionType(nextSessionType);
-      setRemainingSeconds(SESSION_DURATIONS_MINUTES[nextSessionType] * 60);
-      setNextSessionType(nextSessionType === 'pomodoro' ? 'pomodoro' : null);
-      if (nextSessionType === 'pomodoro') {
-        const prev = lastPomodoroPostureRef.current;
-        setPomodoroPosture(prev === null ? 'sitting' : prev === 'sitting' ? 'standing' : 'sitting');
-      }
-      setActiveWorkout(null);
-      setWorkoutLogged(false);
-      return;
-    }
-  }, [remainingSeconds, phase, activeSessionType, allowedWorkoutIds, nextSessionType, breakVariant, longBreakStage, pomodoroPosture, incrementFocusCount, finishFlow]);
+    };
+    processTimerEndRef.current = onTimerEnd;
+    onTimerEnd();
+  }, [
+    remainingSeconds,
+    recordFocusSession,
+    logActiveWorkoutIfNeeded,
+    finishFlow,
+    setPhaseTimer,
+    markPhaseStarted
+  ]);
 
   const handleWorkoutCompletion = useCallback(() => {
-    if (!activeWorkout || workoutLogged) return;
-    const { reps, timedSeconds } = sumExerciseVolume(activeWorkout.exercises);
-    const workoutLog: WorkoutLogEntry = {
-      id: createId('workout'),
-      workoutId: activeWorkout.id,
-      workoutName: activeWorkout.name,
-      completedAt: Date.now(),
-      exercises: activeWorkout.exercises,
-      totalReps: reps,
-      totalTimedSeconds: timedSeconds
-    };
-    setWorkoutLogs((current) => [workoutLog, ...current].slice(0, MAX_HISTORY_ITEMS));
-    setWorkoutLogged(true);
-    const nextTotals = mergeWorkoutExercisesIntoTotals(runExerciseTotalsRef.current, activeWorkout.exercises);
-    applyExerciseTotals(nextTotals);
-  }, [activeWorkout, workoutLogged, applyExerciseTotals]);
+    logActiveWorkoutIfNeeded(1);
+  }, [logActiveWorkoutIfNeeded]);
 
   const handleAllowedWorkoutToggle = useCallback((workoutId: string, enabled: boolean) => {
     setAllowedWorkoutIds((current) => {

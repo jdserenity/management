@@ -29,14 +29,30 @@ export interface WorkoutLogEntry {
   exercises: StoredExercise[];
   totalReps: number;
   totalTimedSeconds: number;
+  completionRatio?: number;
 }
 
 export interface FocusLogEntry {
   id: string;
   type: SessionType;
   completedAt: number;
+  /** Credited focus minutes (partial sessions use planned × completionRatio). */
   durationMinutes: number;
+  plannedDurationMinutes: number;
+  completionRatio: number;
 }
+
+export const normalizeWorkoutLogs = (raw: WorkoutLogEntry[]): WorkoutLogEntry[] =>
+  raw.map((log) => {
+    const exercises = log.exercises ?? [];
+    const vol = sumExerciseVolume(exercises);
+    return {
+      ...log,
+      exercises,
+      totalReps: typeof log.totalReps === 'number' ? log.totalReps : vol.reps,
+      totalTimedSeconds: typeof log.totalTimedSeconds === 'number' ? log.totalTimedSeconds : vol.timedSeconds
+    };
+  });
 
 export interface TimeSeriesPoint {
   bucket: string;
@@ -372,10 +388,61 @@ export const summarizeWorkoutLogs = (logs: WorkoutLogEntry[], nowTimestamp: numb
   };
 };
 
+export interface FocusSessionTotals {
+  totalPomodoros: number;
+  totalDeepWork: number;
+  totalFocusMinutes: number;
+  todayPomodoros: number;
+  todayDeepWork: number;
+  last7DaysPomodoros: number;
+  last7DaysDeepWork: number;
+}
+
 export const countTodayDeepWorkSessions = (logs: FocusLogEntry[], nowTimestamp: number = Date.now()): number => {
   const start = new Date(nowTimestamp); start.setHours(0, 0, 0, 0);
   const startTimestamp = start.getTime(); const endTimestamp = startTimestamp + DAY_MS;
   return logs.filter((entry) => entry.type === 'deep' && entry.completedAt >= startTimestamp && entry.completedAt < endTimestamp).length;
+};
+
+export const countTodayPomodoroSessions = (logs: FocusLogEntry[], nowTimestamp: number = Date.now()): number => {
+  const start = new Date(nowTimestamp); start.setHours(0, 0, 0, 0);
+  const startTimestamp = start.getTime(); const endTimestamp = startTimestamp + DAY_MS;
+  return logs.filter((entry) => entry.type === 'pomodoro' && entry.completedAt >= startTimestamp && entry.completedAt < endTimestamp).length;
+};
+
+export const summarizeFocusLogs = (logs: FocusLogEntry[], nowTimestamp: number = Date.now()): FocusSessionTotals => {
+  const start = new Date(nowTimestamp); start.setHours(0, 0, 0, 0);
+  const todayStart = start.getTime();
+  const todayEnd = todayStart + DAY_MS;
+  const sevenDayStart = todayStart - 6 * DAY_MS;
+  let totalPomodoros = 0;
+  let totalDeepWork = 0;
+  let totalFocusMinutes = 0;
+  let todayPomodoros = 0;
+  let todayDeepWork = 0;
+  let last7DaysPomodoros = 0;
+  let last7DaysDeepWork = 0;
+  logs.forEach((entry) => {
+    totalFocusMinutes += entry.durationMinutes;
+    if (entry.type === 'pomodoro') {
+      totalPomodoros += 1;
+      if (entry.completedAt >= todayStart && entry.completedAt < todayEnd) todayPomodoros += 1;
+      if (entry.completedAt >= sevenDayStart) last7DaysPomodoros += 1;
+    } else {
+      totalDeepWork += 1;
+      if (entry.completedAt >= todayStart && entry.completedAt < todayEnd) todayDeepWork += 1;
+      if (entry.completedAt >= sevenDayStart) last7DaysDeepWork += 1;
+    }
+  });
+  return {
+    totalPomodoros,
+    totalDeepWork,
+    totalFocusMinutes,
+    todayPomodoros,
+    todayDeepWork,
+    last7DaysPomodoros,
+    last7DaysDeepWork
+  };
 };
 
 export const formatClock = (totalSeconds: number): string => {

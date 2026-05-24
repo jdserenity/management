@@ -54,7 +54,7 @@
     "fs": {},
     "sql": {
       "preload": [
-        "sqlite:posture_data.db"
+        "sqlite:mgmt.db"
       ]
     },
     "updater": {
