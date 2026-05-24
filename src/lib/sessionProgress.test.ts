@@ -1,23 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import {
+  breakTimerEndAction,
   canConvertFocusSession,
   computeCompletionRatio,
   creditFocusMinutes,
   focusElapsedSeconds,
-  isFlowLongEnoughToDisplay,
   isPhaseLongEnoughToLog,
   MIN_PHASE_LOG_SECONDS,
   phaseElapsedSeconds,
   remainingSecondsWhenConvertingToDeep,
   remainingSecondsWhenConvertingToPomodoro,
-  scaleExercisesByRatio
+  scaleExercisesByRatio,
+  showSessionChainControls
 } from '@/lib/sessionProgress';
 
-describe('isFlowLongEnoughToDisplay', () => {
-  it('rejects flows under 15 seconds', () => {
-    const start = 1_000_000;
-    expect(isFlowLongEnoughToDisplay(start, start + 14_999)).toBe(false);
-    expect(isFlowLongEnoughToDisplay(start, start + 15_000)).toBe(true);
+describe('standalone exercise break chain', () => {
+  it('shows next-focus controls during any break including standalone', () => {
+    expect(showSessionChainControls('break')).toBe(true);
+    expect(showSessionChainControls('focus')).toBe(true);
+    expect(showSessionChainControls('idle')).toBe(false);
+  });
+
+  it('finishes standalone short break when no next session; starts focus when user adds one', () => {
+    expect(breakTimerEndAction('short', null, 'pomodoro')).toBe('start_focus');
+    expect(breakTimerEndAction('short', null, 'deep')).toBe('start_focus');
+    expect(breakTimerEndAction('short', null, null)).toBe('finish');
+  });
+
+  it('still advances long break exercise to relax before next focus', () => {
+    expect(breakTimerEndAction('long', 'exercise', 'pomodoro')).toBe('long_relax');
+    expect(breakTimerEndAction('long', 'relax', 'pomodoro')).toBe('start_focus');
   });
 });
 

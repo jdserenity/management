@@ -1,4 +1,21 @@
 import { SESSION_DURATIONS_MINUTES, type ExerciseDefinition, type SessionType, type StoredExercise } from '@/lib/workoutPlanner';
+import type { BreakVariant, FlowPhase, LongBreakStage } from '@/lib/flowState';
+
+/** Next-focus chain UI during focus or any break (including standalone exercise break). */
+export const showSessionChainControls = (phase: FlowPhase): boolean => phase === 'focus' || phase === 'break';
+
+export type BreakTimerEndAction = 'long_relax' | 'start_focus' | 'finish';
+
+/** What happens when a break phase timer reaches zero. */
+export const breakTimerEndAction = (
+  breakVariant: BreakVariant | null,
+  longBreakStage: LongBreakStage | null,
+  nextSessionType: SessionType | null
+): BreakTimerEndAction => {
+  if (breakVariant === 'long' && longBreakStage === 'exercise') return 'long_relax';
+  if (!nextSessionType) return 'finish';
+  return 'start_focus';
+};
 
 /** Shorter phases are treated as accidental starts and are not logged. */
 export const MIN_PHASE_LOG_SECONDS = 15;
@@ -11,13 +28,6 @@ export const isPhaseLongEnoughToLog = (
   minSeconds: number = MIN_PHASE_LOG_SECONDS,
   nowMs: number = Date.now()
 ): boolean => phaseElapsedSeconds(phaseStartedAtMs, nowMs) >= minSeconds;
-
-/** Whole flows shorter than this are hidden from Session totals (same threshold as phase logging). */
-export const isFlowLongEnoughToDisplay = (
-  startedAtMs: number,
-  endedAtMs: number = Date.now(),
-  minSeconds: number = MIN_PHASE_LOG_SECONDS
-): boolean => endedAtMs - startedAtMs >= minSeconds * 1000;
 
 export const canConvertFocusSession = (
   phase: 'idle' | 'focus' | 'break',

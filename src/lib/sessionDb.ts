@@ -4,7 +4,6 @@ import {
   DEFAULT_ALLOWED_WORKOUT_IDS,
   normalizeWorkoutLogs,
   resolveAllowedWorkoutIds,
-  type ExerciseRunAgg,
   type FocusLogEntry,
   type WorkoutLogEntry
 } from '@/lib/workoutPlanner';
@@ -17,16 +16,7 @@ export const LEGACY_LS_KEYS = {
 
 export const KV_ALLOWED_WORKOUTS = 'allowed_workout_ids';
 export const KV_SESSION_MIGRATED = 'session_storage_migrated_v1';
-export const KV_LAST_FLOW_SUMMARY = 'last_flow_summary_v1';
 export const KV_ACTIVE_FLOW = 'active_flow_state_v1';
-
-export interface LastFlowSummaryRecord {
-  startedAt: number;
-  endedAt: number;
-  pomodoros: number;
-  deepWork: number;
-  exerciseTotals: Record<string, ExerciseRunAgg>;
-}
 
 export const MAX_HISTORY_ITEMS = 1500;
 
@@ -284,23 +274,7 @@ export type SessionStorageSnapshot = {
   allowedWorkoutIds: string[];
   workoutLogs: WorkoutLogEntry[];
   focusLogs: FocusLogEntry[];
-  lastSummary: LastFlowSummaryRecord | null;
   activeFlow: PersistedFlowState | null;
-};
-
-export const fetchLastFlowSummary = async (): Promise<LastFlowSummaryRecord | null> => {
-  const raw = await getKv(KV_LAST_FLOW_SUMMARY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as LastFlowSummaryRecord;
-  } catch (error) {
-    console.error('Failed to parse last_flow_summary from app_kv:', error);
-    return null;
-  }
-};
-
-export const saveLastFlowSummary = async (summary: LastFlowSummaryRecord): Promise<void> => {
-  await setKv(KV_LAST_FLOW_SUMMARY, JSON.stringify(summary));
 };
 
 export const fetchActiveFlowState = async (): Promise<PersistedFlowState | null> => {
@@ -320,14 +294,13 @@ export const clearActiveFlowState = async (): Promise<void> => {
 
 export const loadSessionStorage = async (): Promise<SessionStorageSnapshot> => {
   await migrateSessionStorageFromLocalStorageIfNeeded();
-  const [allowedWorkoutIds, workoutLogs, focusLogs, lastSummary, activeFlow] = await Promise.all([
+  const [allowedWorkoutIds, workoutLogs, focusLogs, activeFlow] = await Promise.all([
     fetchAllowedWorkoutIds(),
     fetchWorkoutLogs(),
     fetchFocusLogs(),
-    fetchLastFlowSummary(),
     fetchActiveFlowState()
   ]);
-  return { allowedWorkoutIds, workoutLogs, focusLogs, lastSummary, activeFlow };
+  return { allowedWorkoutIds, workoutLogs, focusLogs, activeFlow };
 };
 
 export const persistFocusLog = async (entry: FocusLogEntry): Promise<void> => {

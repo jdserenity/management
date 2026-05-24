@@ -19,6 +19,8 @@ import {
   sumExerciseVolume,
   summarizeFocusToday,
   summarizeTodayExerciseTotals,
+  summarizeTodayStretchTotals,
+  type TodayStretchTotals,
   SESSION_DURATIONS_MINUTES,
   type ExerciseDefinition,
   type ExerciseRunAgg,
@@ -37,11 +39,11 @@ import {
   isResumableFlow
 } from '@/lib/flowState';
 import {
+  breakTimerEndAction,
   canConvertFocusSession,
   computeCompletionRatio,
   creditFocusMinutes,
   focusElapsedSeconds,
-  isFlowLongEnoughToDisplay,
   isPhaseLongEnoughToLog,
   remainingSecondsWhenConvertingToDeep,
   remainingSecondsWhenConvertingToPomodoro,
@@ -54,14 +56,11 @@ import {
   persistFocusLog,
   persistWorkoutLog,
   saveActiveFlowState,
-  saveAllowedWorkoutIds,
-  saveLastFlowSummary,
-  type LastFlowSummaryRecord
+  saveAllowedWorkoutIds
 } from '@/lib/sessionDb';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
-export type LastFlowSummary = LastFlowSummaryRecord;
 
 const createId = (prefix: string): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `${prefix}-${crypto.randomUUID()}`;
@@ -80,15 +79,11 @@ interface SessionContextValue {
   setNextSessionType: (value: SessionType | null) => void;
   activeWorkout: WorkoutDefinition | null;
   workoutLogged: boolean;
-  runExerciseTotals: Record<string, ExerciseRunAgg>;
-  runPomodoros: number;
-  runDeepWork: number;
-  runStartedAt: number | null;
   allowedWorkoutIds: string[];
   workoutLogs: WorkoutLogEntry[];
   focusLogs: FocusLogEntry[];
-  lastSummary: LastFlowSummary | null;
   todayExerciseTotals: Record<string, ExerciseRunAgg>;
+  todayStretchTotals: TodayStretchTotals;
   focusToday: FocusTodayTotals;
   dayRolloverHour: number;
   setDayRolloverHour: (hour: number) => void;
@@ -119,7 +114,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [activeWorkout, setActiveWorkout] = useState<WorkoutDefinition | null>(null);
   const [workoutLogged, setWorkoutLogged] = useState(false);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
-  const [lastSummary, setLastSummary] = useState<LastFlowSummary | null>(null);
   const [allowedWorkoutIds, setAllowedWorkoutIds] = useState<string[]>(DEFAULT_ALLOWED_WORKOUT_IDS);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLogEntry[]>([]);
   const [focusLogs, setFocusLogs] = useState<FocusLogEntry[]>([]);
@@ -334,7 +328,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     const startedAt = Date.now();
     setRunStartedAt(startedAt);
     runStartedAtRef.current = startedAt;
-    setLastSummary(null);
     setPhase('break');
     setBreakVariant('short');
     setLongBreakStage(null);
@@ -360,7 +353,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       const startedAt = Date.now();
       setRunStartedAt(startedAt);
       runStartedAtRef.current = startedAt;
-      setLastSummary(null);
       setPhase('focus');
       setBreakVariant(null);
       setLongBreakStage(null);
@@ -416,20 +408,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       recordFocusSession(activeSessionTypeRef.current, ratio);
     }
     // Stopping during a break does not log a workout (no scaled partial credit).
-    const finishedAt = Date.now();
-    if (runStartedAtRef.current !== null && isFlowLongEnoughToDisplay(runStartedAtRef.current, finishedAt)) {
-      const summary: LastFlowSummary = {
-        startedAt: runStartedAtRef.current,
-        endedAt: finishedAt,
-        pomodoros: runPomodorosRef.current,
-        deepWork: runDeepWorkRef.current,
-        exerciseTotals: { ...runExerciseTotalsRef.current }
-      };
-      setLastSummary(summary);
-      void saveLastFlowSummary(summary).catch((error) => {
-        console.error('Failed to persist last flow summary:', error);
-      });
-    }
     resetToIdle();
   }, [recordFocusSession, resetToIdle]);
 
@@ -468,7 +446,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         setAllowedWorkoutIds(snapshot.allowedWorkoutIds);
         setWorkoutLogs(snapshot.workoutLogs);
         setFocusLogs(snapshot.focusLogs);
-        setLastSummary(snapshot.lastSummary);
         if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
           applyPersistedFlow(snapshot.activeFlow);
         }
@@ -555,7 +532,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       if (phaseRef.current === 'break') {
-        if (breakVariantRef.current === 'long' && longBreakStageRef.current === 'exercise') {
+        const afterBreak = breakTimerEndAction(breakVariantRef.current, longBreakStageRef.current, nextSessionTypeRef.current);
+        if (afterBreak === 'long_relax') {
           logActiveWorkoutIfNeeded(1);
           setLongBreakStage('relax');
           setActiveWorkout(null);
@@ -566,12 +544,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
           setPhaseTimer(secs, secs);
           return;
         }
-        if (!nextSessionTypeRef.current) {
+        if (afterBreak === 'finish') {
           finishFlow();
           return;
         }
         logActiveWorkoutIfNeeded(1);
-        const next = nextSessionTypeRef.current;
+        const next = nextSessionTypeRef.current!;
         setPhase('focus');
         setBreakVariant(null);
         setLongBreakStage(null);
@@ -631,6 +609,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
   const todayExerciseTotals = useMemo(
     () => summarizeTodayExerciseTotals(workoutLogs, Date.now(), dayRolloverHour),
+    [workoutLogs, dayRolloverHour, statsDayWindowStart]
+  );
+
+  const todayStretchTotals = useMemo(
+    () => summarizeTodayStretchTotals(workoutLogs, Date.now(), dayRolloverHour),
     [workoutLogs, dayRolloverHour, statsDayWindowStart]
   );
 
@@ -696,15 +679,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       setNextSessionType,
       activeWorkout,
       workoutLogged,
-      runExerciseTotals,
-      runPomodoros,
-      runDeepWork,
-      runStartedAt,
       allowedWorkoutIds,
       workoutLogs,
       focusLogs,
-      lastSummary,
       todayExerciseTotals,
+      todayStretchTotals,
       focusToday,
       dayRolloverHour,
       setDayRolloverHour,
@@ -731,15 +710,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       nextSessionType,
       activeWorkout,
       workoutLogged,
-      runExerciseTotals,
-      runPomodoros,
-      runDeepWork,
-      runStartedAt,
       allowedWorkoutIds,
       workoutLogs,
       focusLogs,
-      lastSummary,
       todayExerciseTotals,
+      todayStretchTotals,
       focusToday,
       dayRolloverHour,
       setDayRolloverHour,

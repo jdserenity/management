@@ -3,19 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { ArrowRight, Briefcase, Clock, Dumbbell, Plus, X, Zap } from 'lucide-react';
+import { ArrowRight, Briefcase, Clock, Dumbbell, Plus, X } from 'lucide-react';
 import { useSession, type DeskPosture } from '@/context/SessionContext';
 import {
   DASHBOARD_MANUAL_EXERCISES,
+  DASHBOARD_TODAY_STRETCH_ROWS,
   SESSION_DURATIONS_MINUTES,
   formatClock,
   formatExerciseAmount,
   formatExerciseRunAggLine,
+  formatTimedSecondsTotal,
   formatWallTime,
   type ExerciseUnit,
   type SessionType
 } from '@/lib/workoutPlanner';
-import { canConvertFocusSession, isFlowLongEnoughToDisplay } from '@/lib/sessionProgress';
+import { canConvertFocusSession, showSessionChainControls } from '@/lib/sessionProgress';
 
 const Dashboard = () => {
   const {
@@ -28,12 +30,8 @@ const Dashboard = () => {
     setNextSessionType,
     activeWorkout,
     workoutLogged,
-    runExerciseTotals,
-    runPomodoros,
-    runDeepWork,
-    runStartedAt,
-    lastSummary,
     todayExerciseTotals,
+    todayStretchTotals,
     focusToday,
     startFlow,
     convertFlowToDeepWork,
@@ -94,7 +92,7 @@ const Dashboard = () => {
     (breakVariant === 'short' || (breakVariant === 'long' && longBreakStage === 'exercise'));
 
   const isStandaloneExerciseBreak = phase === 'break' && !activeSessionType;
-  const showChainControls = phase === 'focus' || (phase === 'break' && activeSessionType !== null);
+  const showChainControls = showSessionChainControls(phase);
 
   const breakPreview = useMemo(() => {
     if (phase === 'idle' || isStandaloneExerciseBreak) return null;
@@ -139,11 +137,6 @@ const Dashboard = () => {
 
   const unitShort = (unit: ExerciseUnit) => (unit === 'reps' ? 'reps' : unit === 'seconds' ? 'sec' : 'min');
 
-  const exerciseLines = useMemo(
-    () => Object.values(runExerciseTotals).sort((a, b) => a.label.localeCompare(b.label)),
-    [runExerciseTotals]
-  );
-
   const manualIncrementLabel = (unit: ExerciseUnit, amount: number) => {
     if (unit === 'reps') return `+${amount}`;
     if (unit === 'seconds') return `+${amount}s`;
@@ -156,23 +149,13 @@ const Dashboard = () => {
     return formatExerciseRunAggLine({ ...agg, label: name });
   };
 
-  const lastExerciseLines = useMemo(() => {
-    if (!lastSummary) return [];
-    return Object.values(lastSummary.exerciseTotals).sort((a, b) => a.label.localeCompare(b.label));
-  }, [lastSummary]);
+  const todayStretchDisplay = (region: 'upper' | 'lower', label: string) => {
+    const seconds = region === 'upper' ? todayStretchTotals.upperBodySeconds : todayStretchTotals.lowerBodySeconds;
+    return `${label}: ${formatTimedSecondsTotal(seconds)}`;
+  };
 
   const nextEmoji = (t: SessionType) => (t === 'pomodoro' ? '🍅' : '🎯');
   const nextTitle = (t: SessionType) => (t === 'pomodoro' ? 'Pomodoro' : 'Deep work');
-
-  const showCurrentFlowTotals = useMemo(() => {
-    if (phase === 'idle' || runStartedAt === null) return false;
-    return isFlowLongEnoughToDisplay(runStartedAt);
-  }, [phase, runStartedAt, remainingSeconds]);
-
-  const displayLastSummary = useMemo(
-    () => lastSummary !== null && isFlowLongEnoughToDisplay(lastSummary.startedAt, lastSummary.endedAt),
-    [lastSummary]
-  );
 
   const showConvertToDeepWork = canConvertFocusSession(phase, activeSessionType, 'deep');
   const showConvertToPomodoro = canConvertFocusSession(phase, activeSessionType, 'pomodoro');
@@ -350,55 +333,6 @@ const Dashboard = () => {
             </div>
           )}
 
-          {(showCurrentFlowTotals || displayLastSummary) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-orange-500" />
-                  ⚡️ Session totals
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {showCurrentFlowTotals && (
-                  <p className="text-xs text-muted-foreground">🍅 {runPomodoros} · 🎯 {runDeepWork}</p>
-                )}
-                {showCurrentFlowTotals && (
-                  <div className="space-y-2">
-                    {exerciseLines.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">—</p>
-                    ) : (
-                      exerciseLines.map((agg) => (
-                        <div key={agg.id} className="rounded-md border px-3 py-2 text-sm font-medium leading-snug">
-                          {formatExerciseRunAggLine(agg)}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-                {showCurrentFlowTotals && displayLastSummary && <Separator />}
-                {displayLastSummary && lastSummary && (
-                  <div className="space-y-2 text-sm">
-                    <p className="font-medium">Last completed flow</p>
-                    <p className="text-muted-foreground text-xs">
-                      {new Date(lastSummary.startedAt).toLocaleString()} – {new Date(lastSummary.endedAt).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-muted-foreground">🍅 {lastSummary.pomodoros} · 🎯 {lastSummary.deepWork}</p>
-                    <div className="space-y-1">
-                      {lastExerciseLines.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">—</p>
-                      ) : (
-                        lastExerciseLines.map((agg) => (
-                          <div key={`last-${agg.id}`} className="text-xs">
-                            {formatExerciseRunAggLine(agg)}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </CardContent>
       </Card>
 
@@ -436,6 +370,11 @@ const Dashboard = () => {
                 <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 tabular-nums" onClick={() => addManualExercise(ex)} aria-label={`Add ${ex.amount} ${ex.unit} for ${ex.name}`}>
                   {manualIncrementLabel(ex.unit, ex.amount)}
                 </Button>
+              </div>
+            ))}
+            {DASHBOARD_TODAY_STRETCH_ROWS.map((row) => (
+              <div key={row.region} className="rounded-md border px-3 py-2 text-sm">
+                <span className="font-medium leading-snug">{todayStretchDisplay(row.region, row.label)}</span>
               </div>
             ))}
           </CardContent>
