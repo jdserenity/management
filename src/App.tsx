@@ -15,6 +15,7 @@ import { LayoutDashboard, Camera, Settings, SlidersHorizontal, BarChart3 } from 
 import './App.css';
 import { useTranslation } from 'react-i18next';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
+import { isPostureMonitoringEnabledPref } from '@/lib/postureMonitoringPref';
 
 type NavItem = {
   id: string;
@@ -42,6 +43,10 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!isPostureMonitoringEnabledPref()) {
+      invoke('stop_monitoring').catch(console.error);
+    }
+
     const batterySavingMode = localStorage.getItem(MGMT_LS.batterySavingMode) === 'true';
     invoke('set_battery_saving_mode', { mode: batterySavingMode }).catch(console.error);
 

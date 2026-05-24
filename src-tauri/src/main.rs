@@ -9,6 +9,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{
@@ -27,8 +28,7 @@ use tokio::time::sleep;
 
 use image::{codecs::jpeg::JpegEncoder, ImageBuffer, Rgb};
 use nokhwa::{
-    pixel_format::RgbFormat,
-    utils::{ApiBackend, CameraIndex, CameraInfo, RequestedFormat, RequestedFormatType},
+    utils::{ApiBackend, CameraInfo},
     Camera,
 };
 
@@ -36,6 +36,8 @@ use sqlx;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_sql::{DbInstances, Migration, MigrationKind};
 
+mod camera_capture;
+mod camera_watch;
 mod posture_bridge;
 use posture_bridge::{posture_recommendations, PostureDebouncer, PostureIngestPayload};
 
@@ -98,13 +100,16 @@ struct CameraDetail {
 }
 
 #[derive(Clone)]
-struct AppState {
+pub(crate) struct AppState {
     posture_debouncer: Arc<Mutex<PostureDebouncer>>,
     monitoring_active: Arc<Mutex<bool>>,
     force_capture_now: Arc<Mutex<bool>>,
+    camera_yield_paused: Arc<Mutex<bool>>,
+    camera_capturing: Arc<AtomicBool>,
+    camera_stream_held: Arc<AtomicBool>,
+    camera: Arc<Mutex<Option<Camera>>>,
     last_alert_time: Arc<Mutex<Instant>>,
     alert_messages: Arc<Mutex<Vec<String>>>,
-    camera: Arc<Mutex<Option<Camera>>>,
     selected_camera_index: Arc<Mutex<u32>>,
     monitoring_interval_secs: Arc<Mutex<u64>>,
     translations: Arc<Translations>,
@@ -113,49 +118,7 @@ struct AppState {
     tray: Arc<Mutex<Option<TrayIcon>>>,
 }
 
-fn ensure_continuous_camera_stream(state: &AppState) -> bool {
-    let mut cam_lock = lock_or_recover(&state.camera);
-
-    if let Some(cam) = cam_lock.as_mut() {
-        if cam.is_stream_open() {
-            return true;
-        }
-
-        match cam.open_stream() {
-            Ok(_) => {
-                info!("Reused and restarted existing camera stream");
-                return true;
-            }
-            Err(e) => {
-                error!("Failed to restart existing camera stream: {}", e);
-                *cam_lock = None;
-            }
-        }
-    }
-
-    let index = *lock_or_recover(&state.selected_camera_index);
-    let requested = RequestedFormat::new::<RgbFormat>(RequestedFormatType::AbsoluteHighestFrameRate);
-
-    match Camera::new(CameraIndex::Index(index), requested) {
-        Ok(mut cam) => match cam.open_stream() {
-            Ok(_) => {
-                info!("Started camera stream in normal mode (index={})", index);
-                *cam_lock = Some(cam);
-                true
-            }
-            Err(e) => {
-                error!("Failed to start camera stream in normal mode (index={}): {}", index, e);
-                false
-            }
-        },
-        Err(e) => {
-            error!("Failed to initialize camera in normal mode (index={}): {}", index, e);
-            false
-        }
-    }
-}
-
-fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>) -> MutexGuard<'a, T> {
+pub(crate) fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>) -> MutexGuard<'a, T> {
     match mutex.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
@@ -165,23 +128,30 @@ fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>) -> MutexGuard<'a, T> {
     }
 }
 
-fn stop_and_release_camera(state: &AppState, reason: &str) {
-    let camera_to_stop = {
-        let mut cam_lock = lock_or_recover(&state.camera);
-        cam_lock.take()
-    };
+fn we_hold_camera_stream(state: &AppState) -> bool {
+    state.camera_stream_held.load(Ordering::Acquire)
+}
 
-    if let Some(mut cam) = camera_to_stop {
-        if cam.is_stream_open() {
-            if let Err(e) = cam.stop_stream() {
-                error!("{}: failed to stop camera stream: {}", reason, e);
-            } else {
-                info!("{}: camera stream stopped", reason);
-            }
-        } else {
-            info!("{}: camera handle released (stream already closed)", reason);
-        }
+fn release_camera(state: &AppState, reason: &str) {
+    camera_capture::stop_continuous_camera(&state.camera, &state.camera_stream_held, reason);
+}
+
+fn set_camera_yield_paused(app: &AppHandle, state: &AppState, paused: bool, reason: &str) {
+    let was_paused = *lock_or_recover(&state.camera_yield_paused);
+    if was_paused == paused {
+        return;
     }
+    if paused {
+        release_camera(state, reason);
+        *lock_or_recover(&state.force_capture_now) = false;
+    } else if *lock_or_recover(&state.monitoring_active) {
+        *lock_or_recover(&state.force_capture_now) = true;
+    }
+    *lock_or_recover(&state.camera_yield_paused) = paused;
+    let _ = app.emit(
+        "camera-yield-changed",
+        &serde_json::json!({ "paused": paused, "reason": reason }),
+    );
 }
 
 // --- Tauri Commands ---
@@ -282,6 +252,7 @@ async fn submit_posture_analysis(
 #[tauri::command]
 async fn start_monitoring(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     *lock_or_recover(&state.monitoring_active) = true;
+    *lock_or_recover(&state.camera_yield_paused) = false;
     *lock_or_recover(&state.force_capture_now) = true;
 
     if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
@@ -318,7 +289,8 @@ fn encode_preview_frame_data_url(image: &ImageBuffer<Rgb<u8>, Vec<u8>>) -> Resul
 async fn stop_monitoring(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     *lock_or_recover(&state.monitoring_active) = false;
     *lock_or_recover(&state.force_capture_now) = false;
-    stop_and_release_camera(&state, "stop_monitoring command");
+    *lock_or_recover(&state.camera_yield_paused) = false;
+    release_camera(&state, "stop_monitoring command");
 
     if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
         if let Ok(monitoring_off_icon_path) = app.path().resolve("icons/monitoring_off.png", BaseDirectory::Resource) {
@@ -353,7 +325,11 @@ fn get_alert_messages(state: State<'_, AppState>) -> Result<Vec<String>, String>
 #[tauri::command]
 fn get_monitoring_status(state: State<'_, AppState>) -> Result<serde_json::Value, String> {
     let monitoring_active = *lock_or_recover(&state.monitoring_active);
-    Ok(serde_json::json!({ "active": monitoring_active }))
+    let camera_yield_paused = *lock_or_recover(&state.camera_yield_paused);
+    Ok(serde_json::json!({
+        "active": monitoring_active,
+        "camera_yield_paused": camera_yield_paused,
+    }))
 }
 
 #[tauri::command]
@@ -433,21 +409,16 @@ async fn set_selected_camera(state: State<'_, AppState>, index: u32) -> Result<(
     info!("Selected camera changed: index {}", index);
 
     let monitoring_active = *lock_or_recover(&state.monitoring_active);
-    let battery_saving = *lock_or_recover(&state.battery_saving_mode);
 
     if monitoring_active {
-        stop_and_release_camera(&state, "set_selected_camera request");
+        release_camera(&state, "set_selected_camera request");
     }
 
     *lock_or_recover(&state.selected_camera_index) = index;
 
     if monitoring_active {
         *lock_or_recover(&state.force_capture_now) = true;
-        if battery_saving {
-            info!("Camera change applied in battery-saving mode; it will take effect on the next capture cycle.");
-        } else {
-            info!("Camera change applied in normal mode; stream will be recreated on the next monitoring loop.");
-        }
+        info!("Camera change applied; next capture will use index {}", index);
     }
 
     Ok(())
@@ -489,11 +460,11 @@ async fn set_battery_saving_mode(state: State<'_, AppState>, mode: bool) -> Resu
     info!("Battery-saving mode updated: {}", mode);
 
     if mode {
-        stop_and_release_camera(&state, "battery-saving mode enabled");
-    } else {
-        if *lock_or_recover(&state.monitoring_active) {
-            info!("Switched to normal mode; camera will reconnect on the next monitoring loop.");
-        }
+        release_camera(&state, "battery-saving mode enabled");
+    }
+
+    if *lock_or_recover(&state.monitoring_active) {
+        info!("Battery-saving mode {}; interval applies on next capture cycle.", mode);
     }
     Ok(())
 }
@@ -566,6 +537,9 @@ async fn background_monitoring_task(app_handle: AppHandle, state: AppState) {
         sleep(Duration::from_secs(1)).await;
 
         if !*lock_or_recover(&state.monitoring_active) {
+            if we_hold_camera_stream(&state) {
+                release_camera(&state, "monitoring inactive");
+            }
             continue;
         }
 
@@ -591,104 +565,62 @@ async fn background_monitoring_task(app_handle: AppHandle, state: AppState) {
             info!("Executing forced immediate capture");
         }
 
+        let yield_paused = *lock_or_recover(&state.camera_yield_paused);
+        let battery_saving = *lock_or_recover(&state.battery_saving_mode);
+
+        if camera_capture::should_defer_capture(true, yield_paused) {
+            release_camera(&state, "yield paused");
+            continue;
+        }
+
+        if camera_watch::is_camera_in_use_elsewhere(we_hold_camera_stream(&state), false) {
+            set_camera_yield_paused(&app_handle, &state, true, "in_use");
+            continue;
+        }
+
         last_analysis_time = Instant::now();
 
-        let battery_saving = *lock_or_recover(&state.battery_saving_mode);
         let selected_index = *lock_or_recover(&state.selected_camera_index);
-        let buffer_option = if battery_saving {
-            stop_and_release_camera(&state, "pre-capture cleanup for battery-saving mode");
-            info!("Battery-saving mode: attempting camera capture, index {}", selected_index);
-            let requested_types = [
-                RequestedFormatType::HighestFrameRate(15),
-                RequestedFormatType::HighestFrameRate(10),
-                RequestedFormatType::AbsoluteHighestFrameRate,
-                RequestedFormatType::None,
-            ];
+        let strategy = camera_capture::capture_strategy(true, yield_paused, battery_saving);
 
-            let mut captured_buffer = None;
-
-            for requested_type in requested_types {
-                let requested = RequestedFormat::new::<RgbFormat>(requested_type);
-                info!("Battery-saving mode: trying format {:?}", requested_type);
-
-                match Camera::new(CameraIndex::Index(selected_index), requested) {
-                    Ok(mut cam) => {
-                        if let Err(e) = cam.open_stream() {
-                            error!("Failed to open camera stream ({:?}): {}", requested_type, e);
-                            continue;
-                        }
-
-                        info!("Battery-saving mode: camera stream opened ({:?})", requested_type);
-                        tokio::time::sleep(Duration::from_millis(700)).await;
-
-                        let mut frame_captured = None;
-                        for attempt in 1..=3 {
-                            match cam.frame() {
-                                Ok(buffer) => {
-                                    if attempt > 1 {
-                                        info!("Battery-saving mode: capture succeeded after {} retries", attempt - 1);
-                                    } else {
-                                        info!("Battery-saving mode: camera capture succeeded");
-                                    }
-                                    frame_captured = Some(buffer);
-                                    break;
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        "Battery-saving mode: frame capture failed ({:?}, attempt={}): {}",
-                                        requested_type,
-                                        attempt,
-                                        e
-                                    );
-                                    tokio::time::sleep(Duration::from_millis(250)).await;
-                                }
-                            }
-                        }
-
-                        if let Err(e) = cam.stop_stream() {
-                            error!("Failed to close camera stream ({:?}): {}", requested_type, e);
-                        } else {
-                            info!("Battery-saving mode: camera stream closed ({:?})", requested_type);
-                        }
-
-                        if frame_captured.is_some() {
-                            captured_buffer = frame_captured;
-                            break;
-                        }
+        let buffer_option = match strategy {
+            camera_capture::CaptureStrategy::Skip => None,
+            camera_capture::CaptureStrategy::Ephemeral => {
+                release_camera(&state, "battery-saving capture cycle");
+                state.camera_capturing.store(true, Ordering::Release);
+                let buffer = camera_capture::capture_ephemeral_frame(selected_index).await;
+                state.camera_capturing.store(false, Ordering::Release);
+                buffer
+            }
+            camera_capture::CaptureStrategy::Continuous => {
+                if !camera_capture::ensure_continuous_stream(
+                    &state.camera,
+                    &state.camera_stream_held,
+                    selected_index,
+                ) {
+                    release_camera(&state, "continuous stream open failed");
+                    if camera_watch::is_camera_in_use_elsewhere(false, false) {
+                        set_camera_yield_paused(&app_handle, &state, true, "open_failed_in_use");
                     }
-                    Err(e) => {
-                        error!("Failed to initialize camera ({:?}): {}", requested_type, e);
+                    continue;
+                }
+                state.camera_capturing.store(true, Ordering::Release);
+                let buffer = camera_capture::capture_continuous_frame(&state.camera);
+                state.camera_capturing.store(false, Ordering::Release);
+                if buffer.is_none() {
+                    release_camera(&state, "continuous frame failed");
+                    if camera_watch::is_camera_in_use_elsewhere(false, false) {
+                        set_camera_yield_paused(&app_handle, &state, true, "frame_failed_in_use");
+                        continue;
                     }
                 }
-            }
-
-            if captured_buffer.is_none() {
-                error!("Battery-saving mode: failed to capture from all available formats");
-            }
-
-            captured_buffer
-        } else {
-            if !ensure_continuous_camera_stream(&state) {
-                warn!("Normal mode camera preparation failed. Retrying on the next cycle.");
-                continue;
-            }
-
-            let mut cam_lock = lock_or_recover(&state.camera);
-            if let Some(cam) = cam_lock.as_mut() {
-                if cam.is_stream_open() {
-                    cam.frame().ok()
-                } else {
-                    None
-                }
-            } else {
-                None
+                buffer
             }
         };
 
         if let Some(buffer) = buffer_option {
-            info!("Battery-saving mode: starting image decode");
+            use nokhwa::pixel_format::RgbFormat;
             if let Ok(decoded_image) = buffer.decode_image::<RgbFormat>() {
-                info!("Battery-saving mode: image decode succeeded");
                 if let Some(rgb_image) = ImageBuffer::<Rgb<u8>, _>::from_raw(
                     decoded_image.width(),
                     decoded_image.height(),
@@ -803,9 +735,12 @@ pub fn run() {
                 posture_debouncer: Arc::new(Mutex::new(PostureDebouncer::new())),
                 monitoring_active: Arc::new(Mutex::new(true)),
                 force_capture_now: Arc::new(Mutex::new(false)),
+                camera_yield_paused: Arc::new(Mutex::new(false)),
+                camera_capturing: Arc::new(AtomicBool::new(false)),
+                camera_stream_held: Arc::new(AtomicBool::new(false)),
+                camera: Arc::new(Mutex::new(None)),
                 last_alert_time: Arc::new(Mutex::new(Instant::now() - Duration::from_secs(60))),
                 alert_messages: Arc::new(Mutex::new(Vec::new())),
-                camera: Arc::new(Mutex::new(None)),
                 selected_camera_index: Arc::new(Mutex::new(0)),
                 monitoring_interval_secs: Arc::new(Mutex::new(3)),
                 translations: translations,
@@ -814,6 +749,8 @@ pub fn run() {
                 tray: Arc::new(Mutex::new(None)),
             };
             app.manage(app_state.clone());
+
+            camera_watch::start_camera_watch(app.handle().clone(), app_state.clone());
 
             let alert_app_handle = app.handle().clone();
             let alert_state = app_state.clone();
@@ -849,6 +786,7 @@ pub fn run() {
                         "start_monitoring" => {
                             info!("'Start Monitoring' clicked");
                             *lock_or_recover(&state.monitoring_active) = true;
+                            *lock_or_recover(&state.camera_yield_paused) = false;
                             *lock_or_recover(&state.force_capture_now) = true;
                             if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
                                 if let Some(default_icon) = app.default_window_icon() {
@@ -865,7 +803,8 @@ pub fn run() {
                             info!("'Stop Monitoring' clicked");
                             *lock_or_recover(&state.monitoring_active) = false;
                             *lock_or_recover(&state.force_capture_now) = false;
-                            stop_and_release_camera(&state, "tray stop_monitoring action");
+                            *lock_or_recover(&state.camera_yield_paused) = false;
+                            release_camera(&state, "tray stop_monitoring action");
                             if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
                                 if let Ok(monitoring_off_icon_path) = app.path().resolve("icons/monitoring_off.png", BaseDirectory::Resource) {
                                     if let Ok(bytes) = fs::read(&monitoring_off_icon_path) {
@@ -900,7 +839,7 @@ pub fn run() {
             }
             tauri::WindowEvent::Destroyed => {
                 let state = window.state::<AppState>();
-                stop_and_release_camera(&state, "window destroyed");
+                release_camera(&state, "window destroyed");
             }
             _ => {}
         })

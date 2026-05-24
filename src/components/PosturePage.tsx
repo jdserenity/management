@@ -6,6 +6,7 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { platform } from '@tauri-apps/plugin-os';
 import { load, Store } from '@tauri-apps/plugin-store';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
+import { setPostureMonitoringEnabledPref } from '@/lib/postureMonitoringPref';
 import { analyzeDataUrl, initPoseLandmarker } from '@/posture/postureEngine';
 import type { PostureMetricsSnapshot } from '@/posture/batesPostureScore';
 import { usePostureSession } from '@/context/PostureSessionContext';
@@ -21,6 +22,7 @@ const GOOD_STREAK_SCORE = 65;
 
 interface MonitoringStatus {
   active: boolean;
+  camera_yield_paused?: boolean;
 }
 
 interface LiveAnalysis {
@@ -89,6 +91,8 @@ const PosturePage: React.FC = () => {
   const [useBackendPreview, setUseBackendPreview] = useState(false);
   const [historyRows, setHistoryRows] = useState<PostureLogRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [cameraYieldPaused, setCameraYieldPaused] = useState(false);
+  const [monitoringBusy, setMonitoringBusy] = useState(false);
 
   const shouldUseBackendPreview = useBackendPreview || (isMonitoring && currentPlatform === 'windows');
 
@@ -234,6 +238,7 @@ const PosturePage: React.FC = () => {
         }
         const status = await invoke<MonitoringStatus>('get_monitoring_status');
         setIsMonitoring(status.active);
+        setCameraYieldPaused(Boolean(status.camera_yield_paused));
         if (!status.active) setAnalysisResult(null);
       } catch (err) {
         console.error(err);
@@ -249,10 +254,14 @@ const PosturePage: React.FC = () => {
         const nextActive = event.payload.active;
         setIsMonitoring(nextActive);
         if (!nextActive) {
+          setCameraYieldPaused(false);
           setAnalysisResult(null);
           setBackendPreviewFrame(null);
           setUseBackendPreview(false);
         }
+      }),
+      listen<{ paused: boolean }>('camera-yield-changed', (event) => {
+        setCameraYieldPaused(Boolean(event.payload?.paused));
       }),
       listen<string>('camera-preview-frame', (event) => {
         const framePayload = event.payload?.trim();
@@ -366,11 +375,37 @@ const PosturePage: React.FC = () => {
 
   const poorThreshold = Number.parseInt(localStorage.getItem(MGMT_LS.poorPostureThreshold) || '60', 10);
 
+  const togglePostureMonitoring = useCallback(async () => {
+    setMonitoringBusy(true);
+    try {
+      if (isMonitoring) {
+        await invoke('stop_monitoring');
+        setPostureMonitoringEnabledPref(false);
+        setIsMonitoring(false);
+        setCameraYieldPaused(false);
+      } else {
+        await invoke('start_monitoring');
+        setPostureMonitoringEnabledPref(true);
+        setIsMonitoring(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(t('posture.monitoringToggleError', 'Could not change posture tracking.'));
+    } finally {
+      setMonitoringBusy(false);
+    }
+  }, [isMonitoring, t]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('posture.title', 'Posture')}</h1>
         <p className="text-sm text-muted-foreground mt-1">{t('posture.subtitle', 'Live score, detailed metrics, session stats, and history from your posture log.')}</p>
+        {isMonitoring && cameraYieldPaused && (
+          <p className="text-sm text-amber-700 dark:text-amber-400 mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            {t('posture.cameraYieldPaused', 'Tracking is paused while another app uses the camera (e.g. a video call). It will resume automatically.')}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -426,7 +461,7 @@ const PosturePage: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 {!isMonitoring ? (
-                  <p className="text-muted-foreground">{t('posture.sessionInactive', 'Start tracking from the tray to record a session.')}</p>
+                  <p className="text-muted-foreground">{t('posture.sessionInactive', 'Use the button below to start posture tracking.')}</p>
                 ) : sessionAgg ? (
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
                     <dt className="text-muted-foreground">{t('posture.sessionAvg', 'Avg score')}</dt>
@@ -643,6 +678,26 @@ const PosturePage: React.FC = () => {
           {calibratedImage && <img src={calibratedImage} alt="" className="rounded-lg w-full aspect-video object-contain" />}
         </DialogContent>
       </Dialog>
+
+      <div className="sticky bottom-0 z-10 -mx-6 md:-mx-8 px-6 md:px-8 pt-4 pb-2 bg-gradient-to-t from-background via-background to-transparent">
+        <Button
+          type="button"
+          size="lg"
+          disabled={monitoringBusy}
+          onClick={() => void togglePostureMonitoring()}
+          className={
+            isMonitoring
+              ? 'w-full h-12 text-base font-semibold bg-red-600 hover:bg-red-700 text-white shadow-md'
+              : 'w-full h-12 text-base font-semibold shadow-md'
+          }
+        >
+          {monitoringBusy
+            ? t('posture.monitoringBusy', 'Please wait…')
+            : isMonitoring
+              ? t('posture.stopTracking', 'Stop posture tracking')
+              : t('posture.startTracking', 'Start posture tracking')}
+        </Button>
+      </div>
     </div>
   );
 };

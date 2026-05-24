@@ -101,7 +101,7 @@ flowchart TD
 ```mermaid
 flowchart LR
   subgraph rust["src-tauri main.rs + posture_bridge.rs"]
-    caploop["Background task: nokhwa capture when monitoring on"]
+    caploop["Background task: continuous nokhwa stream in normal mode; ephemeral per cycle in battery-saving; releases stream when CMIO reports camera in use elsewhere (macOS)"]
     cmd["Command submit_posture_analysis"]
     tray["Tray toggles monitoring; emits monitoring-state-changed"]
   end
@@ -140,5 +140,6 @@ Grouped by call site; all are registered on the Rust builder in `main.rs` (`invo
 | `camera-preview-frame` | JPEG data URL for preview or MediaPipe input | `PosturePipeline.tsx`, `PosturePage.tsx` |
 | `analysis-update` | Debounced posture flags, score, recommendations, metrics JSON | `PosturePage.tsx` |
 | `monitoring-state-changed` | `{ active: boolean }` tray or command driven | `PosturePipeline.tsx`, `PosturePage.tsx` |
+| `camera-yield-changed` | `{ paused: boolean, reason: string }` macOS CMIO detects another app using the camera | `PosturePage.tsx` |
 
 Tray and `start_monitoring` / `stop_monitoring` commands exist in Rust for monitoring lifecycle; the webview relies on default monitoring-on startup plus tray events rather than calling those commands directly.
