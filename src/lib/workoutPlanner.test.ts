@@ -23,6 +23,9 @@ import {
   workoutBilateralPairsComplete,
   sumExerciseVolume,
   summarizeTodayExerciseTotals,
+  summarizeTodayStretchTotals,
+  stretchBodyRegionForId,
+  formatTimedSecondsTotal,
   summarizeWorkoutLogs,
   type ExerciseRunAgg,
   type FocusLogEntry,
@@ -112,6 +115,42 @@ describe('summarizeTodayExerciseTotals', () => {
 
   it('returns empty record when there are no logs today', () => {
     expect(summarizeTodayExerciseTotals([], todayNoon)).toEqual({});
+  });
+});
+
+describe('summarizeTodayStretchTotals', () => {
+  const todayNoon = new Date('2026-05-24T12:00:00').getTime();
+
+  it('maps stretch ids to upper vs lower body', () => {
+    expect(stretchBodyRegionForId('stretch-neck-roll')).toBe('upper');
+    expect(stretchBodyRegionForId('stretch-lateral-shoulder-L')).toBe('upper');
+    expect(stretchBodyRegionForId('stretch-butterfly')).toBe('lower');
+    expect(stretchBodyRegionForId('pushups')).toBeNull();
+  });
+
+  it('sums all stretch seconds by region for today only', () => {
+    const logs: WorkoutLogEntry[] = [
+      {
+        id: 'w1',
+        workoutId: 'stretch-mobility',
+        workoutName: 'Stretch',
+        completedAt: todayNoon,
+        exercises: [
+          { id: 'stretch-neck-roll', name: 'Neck Roll', amount: 15, unit: 'seconds' },
+          { id: 'stretch-butterfly', name: 'Butterfly', amount: 15, unit: 'seconds' },
+          { id: 'stretch-quad-standing-L', name: 'Quad L', amount: 15, unit: 'seconds' }
+        ],
+        totalReps: 0,
+        totalTimedSeconds: 45
+      }
+    ];
+    expect(summarizeTodayStretchTotals(logs, todayNoon, 0)).toEqual({ upperBodySeconds: 15, lowerBodySeconds: 30 });
+  });
+
+  it('formats second and minute stretch totals', () => {
+    expect(formatTimedSecondsTotal(0)).toBe('0');
+    expect(formatTimedSecondsTotal(45)).toBe('45s');
+    expect(formatTimedSecondsTotal(120)).toBe('2 min');
   });
 });
 
@@ -237,7 +276,6 @@ describe('countTodayDeepWorkSessions', () => {
 
 describe('summarizeFocusLogs', () => {
   it('aggregates pomodoros, deep work, and focus minutes', () => {
-    const now = new Date(2026, 4, 14, 18, 0, 0).getTime();
     const logs: FocusLogEntry[] = [
       { id: 'f1', type: 'deep', completedAt: new Date(2026, 4, 14, 8, 0, 0).getTime(), durationMinutes: 90, plannedDurationMinutes: 90, completionRatio: 1 },
       { id: 'f2', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 16, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 },

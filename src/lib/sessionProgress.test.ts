@@ -5,7 +5,6 @@ import {
   computeCompletionRatio,
   creditFocusMinutes,
   focusElapsedSeconds,
-  isFlowLongEnoughToDisplay,
   isPhaseLongEnoughToLog,
   MIN_PHASE_LOG_SECONDS,
   phaseElapsedSeconds,
@@ -31,14 +30,6 @@ describe('standalone exercise break chain', () => {
   it('still advances long break exercise to relax before next focus', () => {
     expect(breakTimerEndAction('long', 'exercise', 'pomodoro')).toBe('long_relax');
     expect(breakTimerEndAction('long', 'relax', 'pomodoro')).toBe('start_focus');
-  });
-});
-
-describe('isFlowLongEnoughToDisplay', () => {
-  it('rejects flows under 15 seconds', () => {
-    const start = 1_000_000;
-    expect(isFlowLongEnoughToDisplay(start, start + 14_999)).toBe(false);
-    expect(isFlowLongEnoughToDisplay(start, start + 15_000)).toBe(true);
   });
 });
 

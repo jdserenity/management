@@ -158,8 +158,6 @@ export const STRETCH_MOBILITY_CATALOG_LINES: readonly string[] = [
 
 export const DEFAULT_ALLOWED_WORKOUT_IDS = PREDEFINED_WORKOUTS.map((workout) => workout.id);
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 const toDateBucket = (date: Date): string => {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -207,6 +205,70 @@ export const resolveAllowedWorkoutIds = (allowedWorkoutIds: string[]): string[] 
 };
 
 export const STRETCH_DEFAULT_SECONDS = 15;
+
+export type StretchBodyRegion = 'upper' | 'lower';
+
+/** Stretch ids rolled into Today's movement (not per-move rows). */
+export const STRETCH_UPPER_BODY_IDS = new Set<string>([
+  'stretch-neck-roll',
+  'stretch-lateral-shoulder-L',
+  'stretch-lateral-shoulder-R'
+]);
+
+export const STRETCH_LOWER_BODY_IDS = new Set<string>([
+  'stretch-butterfly',
+  'stretch-hip-roll',
+  'stretch-toe-both',
+  'stretch-toe-one-L',
+  'stretch-toe-one-R',
+  'stretch-deep-squat',
+  'stretch-quad-standing-L',
+  'stretch-quad-standing-R'
+]);
+
+export const stretchBodyRegionForId = (id: string): StretchBodyRegion | null => {
+  if (STRETCH_UPPER_BODY_IDS.has(id)) return 'upper';
+  if (STRETCH_LOWER_BODY_IDS.has(id)) return 'lower';
+  return null;
+};
+
+export interface TodayStretchTotals {
+  upperBodySeconds: number;
+  lowerBodySeconds: number;
+}
+
+export const summarizeTodayStretchTotals = (
+  logs: WorkoutLogEntry[],
+  nowTimestamp: number = Date.now(),
+  rolloverHour: number = DEFAULT_DAY_ROLLOVER_HOUR
+): TodayStretchTotals => {
+  const { startTs, endTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
+  let upperBodySeconds = 0;
+  let lowerBodySeconds = 0;
+  logs.forEach((log) => {
+    if (log.completedAt < startTs || log.completedAt >= endTs) return;
+    (log.exercises ?? []).forEach((ex) => {
+      const region = stretchBodyRegionForId(ex.id);
+      if (!region) return;
+      const sec = exerciseTimedSecondsPart(ex);
+      if (region === 'upper') upperBodySeconds += sec;
+      else lowerBodySeconds += sec;
+    });
+  });
+  return { upperBodySeconds, lowerBodySeconds };
+};
+
+export const formatTimedSecondsTotal = (seconds: number): string => {
+  const s = Math.max(0, Math.round(seconds));
+  if (s <= 0) return '0';
+  if (s % 60 === 0 && s >= 60) return `${s / 60} min`;
+  return `${s}s`;
+};
+
+export const DASHBOARD_TODAY_STRETCH_ROWS = [
+  { region: 'upper' as const, label: 'Upper body stretching' },
+  { region: 'lower' as const, label: 'Lower body stretching' }
+] as const;
 
 type StretchPick =
   | { kind: 'single'; id: string; name: string }
@@ -396,7 +458,7 @@ const logTimedSeconds = (log: WorkoutLogEntry): number => {
   return sumExerciseVolume(log.exercises).timedSeconds;
 };
 
-export const summarizeWorkoutLogs = (logs: WorkoutLogEntry[], nowTimestamp: number = Date.now()): WorkoutTotals => {
+export const summarizeWorkoutLogs = (logs: WorkoutLogEntry[], _nowTimestamp: number = Date.now()): WorkoutTotals => {
   let totalReps = 0; let totalTimedSeconds = 0;
   const weeklyMap = new Map<string, TimeSeriesPoint>();
   const monthlyMap = new Map<string, TimeSeriesPoint>();

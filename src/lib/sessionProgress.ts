@@ -29,13 +29,6 @@ export const isPhaseLongEnoughToLog = (
   nowMs: number = Date.now()
 ): boolean => phaseElapsedSeconds(phaseStartedAtMs, nowMs) >= minSeconds;
 
-/** Whole flows shorter than this are hidden from Session totals (same threshold as phase logging). */
-export const isFlowLongEnoughToDisplay = (
-  startedAtMs: number,
-  endedAtMs: number = Date.now(),
-  minSeconds: number = MIN_PHASE_LOG_SECONDS
-): boolean => endedAtMs - startedAtMs >= minSeconds * 1000;
-
 export const canConvertFocusSession = (
   phase: 'idle' | 'focus' | 'break',
   activeSessionType: SessionType | null,
