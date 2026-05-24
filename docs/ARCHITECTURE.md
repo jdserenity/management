@@ -22,8 +22,12 @@
 - Navigation and provider wiring are summarized in the first system map below.
 
 ## Data Persistence
-- Focus and workout history, plus the allowed-workout allowlist, live in browser `localStorage` under keys written by `src/context/SessionContext.tsx` (`management_allowed_workouts`, `management_workout_logs`, `management_focus_logs`).
-- Posture time series live in SQLite database id `sqlite:posture_data.db` (Tauri SQL plugin); table `posture_log` is written from Rust in `submit_posture_analysis` and read from the webview via `src/lib/db.ts` and `src/posture/postureLogDb.ts`.
+- SQLite database id `sqlite:mgmt.db` (Tauri app config dir; upgraded from legacy `posture_data.db` on first launch) holds all durable history:
+  - `posture_log` — posture samples (written from Rust `submit_posture_analysis`; read in Posture tab via `src/posture/postureLogDb.ts`).
+  - `focus_log` / `workout_log` — completed focus sessions and break workouts for the Stats tab (`src/lib/sessionDb.ts`, `SessionContext`). Focus rows store partial credit when a focus phase ends early (`completion_ratio`). Phases shorter than 15 seconds are not logged. Stopping the flow during an exercise break does not create a workout row; a workout is logged only when the break timer finishes (≥15s in that break) or the user taps Complete Workout (≥15s in that break).
+  - `app_kv` — allowed workout ids, migration flags, last ended-flow summary, and `active_flow_state_v1` (in-progress timer, chain counters, and break workout) so a restart resumes the same session.
+- Before session tables existed, focus/workout stats used browser `localStorage` only (not the posture SQLite file). Legacy keys are imported into SQLite when present; `localStorage` is not used for stats anymore.
+- Posture charts also keep a short in-memory buffer in `PostureSessionContext` for the current monitoring session only; long-term posture stats come from `posture_log`.
 - Posture calibration image path is stored with `tauri_plugin_store` in `.settings.dat` from `src/components/PosturePage.tsx`; baseline metrics use `localStorage` key `mgmt_posture_baseline_v1`.
 - Camera and monitoring preferences use `localStorage` keys from `src/lib/mgmtLocalStorage.ts` (`MGMT_LS`); `src/App.tsx` pushes those into Rust on startup.
 
@@ -48,7 +52,7 @@ flowchart TB
     D["Dashboard.tsx timer chain desk posture toggle"]
     PPg["PosturePage.tsx live score charts history export"]
     CW["CustomizeWorkoutPage.tsx allowlist switches"]
-    ST["StatsPage.tsx aggregates from SessionContext"]
+    ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]
     SE["SettingsPage.tsx camera monitoring battery restart"]
   end
   nav --> D
@@ -105,8 +109,9 @@ flowchart LR
     page["PosturePage: listen analysis-update, UI and charts"]
     dbread["postureLogDb.ts via lib db.ts plugin-sql"]
   end
-  subgraph store["sqlite:posture_data.db"]
+  subgraph store["sqlite:mgmt.db"]
     logt["posture_log rows"]
+    sess["focus_log workout_log app_kv"]
   end
   caploop -->|"emit camera-preview-frame"| pipe
   pipe -->|"invoke submit_posture_analysis"| cmd

@@ -2,21 +2,55 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
-import { countTodayDeepWorkSessions, summarizeWorkoutLogs } from '@/lib/workoutPlanner';
+import {
+  countTodayDeepWorkSessions,
+  countTodayPomodoroSessions,
+  summarizeFocusLogs,
+  summarizeWorkoutLogs
+} from '@/lib/workoutPlanner';
 
 const timedMinutesLabel = (seconds: number) => {
   if (seconds <= 0) return '0m';
   return `${Math.round(seconds / 60)}m`;
 };
 
+const focusMinutesLabel = (minutes: number) => {
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+};
+
 const StatsPage = () => {
   const { workoutLogs, focusLogs } = useSession();
   const cumulativeWorkoutStats = useMemo(() => summarizeWorkoutLogs(workoutLogs), [workoutLogs]);
+  const focusStats = useMemo(() => summarizeFocusLogs(focusLogs), [focusLogs]);
   const deepWorkToday = useMemo(() => countTodayDeepWorkSessions(focusLogs), [focusLogs]);
+  const pomodorosToday = useMemo(() => countTodayPomodoroSessions(focusLogs), [focusLogs]);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🍅 Pomodoros (all time)</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{focusStats.totalPomodoros}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🎯 Deep work (all time)</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{focusStats.totalDeepWork}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">⏳ Focus time (all time)</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{focusMinutesLabel(focusStats.totalFocusMinutes)}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🍅 Pomodoros today</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{pomodorosToday}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🎯 Deep work today</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{deepWorkToday}</p></CardContent>
+        </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">📊 Total reps</CardTitle></CardHeader>
           <CardContent><p className="text-2xl font-bold">{cumulativeWorkoutStats.totalReps}</p></CardContent>
@@ -38,8 +72,12 @@ const StatsPage = () => {
           <CardContent><p className="text-2xl font-bold">{timedMinutesLabel(cumulativeWorkoutStats.last7DaysTimedSeconds)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🎯 Deep work today</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{deepWorkToday}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🍅 Pomodoros (7d)</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{focusStats.last7DaysPomodoros}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🎯 Deep work (7d)</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{focusStats.last7DaysDeepWork}</p></CardContent>
         </Card>
       </div>
 
@@ -47,7 +85,7 @@ const StatsPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-indigo-600" />
-            📈 Weekly & monthly
+            📈 Weekly & monthly workouts
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">

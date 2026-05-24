@@ -5,6 +5,8 @@ import {
   DEFAULT_ALLOWED_WORKOUT_IDS,
   STRETCH_DEFAULT_SECONDS,
   countTodayDeepWorkSessions,
+  countTodayPomodoroSessions,
+  summarizeFocusLogs,
   estimateExerciseLoadSeconds,
   exerciseRepsPart,
   exerciseTimedSecondsPart,
@@ -180,12 +182,41 @@ describe('countTodayDeepWorkSessions', () => {
   it('counts only deep work sessions from today', () => {
     const now = new Date(2026, 4, 14, 18, 0, 0).getTime();
     const logs: FocusLogEntry[] = [
-      { id: 'f1', type: 'deep', completedAt: new Date(2026, 4, 14, 8, 0, 0).getTime(), durationMinutes: 90 },
-      { id: 'f2', type: 'deep', completedAt: new Date(2026, 4, 14, 14, 0, 0).getTime(), durationMinutes: 90 },
-      { id: 'f3', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 16, 0, 0).getTime(), durationMinutes: 25 },
-      { id: 'f4', type: 'deep', completedAt: new Date(2026, 4, 13, 21, 0, 0).getTime(), durationMinutes: 90 }
+      { id: 'f1', type: 'deep', completedAt: new Date(2026, 4, 14, 8, 0, 0).getTime(), durationMinutes: 90, plannedDurationMinutes: 90, completionRatio: 1 },
+      { id: 'f2', type: 'deep', completedAt: new Date(2026, 4, 14, 14, 0, 0).getTime(), durationMinutes: 90, plannedDurationMinutes: 90, completionRatio: 1 },
+      { id: 'f3', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 16, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 },
+      { id: 'f4', type: 'deep', completedAt: new Date(2026, 4, 13, 21, 0, 0).getTime(), durationMinutes: 90, plannedDurationMinutes: 90, completionRatio: 1 }
     ];
     expect(countTodayDeepWorkSessions(logs, now)).toBe(2);
+  });
+});
+
+describe('summarizeFocusLogs', () => {
+  it('aggregates pomodoros, deep work, and focus minutes', () => {
+    const now = new Date(2026, 4, 14, 18, 0, 0).getTime();
+    const logs: FocusLogEntry[] = [
+      { id: 'f1', type: 'deep', completedAt: new Date(2026, 4, 14, 8, 0, 0).getTime(), durationMinutes: 90, plannedDurationMinutes: 90, completionRatio: 1 },
+      { id: 'f2', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 16, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 },
+      { id: 'f3', type: 'pomodoro', completedAt: new Date(2026, 4, 13, 16, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 }
+    ];
+    const totals = summarizeFocusLogs(logs, now);
+    expect(totals.totalDeepWork).toBe(1);
+    expect(totals.totalPomodoros).toBe(2);
+    expect(totals.totalFocusMinutes).toBe(140);
+    expect(totals.todayDeepWork).toBe(1);
+    expect(totals.todayPomodoros).toBe(1);
+    expect(totals.last7DaysPomodoros).toBe(2);
+  });
+});
+
+describe('countTodayPomodoroSessions', () => {
+  it('counts only pomodoros from today', () => {
+    const now = new Date(2026, 4, 14, 18, 0, 0).getTime();
+    const logs: FocusLogEntry[] = [
+      { id: 'f1', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 8, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 },
+      { id: 'f2', type: 'pomodoro', completedAt: new Date(2026, 4, 13, 8, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 }
+    ];
+    expect(countTodayPomodoroSessions(logs, now)).toBe(1);
   });
 });
 
