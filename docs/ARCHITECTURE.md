@@ -31,7 +31,7 @@
   - Tables in `mgmt.db`:
     - `posture_log` — posture samples (written from Rust `submit_posture_analysis`; read in Posture tab via `src/posture/postureLogDb.ts`).
     - `focus_log` / `workout_log` — completed focus sessions and break workouts for the Stats tab (`src/lib/sessionDb.ts`, `SessionContext`). Focus rows store partial credit when a focus phase ends early (`completion_ratio`). Phases shorter than 15 seconds are not logged. Stopping the flow during an exercise break does not create a workout row; a workout is logged only when the break timer finishes (≥15s in that break) or the user taps Complete Workout (≥15s in that break).
-    - `app_kv` — allowed workout ids, migration flags, last ended-flow summary, `active_flow_state_v1` (in-progress timer, chain counters, and break workout), `posture_monitoring_enabled_v1` (posture tracking on/off; default on when unset), and `stats_day_rollover_hour_v1` (local hour when “today” stats reset; default 4).
+    - `app_kv` — allowed workout ids (legacy), `workout_customize_prefs_v1` (per-exercise amounts, stretch pick toggles, hold seconds, custom exercises), migration flags, last ended-flow summary, `active_flow_state_v1` (in-progress timer, chain counters, and break workout), `posture_monitoring_enabled_v1` (posture tracking on/off; default on when unset), and `stats_day_rollover_hour_v1` (local hour when “today” stats reset; default 4).
 - Before session tables existed, focus/workout stats used browser `localStorage` only (not the posture SQLite file). Legacy keys are imported into SQLite when present; `localStorage` is not used for stats anymore.
 - Posture charts also keep a short in-memory buffer in `PostureSessionContext` for the current monitoring session only; long-term posture stats come from `posture_log`.
 - Posture calibration image path is stored with `tauri_plugin_store` in `.settings.dat` from `src/components/PosturePage.tsx`; baseline metrics use `localStorage` key `mgmt_posture_baseline_v1`.
@@ -57,7 +57,7 @@ flowchart TB
   subgraph tabs["Active tab component src/components/"]
     D["Dashboard.tsx timer chain desk posture today totals manual increment standalone exercise break"]
     PPg["PosturePage.tsx live score charts history export"]
-    CW["CustomizeWorkoutPage.tsx allowlist switches"]
+    CW["CustomizeWorkoutPage.tsx move toggles editable amounts stretches custom exercises"]
     ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]
     SE["SettingsPage.tsx camera monitoring battery restart"]
   end

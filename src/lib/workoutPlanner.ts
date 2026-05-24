@@ -1,4 +1,13 @@
 import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary';
+import {
+  applyExerciseOverride,
+  defaultWorkoutCustomizePrefs,
+  formatTimedDuration,
+  normalizeWorkoutCustomizePrefs,
+  type WorkoutCustomizePrefs
+} from '@/lib/workoutCustomize';
+
+export type { WorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 
 export type SessionType = 'pomodoro' | 'deep';
 
@@ -144,17 +153,47 @@ export const PREDEFINED_WORKOUTS: WorkoutDefinition[] = [
   }
 ];
 
-/** Shown on Customize for stretch/mobility (actual break picks 2–3 at 15s each). */
-export const STRETCH_MOBILITY_CATALOG_LINES: readonly string[] = [
-  'Butterfly Stretch',
-  'Neck Roll',
-  'Hip Roll',
-  'Lateral Shoulder Stretch (left and right)',
-  'Seated Toe Touch Both Legs',
-  'Seated Toe Touch One Leg (left and right)',
-  'Deep Squat',
-  'Standing Quad Stretch (left and right)'
+export type StretchPick =
+  | { kind: 'single'; id: string; name: string }
+  | { kind: 'bilateral'; left: { id: string; name: string }; right: { id: string; name: string } };
+
+export const STRETCH_PICK_CATALOG: readonly { key: string; label: string; pick: StretchPick }[] = [
+  { key: 'stretch-butterfly', label: 'Butterfly Stretch', pick: { kind: 'single', id: 'stretch-butterfly', name: 'Butterfly Stretch' } },
+  { key: 'stretch-neck-roll', label: 'Neck Roll', pick: { kind: 'single', id: 'stretch-neck-roll', name: 'Neck Roll' } },
+  { key: 'stretch-hip-roll', label: 'Hip Roll', pick: { kind: 'single', id: 'stretch-hip-roll', name: 'Hip Roll' } },
+  {
+    key: 'stretch-lateral-shoulder',
+    label: 'Lateral Shoulder Stretch (left and right)',
+    pick: {
+      kind: 'bilateral',
+      left: { id: 'stretch-lateral-shoulder-L', name: 'Lateral Shoulder Stretch (L)' },
+      right: { id: 'stretch-lateral-shoulder-R', name: 'Lateral Shoulder Stretch (R)' }
+    }
+  },
+  { key: 'stretch-toe-both', label: 'Seated Toe Touch Both Legs', pick: { kind: 'single', id: 'stretch-toe-both', name: 'Seated Toe Touch Both Legs' } },
+  {
+    key: 'stretch-toe-one',
+    label: 'Seated Toe Touch One Leg (left and right)',
+    pick: {
+      kind: 'bilateral',
+      left: { id: 'stretch-toe-one-L', name: 'Seated Toe Touch One Leg (L)' },
+      right: { id: 'stretch-toe-one-R', name: 'Seated Toe Touch One Leg (R)' }
+    }
+  },
+  { key: 'stretch-deep-squat', label: 'Deep Squat', pick: { kind: 'single', id: 'stretch-deep-squat', name: 'Deep Squat' } },
+  {
+    key: 'stretch-quad-standing',
+    label: 'Standing Quad Stretch (left and right)',
+    pick: {
+      kind: 'bilateral',
+      left: { id: 'stretch-quad-standing-L', name: 'Standing Quad Stretch (L)' },
+      right: { id: 'stretch-quad-standing-R', name: 'Standing Quad Stretch (R)' }
+    }
+  }
 ];
+
+/** @deprecated use STRETCH_PICK_CATALOG labels */
+export const STRETCH_MOBILITY_CATALOG_LINES: readonly string[] = STRETCH_PICK_CATALOG.map((row) => row.label);
 
 export const DEFAULT_ALLOWED_WORKOUT_IDS = PREDEFINED_WORKOUTS.map((workout) => workout.id);
 
@@ -208,10 +247,6 @@ export const resolveAllowedWorkoutIds = (allowedWorkoutIds: string[]): string[] 
 
 export const STRETCH_DEFAULT_SECONDS = 15;
 
-type StretchPick =
-  | { kind: 'single'; id: string; name: string }
-  | { kind: 'bilateral'; left: { id: string; name: string }; right: { id: string; name: string } };
-
 /** L/R stretch ids — if one side appears in a break, the other must too. */
 export const STRETCH_BILATERAL_PAIRS: readonly (readonly [string, string])[] = [
   ['stretch-toe-one-L', 'stretch-toe-one-R'],
@@ -219,39 +254,18 @@ export const STRETCH_BILATERAL_PAIRS: readonly (readonly [string, string])[] = [
   ['stretch-quad-standing-L', 'stretch-quad-standing-R']
 ];
 
-const STRETCH_POOL: StretchPick[] = [
-  { kind: 'single', id: 'stretch-butterfly', name: 'Butterfly Stretch' },
-  { kind: 'single', id: 'stretch-neck-roll', name: 'Neck Roll' },
-  { kind: 'single', id: 'stretch-hip-roll', name: 'Hip Roll' },
-  {
-    kind: 'bilateral',
-    left: { id: 'stretch-lateral-shoulder-L', name: 'Lateral Shoulder Stretch (L)' },
-    right: { id: 'stretch-lateral-shoulder-R', name: 'Lateral Shoulder Stretch (R)' }
-  },
-  { kind: 'single', id: 'stretch-toe-both', name: 'Seated Toe Touch Both Legs' },
-  {
-    kind: 'bilateral',
-    left: { id: 'stretch-toe-one-L', name: 'Seated Toe Touch One Leg (L)' },
-    right: { id: 'stretch-toe-one-R', name: 'Seated Toe Touch One Leg (R)' }
-  },
-  { kind: 'single', id: 'stretch-deep-squat', name: 'Deep Squat' },
-  {
-    kind: 'bilateral',
-    left: { id: 'stretch-quad-standing-L', name: 'Standing Quad Stretch (L)' },
-    right: { id: 'stretch-quad-standing-R', name: 'Standing Quad Stretch (R)' }
-  }
-];
+const STRETCH_POOL: StretchPick[] = STRETCH_PICK_CATALOG.map((row) => row.pick);
 
-const stretchRow = (id: string, name: string): ExerciseDefinition => ({
+const stretchRow = (id: string, name: string, holdSeconds: number = STRETCH_DEFAULT_SECONDS): ExerciseDefinition => ({
   id,
   name,
-  amount: STRETCH_DEFAULT_SECONDS,
+  amount: holdSeconds,
   unit: 'seconds'
 });
 
-export const stretchPickToExercises = (pick: StretchPick): ExerciseDefinition[] => {
-  if (pick.kind === 'single') return [stretchRow(pick.id, pick.name)];
-  return [stretchRow(pick.left.id, pick.left.name), stretchRow(pick.right.id, pick.right.name)];
+export const stretchPickToExercises = (pick: StretchPick, holdSeconds: number = STRETCH_DEFAULT_SECONDS): ExerciseDefinition[] => {
+  if (pick.kind === 'single') return [stretchRow(pick.id, pick.name, holdSeconds)];
+  return [stretchRow(pick.left.id, pick.left.name, holdSeconds), stretchRow(pick.right.id, pick.right.name, holdSeconds)];
 };
 
 export const workoutBilateralPairsComplete = (exercises: ExerciseDefinition[]): boolean => {
@@ -261,8 +275,8 @@ export const workoutBilateralPairsComplete = (exercises: ExerciseDefinition[]): 
 
 type BreakMoveUnit = { exerciseIds: string[]; exercises: ExerciseDefinition[] };
 
-const stretchPickToUnit = (pick: StretchPick): BreakMoveUnit => {
-  const exercises = stretchPickToExercises(pick);
+const stretchPickToUnit = (pick: StretchPick, holdSeconds: number, overrides: Record<string, { amount: number; unit: ExerciseUnit }>): BreakMoveUnit => {
+  const exercises = stretchPickToExercises(pick, holdSeconds).map((ex) => applyExerciseOverride(ex, overrides));
   return { exerciseIds: exercises.map((e) => e.id), exercises };
 };
 
@@ -317,19 +331,28 @@ export const estimateExerciseLoadSeconds = (ex: ExerciseDefinition): number => {
   return Math.round(ex.amount * perRep);
 };
 
-const collectBreakMoveUnits = (allowedWorkoutIds: string[]): BreakMoveUnit[] => {
-  const allowed = new Set(resolveAllowedWorkoutIds(allowedWorkoutIds));
+const collectBreakMoveUnits = (prefs: WorkoutCustomizePrefs): BreakMoveUnit[] => {
+  const allowedWorkouts = new Set(prefs.allowedWorkoutIds);
+  const allowedStretchKeys = new Set(prefs.allowedStretchPickKeys);
+  const holdSeconds = prefs.stretchHoldSeconds > 0 ? prefs.stretchHoldSeconds : STRETCH_DEFAULT_SECONDS;
+  const overrides = prefs.exerciseOverrides;
   const units: BreakMoveUnit[] = [];
   for (const def of PREDEFINED_WORKOUTS) {
-    if (!allowed.has(def.id)) continue;
-    if (def.id === 'stretch-mobility') {
-      STRETCH_POOL.forEach((pick) => units.push(stretchPickToUnit(pick)));
-      continue;
-    }
+    if (def.id === 'stretch-mobility') continue;
+    if (!allowedWorkouts.has(def.id)) continue;
     def.exercises.forEach((ex) => {
-      units.push({ exerciseIds: [ex.id], exercises: [{ ...ex }] });
+      const merged = applyExerciseOverride(ex, overrides);
+      units.push({ exerciseIds: [merged.id], exercises: [merged] });
     });
   }
+  STRETCH_PICK_CATALOG.forEach((row) => {
+    if (!allowedStretchKeys.has(row.key)) return;
+    units.push(stretchPickToUnit(row.pick, holdSeconds, overrides));
+  });
+  prefs.customExercises.forEach((ex) => {
+    const merged = applyExerciseOverride(ex, overrides);
+    units.push({ exerciseIds: [merged.id], exercises: [merged] });
+  });
   return units;
 };
 
@@ -343,9 +366,9 @@ export const DASHBOARD_MANUAL_EXERCISES: readonly ExerciseDefinition[] = [
 ];
 
 /** Random 2–3 min circuit: one row per move id from everything you allow in Customize. */
-export const buildMixedBreakWorkout = (allowedWorkoutIds: string[], randomValue: number = Math.random()): WorkoutDefinition => {
-  let units = collectBreakMoveUnits(allowedWorkoutIds);
-  if (units.length === 0) units = collectBreakMoveUnits(DEFAULT_ALLOWED_WORKOUT_IDS);
+export const buildMixedBreakWorkout = (prefs: WorkoutCustomizePrefs, randomValue: number = Math.random()): WorkoutDefinition => {
+  let units = collectBreakMoveUnits(prefs);
+  if (units.length === 0) units = collectBreakMoveUnits(defaultWorkoutCustomizePrefs());
   let seed = Math.floor(Number.isFinite(randomValue) ? Math.abs(randomValue * 1e9) % 1000000007 : Math.random() * 1e9) % 1000000007;
   const rnd = () => {
     seed = (seed * 48271 + 1) % 1000000007;
@@ -388,8 +411,12 @@ export const buildMixedBreakWorkout = (allowedWorkoutIds: string[], randomValue:
   };
 };
 
-export const pickWorkoutForBreak = (allowedWorkoutIds: string[], randomValue: number = Math.random()): WorkoutDefinition =>
-  buildMixedBreakWorkout(allowedWorkoutIds, randomValue);
+export const pickWorkoutForBreak = (prefs: WorkoutCustomizePrefs, randomValue: number = Math.random()): WorkoutDefinition =>
+  buildMixedBreakWorkout(prefs, randomValue);
+
+/** Build prefs from legacy allowed_workout_ids KV only. */
+export const workoutPrefsFromAllowedIds = (allowedWorkoutIds: string[]): WorkoutCustomizePrefs =>
+  normalizeWorkoutCustomizePrefs(null, allowedWorkoutIds);
 
 const logTimedSeconds = (log: WorkoutLogEntry): number => {
   if (typeof log.totalTimedSeconds === 'number') return log.totalTimedSeconds;
@@ -527,8 +554,9 @@ export const formatWallTime = (timestamp: number): string =>
 
 export const formatExerciseAmount = (exercise: StoredExercise): string => {
   if ('unit' in exercise && exercise.unit === 'reps') return `${exercise.amount} reps`;
-  if ('unit' in exercise && exercise.unit === 'seconds') return `${exercise.amount}s`;
-  if ('unit' in exercise && exercise.unit === 'minutes') return `${exercise.amount} min`;
+  if ('unit' in exercise && (exercise.unit === 'seconds' || exercise.unit === 'minutes')) {
+    return formatTimedDuration(exerciseTimedSecondsPart(exercise));
+  }
   if ('reps' in exercise && typeof exercise.reps === 'number') return `${exercise.reps} reps`;
   return '';
 };
@@ -592,10 +620,7 @@ export const mergeWorkoutExercisesIntoTotals = (
 export const formatExerciseRunAggLine = (agg: ExerciseRunAgg): string => {
   const parts: string[] = [];
   if (agg.reps > 0) parts.push(String(agg.reps));
-  if (agg.timedSeconds > 0) {
-    if (agg.timedSeconds % 60 === 0 && agg.timedSeconds >= 60) parts.push(`${agg.timedSeconds / 60} min`);
-    else parts.push(`${agg.timedSeconds}s`);
-  }
+  if (agg.timedSeconds > 0) parts.push(formatTimedDuration(agg.timedSeconds));
   if (parts.length === 0) return `${agg.label}: 0`;
   return `${agg.label}: ${parts.join(' · ')}`;
 };

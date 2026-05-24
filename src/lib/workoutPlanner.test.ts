@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defaultWorkoutCustomizePrefs, normalizeWorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 import {
   buildManualExerciseLogEntry,
   buildMixedBreakWorkout,
@@ -41,27 +42,50 @@ describe('resolveAllowedWorkoutIds', () => {
 });
 
 describe('pickWorkoutForBreak / buildMixedBreakWorkout', () => {
+  const prefsMarchSquats = normalizeWorkoutCustomizePrefs({
+    allowedWorkoutIds: ['march-spot', 'air-squats'],
+    allowedStretchPickKeys: [],
+    exerciseOverrides: {},
+    stretchHoldSeconds: 15,
+    customExercises: []
+  }, null);
+  const prefsMarchPush = normalizeWorkoutCustomizePrefs({
+    allowedWorkoutIds: ['march-spot', 'push-ups'],
+    allowedStretchPickKeys: [],
+    exerciseOverrides: {},
+    stretchHoldSeconds: 15,
+    customExercises: []
+  }, null);
+  const prefsStretchOnly = normalizeWorkoutCustomizePrefs({
+    allowedWorkoutIds: [],
+    allowedStretchPickKeys: ['stretch-butterfly', 'stretch-neck-roll'],
+    exerciseOverrides: {},
+    stretchHoldSeconds: 15,
+    customExercises: []
+  }, null);
+  const prefsDefault = defaultWorkoutCustomizePrefs();
+
   it('returns a mixed break with id mixed-break', () => {
-    const workout = pickWorkoutForBreak(['march-spot', 'air-squats'], 0.99);
+    const workout = pickWorkoutForBreak(prefsMarchSquats, 0.99);
     expect(workout.id).toBe('mixed-break');
     expect(workout.name).toContain('Mixed');
     expect(workout.exercises.length).toBeGreaterThanOrEqual(2);
   });
 
   it('only uses moves from allowed templates', () => {
-    const workout = pickWorkoutForBreak(['march-spot', 'push-ups'], 0.37);
+    const workout = pickWorkoutForBreak(prefsMarchPush, 0.37);
     const allowedIds = new Set(['march', 'pushups']);
     expect(workout.exercises.every((e) => allowedIds.has(e.id))).toBe(true);
   });
 
   it('when only stretch is allowed, exercises are stretch holds', () => {
-    const workout = pickWorkoutForBreak(['stretch-mobility'], 0.21);
+    const workout = pickWorkoutForBreak(prefsStretchOnly, 0.21);
     expect(workout.exercises.every((e) => e.id.startsWith('stretch-'))).toBe(true);
     expect(workout.exercises.every((e) => e.unit === 'seconds')).toBe(true);
   });
 
   it('targets about 2–3 minutes of work by load estimate', () => {
-    const workout = buildMixedBreakWorkout(DEFAULT_ALLOWED_WORKOUT_IDS, 0.555);
+    const workout = buildMixedBreakWorkout(prefsDefault, 0.555);
     const load = workout.exercises.reduce((s, e) => s + estimateExerciseLoadSeconds(e), 0);
     expect(load).toBeGreaterThanOrEqual(110);
     expect(load).toBeLessThan(400);
@@ -71,7 +95,7 @@ describe('pickWorkoutForBreak / buildMixedBreakWorkout', () => {
 
   it('does not repeat the same exercise id in one break', () => {
     for (let i = 0; i < 50; i++) {
-      const workout = buildMixedBreakWorkout(DEFAULT_ALLOWED_WORKOUT_IDS, i * 0.017 + 0.01);
+      const workout = buildMixedBreakWorkout(prefsDefault, i * 0.017 + 0.01);
       const ids = workout.exercises.map((e) => e.id);
       expect(new Set(ids).size).toBe(ids.length);
     }
@@ -79,9 +103,22 @@ describe('pickWorkoutForBreak / buildMixedBreakWorkout', () => {
 
   it('always pairs left and right stretch sides in one break', () => {
     for (let i = 0; i < 80; i++) {
-      const workout = buildMixedBreakWorkout(DEFAULT_ALLOWED_WORKOUT_IDS, i * 0.013 + 0.02);
+      const workout = buildMixedBreakWorkout(prefsDefault, i * 0.013 + 0.02);
       expect(workoutBilateralPairsComplete(workout.exercises)).toBe(true);
     }
+  });
+
+  it('applies exercise overrides from prefs', () => {
+    const prefs = normalizeWorkoutCustomizePrefs({
+      allowedWorkoutIds: ['push-ups'],
+      allowedStretchPickKeys: [],
+      exerciseOverrides: { pushups: { amount: 5, unit: 'reps' } },
+      stretchHoldSeconds: 15,
+      customExercises: []
+    }, null);
+    const workout = pickWorkoutForBreak(prefs, 0.42);
+    expect(workout.exercises.length).toBeGreaterThan(0);
+    expect(workout.exercises.every((e) => e.id === 'pushups' && e.amount === 5)).toBe(true);
   });
 });
 
@@ -169,8 +206,9 @@ describe('exercise parts (legacy)', () => {
 describe('formatExerciseAmount', () => {
   it('formats units', () => {
     expect(formatExerciseAmount({ id: 'j', name: 'Jacks', amount: 30, unit: 'reps' })).toBe('30 reps');
-    expect(formatExerciseAmount({ id: 's', name: 'Box', amount: 90, unit: 'seconds' })).toBe('90s');
-    expect(formatExerciseAmount({ id: 'm', name: 'March', amount: 1, unit: 'minutes' })).toBe('1 min');
+    expect(formatExerciseAmount({ id: 's', name: 'Box', amount: 90, unit: 'seconds' })).toBe('1 min 30s');
+    expect(formatExerciseAmount({ id: 'm', name: 'March', amount: 1, unit: 'minutes' })).toBe('60s');
+    expect(formatExerciseAmount({ id: 'm2', name: 'March', amount: 2, unit: 'minutes' })).toBe('2 min');
   });
 });
 
@@ -301,8 +339,9 @@ describe('formatExerciseRunAggLine', () => {
   it('formats reps and timed parts', () => {
     expect(formatExerciseRunAggLine({ id: 'pushups', label: 'Push-ups', reps: 30, timedSeconds: 0 })).toBe('Push-ups: 30');
     expect(formatExerciseRunAggLine({ id: 'jacks', label: 'Jumping jacks', reps: 30, timedSeconds: 0 })).toBe('Jumping jacks: 30');
-    expect(formatExerciseRunAggLine({ id: 's', label: 'Shadow', reps: 0, timedSeconds: 90 })).toBe('Shadow: 90s');
+    expect(formatExerciseRunAggLine({ id: 's', label: 'Shadow', reps: 0, timedSeconds: 90 })).toBe('Shadow: 1 min 30s');
     expect(formatExerciseRunAggLine({ id: 'm', label: 'March', reps: 0, timedSeconds: 120 })).toBe('March: 2 min');
+    expect(formatExerciseRunAggLine({ id: 't', label: 'Hold', reps: 0, timedSeconds: 60 })).toBe('Hold: 60s');
     expect(formatExerciseRunAggLine({ id: 'pushups', label: 'Push-ups', reps: 0, timedSeconds: 0 })).toBe('Push-ups: 0');
   });
 });
