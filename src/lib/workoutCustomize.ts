@@ -100,7 +100,7 @@ export const mergeExerciseOverride = (
 
 export const resolveAllowedWorkoutIdsFromPrefs = (prefs: WorkoutCustomizePrefs): string[] => {
   const valid = new Set(NON_STRETCH_WORKOUT_IDS);
-  const filtered = prefs.allowedWorkoutIds.filter((id) => valid.has(id));
+  const filtered = prefs.allowedWorkoutIds.filter((id) => valid.has(id as (typeof NON_STRETCH_WORKOUT_IDS)[number]));
   const hasStretches = resolveAllowedStretchPickKeys(prefs).length > 0;
   const hasCustom = prefs.customExercises.length > 0;
   if (filtered.length > 0 || hasStretches || hasCustom) return filtered.length > 0 ? filtered : [];

@@ -9,7 +9,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri",
-    "db:backup": "node scripts/backup-db.mjs"
+    "db:backup": "node scripts/backup-db.mjs",
+    "app:deploy": "node scripts/install-app.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
