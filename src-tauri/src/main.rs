@@ -373,6 +373,16 @@ async fn save_calibrated_image(
 }
 
 #[tauri::command]
+fn delete_calibrated_image(file_path: String) -> Result<(), String> {
+    let path = std::path::Path::new(&file_path);
+    if path.exists() {
+        fs::remove_file(path).map_err(|e| format!("Failed to delete calibration image: {}", e))?;
+        info!("Deleted calibration image: {:?}", path);
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_available_cameras() -> Result<Vec<CameraDetail>, String> {
     match nokhwa::query(ApiBackend::Auto) {
         Ok(cameras) => {
@@ -733,7 +743,7 @@ pub fn run() {
 
             let app_state = AppState {
                 posture_debouncer: Arc::new(Mutex::new(PostureDebouncer::new())),
-                monitoring_active: Arc::new(Mutex::new(true)),
+                monitoring_active: Arc::new(Mutex::new(false)),
                 force_capture_now: Arc::new(Mutex::new(false)),
                 camera_yield_paused: Arc::new(Mutex::new(false)),
                 camera_capturing: Arc::new(AtomicBool::new(false)),
@@ -854,6 +864,7 @@ pub fn run() {
             request_preview_frame,
             test_model_status,
             save_calibrated_image,
+            delete_calibrated_image,
             set_detection_settings,
             get_available_cameras,
             set_selected_camera,

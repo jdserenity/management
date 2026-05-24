@@ -3,6 +3,7 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { analyzeDataUrl, initPoseLandmarker } from '@/posture/postureEngine';
 import { usePostureSession } from '@/context/PostureSessionContext';
+import { isPostureMonitoringEnabledPref, setPostureMonitoringEnabledPref } from '@/lib/postureMonitoringPref';
 
 /**
  * Runs MediaPipe pose on frames emitted by the Rust camera loop and sends results
@@ -15,11 +16,16 @@ const PosturePipeline: React.FC = () => {
 
   useEffect(() => {
     const unsubs: Array<() => void> = [];
+    void isPostureMonitoringEnabledPref().then((initial) => {
+      monitoringRef.current = initial;
+      markMonitoring(initial);
+    });
 
     void listen<{ active: boolean }>('monitoring-state-changed', (e) => {
       const active = Boolean(e.payload?.active);
       monitoringRef.current = active;
       markMonitoring(active);
+      void setPostureMonitoringEnabledPref(active);
     }).then((u) => unsubs.push(u));
 
     void listen<string>('camera-preview-frame', async (event) => {

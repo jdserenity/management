@@ -98,6 +98,8 @@
     "saveOk": "Saved.",
     "saveFail": "Save failed.",
     "baselinePreview": "Baseline reference",
+    "removeBaseline": "Remove baseline photo",
+    "removeBaselineError": "Could not remove baseline: {{error}}",
     "previewFallback": "Using the tray camera preview instead.",
     "permissionError": "Could not access the webcam.",
     "calibrationNotReady": "Camera, model, or storage is not ready.",

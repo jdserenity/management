@@ -6,7 +6,8 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { platform } from '@tauri-apps/plugin-os';
 import { load, Store } from '@tauri-apps/plugin-store';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
-import { setPostureMonitoringEnabledPref } from '@/lib/postureMonitoringPref';
+import { isPostureMonitoringEnabledPref, setPostureMonitoringEnabledPref } from '@/lib/postureMonitoringPref';
+import { clearPostureBaselineMetrics, POSTURE_BASELINE_IMAGE_STORE_KEY, POSTURE_BASELINE_METRICS_KEY } from '@/lib/postureBaseline';
 import { analyzeDataUrl, initPoseLandmarker } from '@/posture/postureEngine';
 import type { PostureMetricsSnapshot } from '@/posture/batesPostureScore';
 import { usePostureSession } from '@/context/PostureSessionContext';
@@ -15,7 +16,7 @@ import { dailyAverageScores, longestGoodStreakCount, sessionStats } from '@/post
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Camera, CameraOff, Activity, Target, StopCircle, Lightbulb, Cpu, ZoomIn, Download, RefreshCw } from 'lucide-react';
+import { Camera, CameraOff, Activity, Target, StopCircle, Lightbulb, Cpu, ZoomIn, Download, RefreshCw, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const GOOD_STREAK_SCORE = 65;
@@ -76,7 +77,7 @@ const PosturePage: React.FC = () => {
   const { scoreHistory, monitoringSinceSec } = usePostureSession();
   const [store, setStore] = useState<Store | null>(null);
   const webcamRef = useRef<Webcam>(null);
-  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(true);
   const [isWebcamReady, setIsWebcamReady] = useState(false);
   const [isModelInitialized, setIsModelInitialized] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<LiveAnalysis | null>(null);
@@ -200,12 +201,12 @@ const PosturePage: React.FC = () => {
       if (!imageSrc) throw new Error(t('posture.captureError', 'Could not capture an image.'));
       const snapshot = await analyzeDataUrl(imageSrc);
       if (!snapshot) throw new Error(t('posture.calibrationNoPose', 'No pose detected in this frame.'));
-      localStorage.setItem('mgmt_posture_baseline_v1', JSON.stringify({ capturedAt: Date.now(), metrics: snapshot.metrics }));
+      localStorage.setItem(POSTURE_BASELINE_METRICS_KEY, JSON.stringify({ capturedAt: Date.now(), metrics: snapshot.metrics }));
       const filePath = await invoke<string>('save_calibrated_image', { imageData: imageSrc });
       await invoke('clear_posture_debouncer');
       const imageUrl = convertFileSrc(filePath);
       const cacheBustedUrl = `${imageUrl}?t=${new Date().getTime()}`;
-      await store.set('calibratedImagePath', filePath);
+      await store.set(POSTURE_BASELINE_IMAGE_STORE_KEY, filePath);
       await store.save();
       setCalibratedImage(cacheBustedUrl);
       setCalibrationStatus('success');
@@ -218,6 +219,28 @@ const PosturePage: React.FC = () => {
     }
   }, [backendPreviewFrame, isModelInitialized, shouldUseBackendPreview, store, t]);
 
+  const handleRemoveBaseline = useCallback(async () => {
+    if (!store) {
+      setError(t('posture.calibrationNotReady', 'Camera, model, or storage is not ready.'));
+      return;
+    }
+    setError('');
+    try {
+      const savedImagePath = await store.get<string>(POSTURE_BASELINE_IMAGE_STORE_KEY);
+      if (savedImagePath) await invoke('delete_calibrated_image', { filePath: savedImagePath });
+      await store.delete(POSTURE_BASELINE_IMAGE_STORE_KEY);
+      await store.save();
+      clearPostureBaselineMetrics();
+      setCalibratedImage(null);
+      setIsPreviewOpen(false);
+      setCalibrationStatus('idle');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(t('posture.removeBaselineError', { error: errorMessage }));
+      setCalibrationStatus('error');
+    }
+  }, [store, t]);
+
   useEffect(() => {
     try {
       setCurrentPlatform(platform());
@@ -227,11 +250,15 @@ const PosturePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    void isPostureMonitoringEnabledPref().then(setIsMonitoring);
+  }, []);
+
+  useEffect(() => {
     const loadInitialData = async () => {
       try {
         const storeInstance = await load('.settings.dat');
         setStore(storeInstance);
-        const savedImagePath = await storeInstance.get<string>('calibratedImagePath');
+        const savedImagePath = await storeInstance.get<string>(POSTURE_BASELINE_IMAGE_STORE_KEY);
         if (savedImagePath) {
           const imageUrl = convertFileSrc(savedImagePath);
           setCalibratedImage(`${imageUrl}?t=${new Date().getTime()}`);
@@ -380,12 +407,12 @@ const PosturePage: React.FC = () => {
     try {
       if (isMonitoring) {
         await invoke('stop_monitoring');
-        setPostureMonitoringEnabledPref(false);
+        await setPostureMonitoringEnabledPref(false);
         setIsMonitoring(false);
         setCameraYieldPaused(false);
       } else {
         await invoke('start_monitoring');
-        setPostureMonitoringEnabledPref(true);
+        await setPostureMonitoringEnabledPref(true);
         setIsMonitoring(true);
       }
     } catch (err) {
@@ -654,16 +681,28 @@ const PosturePage: React.FC = () => {
               {calibrationStatus === 'success' && <p className="text-xs text-green-600 dark:text-green-400">{t('posture.saveOk', 'Saved.')}</p>}
               {calibrationStatus === 'error' && <p className="text-xs text-destructive">{t('posture.saveFail', 'Save failed.')}</p>}
               {calibratedImage && (
-                <button
-                  type="button"
-                  className="relative w-28 aspect-[4/3] rounded-lg overflow-hidden border-2 border-border group"
-                  onClick={() => setIsPreviewOpen(true)}
-                >
-                  <img src={calibratedImage} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ZoomIn className="h-8 w-8 text-white" />
-                  </div>
-                </button>
+                <div className="relative w-28 shrink-0">
+                  <button
+                    type="button"
+                    className="relative w-full aspect-[4/3] rounded-lg overflow-hidden border-2 border-border group"
+                    onClick={() => setIsPreviewOpen(true)}
+                  >
+                    <img src={calibratedImage} alt="" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ZoomIn className="h-8 w-8 text-white" />
+                    </div>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-7 w-7 rounded-full shadow-md"
+                    aria-label={t('posture.removeBaseline', 'Remove baseline photo')}
+                    onClick={() => void handleRemoveBaseline()}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -675,11 +714,18 @@ const PosturePage: React.FC = () => {
           <DialogHeader>
             <DialogTitle>{t('posture.baselinePreview', 'Baseline reference')}</DialogTitle>
           </DialogHeader>
-          {calibratedImage && <img src={calibratedImage} alt="" className="rounded-lg w-full aspect-video object-contain" />}
+          {calibratedImage && (
+            <>
+              <img src={calibratedImage} alt="" className="rounded-lg w-full aspect-video object-contain" />
+              <Button type="button" variant="destructive" className="w-full" onClick={() => void handleRemoveBaseline()}>
+                {t('posture.removeBaseline', 'Remove baseline photo')}
+              </Button>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
-      <div className="sticky bottom-0 z-10 -mx-6 md:-mx-8 px-6 md:px-8 pt-4 pb-2 bg-gradient-to-t from-background via-background to-transparent">
+      <div className="pt-4 pb-2">
         <Button
           type="button"
           size="lg"
