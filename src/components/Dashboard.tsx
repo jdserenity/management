@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { ArrowRight, Clock, Dumbbell, Plus, X, Zap } from 'lucide-react';
+import { ArrowRight, Briefcase, Clock, Dumbbell, Plus, X, Zap } from 'lucide-react';
 import { useSession, type DeskPosture } from '@/context/SessionContext';
 import {
+  DASHBOARD_MANUAL_EXERCISES,
   SESSION_DURATIONS_MINUTES,
   formatClock,
   formatExerciseAmount,
@@ -30,9 +31,13 @@ const Dashboard = () => {
     runPomodoros,
     runDeepWork,
     lastSummary,
+    todayExerciseTotals,
+    focusToday,
     startFlow,
+    startExerciseBreak,
     finishFlow,
     handleWorkoutCompletion,
+    addManualExercise,
     updateBreakExerciseAmount,
     focusDeskPosture,
     nextDeskPostureIfPomodoro,
@@ -46,6 +51,8 @@ const Dashboard = () => {
       ? activeSessionType === 'pomodoro'
         ? '🍅 Pomodoro focus'
         : '🎯 Deep work focus'
+      : phase === 'break' && !activeSessionType
+        ? '🏃 Exercise break'
       : phase === 'break' && breakVariant === 'short'
         ? '🏃 Exercise break'
         : phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise'
@@ -82,10 +89,11 @@ const Dashboard = () => {
     activeWorkout &&
     (breakVariant === 'short' || (breakVariant === 'long' && longBreakStage === 'exercise'));
 
-  const showChainControls = phase === 'focus' || phase === 'break';
+  const isStandaloneExerciseBreak = phase === 'break' && !activeSessionType;
+  const showChainControls = phase === 'focus' || (phase === 'break' && activeSessionType !== null);
 
   const breakPreview = useMemo(() => {
-    if (phase === 'idle') return null;
+    if (phase === 'idle' || isStandaloneExerciseBreak) return null;
     if (phase === 'focus' && activeSessionType === 'pomodoro') {
       return {
         title: '🏃 Exercise break',
@@ -123,7 +131,7 @@ const Dashboard = () => {
       } as const;
     }
     return null;
-  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes]);
+  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak]);
 
   const unitShort = (unit: ExerciseUnit) => (unit === 'reps' ? 'reps' : unit === 'seconds' ? 'sec' : 'min');
 
@@ -131,6 +139,18 @@ const Dashboard = () => {
     () => Object.values(runExerciseTotals).sort((a, b) => a.label.localeCompare(b.label)),
     [runExerciseTotals]
   );
+
+  const manualIncrementLabel = (unit: ExerciseUnit, amount: number) => {
+    if (unit === 'reps') return `+${amount}`;
+    if (unit === 'seconds') return `+${amount}s`;
+    return `+${amount}m`;
+  };
+
+  const todayRowDisplay = (id: string, name: string) => {
+    const agg = todayExerciseTotals[id];
+    if (!agg || (agg.reps <= 0 && agg.timedSeconds <= 0)) return `${name}: 0`;
+    return formatExerciseRunAggLine({ ...agg, label: name });
+  };
 
   const lastExerciseLines = useMemo(() => {
     if (!lastSummary) return [];
@@ -175,7 +195,7 @@ const Dashboard = () => {
             </div>
 
             <div className="min-w-0 flex-[1.1] lg:max-w-[11rem] lg:flex-none lg:basis-[10%]">
-              {phase === 'idle' ? (
+              {phase === 'idle' || isStandaloneExerciseBreak ? (
                 <div className="flex h-full min-h-[5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/25 bg-muted/10 px-2 py-2 text-center text-[10px] text-muted-foreground">
                   <span>Break</span>
                 </div>
@@ -255,6 +275,7 @@ const Dashboard = () => {
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => startFlow('pomodoro')}>🍅 Start Pomodoro</Button>
               <Button variant="secondary" onClick={() => startFlow('deep')}>🎯 Start deep work</Button>
+              <Button variant="outline" onClick={startExerciseBreak}>🏃 Start Exercise Break</Button>
             </div>
           ) : (
             <div className="flex flex-wrap gap-3">
@@ -353,6 +374,46 @@ const Dashboard = () => {
           )}
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Briefcase className="h-5 w-5 text-violet-600" />
+              Today&apos;s work
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col justify-center space-y-3">
+            <div className="rounded-md border px-3 py-3 text-sm">
+              <p className="font-medium">🍅 Pomodoros</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{focusToday.todayPomodoros}</p>
+            </div>
+            <div className="rounded-md border px-3 py-3 text-sm">
+              <p className="font-medium">🎯 Deep work</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{focusToday.todayDeepWork}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Dumbbell className="h-5 w-5 text-emerald-600" />
+              Today&apos;s movement
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col space-y-2">
+            {DASHBOARD_MANUAL_EXERCISES.map((ex) => (
+              <div key={ex.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                <span className="font-medium leading-snug">{todayRowDisplay(ex.id, ex.name)}</span>
+                <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 tabular-nums" onClick={() => addManualExercise(ex)} aria-label={`Add ${ex.amount} ${ex.unit} for ${ex.name}`}>
+                  {manualIncrementLabel(ex.unit, ex.amount)}
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

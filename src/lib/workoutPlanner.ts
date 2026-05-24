@@ -1,3 +1,5 @@
+import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary';
+
 export type SessionType = 'pomodoro' | 'deep';
 
 export type ExerciseUnit = 'reps' | 'seconds' | 'minutes';
@@ -134,11 +136,11 @@ export const STRETCH_MOBILITY_CATALOG_LINES: readonly string[] = [
   'Butterfly Stretch',
   'Neck Roll',
   'Hip Roll',
-  'Lateral Shoulder Stretch',
+  'Lateral Shoulder Stretch (left and right)',
   'Seated Toe Touch Both Legs',
-  'Seated Toe Touch One Leg (if this comes up, left and right are both scheduled)',
+  'Seated Toe Touch One Leg (left and right)',
   'Deep Squat',
-  'Standing Quad Stretch'
+  'Standing Quad Stretch (left and right)'
 ];
 
 export const DEFAULT_ALLOWED_WORKOUT_IDS = PREDEFINED_WORKOUTS.map((workout) => workout.id);
@@ -193,18 +195,63 @@ export const resolveAllowedWorkoutIds = (allowedWorkoutIds: string[]): string[] 
 
 export const STRETCH_DEFAULT_SECONDS = 15;
 
-type StretchPick = { kind: 'single'; id: string; name: string } | { kind: 'toe-one-leg' };
+type StretchPick =
+  | { kind: 'single'; id: string; name: string }
+  | { kind: 'bilateral'; left: { id: string; name: string }; right: { id: string; name: string } };
+
+/** L/R stretch ids — if one side appears in a break, the other must too. */
+export const STRETCH_BILATERAL_PAIRS: readonly (readonly [string, string])[] = [
+  ['stretch-toe-one-L', 'stretch-toe-one-R'],
+  ['stretch-lateral-shoulder-L', 'stretch-lateral-shoulder-R'],
+  ['stretch-quad-standing-L', 'stretch-quad-standing-R']
+];
 
 const STRETCH_POOL: StretchPick[] = [
   { kind: 'single', id: 'stretch-butterfly', name: 'Butterfly Stretch' },
   { kind: 'single', id: 'stretch-neck-roll', name: 'Neck Roll' },
   { kind: 'single', id: 'stretch-hip-roll', name: 'Hip Roll' },
-  { kind: 'single', id: 'stretch-lateral-shoulder', name: 'Lateral Shoulder Stretch' },
+  {
+    kind: 'bilateral',
+    left: { id: 'stretch-lateral-shoulder-L', name: 'Lateral Shoulder Stretch (L)' },
+    right: { id: 'stretch-lateral-shoulder-R', name: 'Lateral Shoulder Stretch (R)' }
+  },
   { kind: 'single', id: 'stretch-toe-both', name: 'Seated Toe Touch Both Legs' },
-  { kind: 'toe-one-leg' },
+  {
+    kind: 'bilateral',
+    left: { id: 'stretch-toe-one-L', name: 'Seated Toe Touch One Leg (L)' },
+    right: { id: 'stretch-toe-one-R', name: 'Seated Toe Touch One Leg (R)' }
+  },
   { kind: 'single', id: 'stretch-deep-squat', name: 'Deep Squat' },
-  { kind: 'single', id: 'stretch-quad-standing', name: 'Standing Quad Stretch' }
+  {
+    kind: 'bilateral',
+    left: { id: 'stretch-quad-standing-L', name: 'Standing Quad Stretch (L)' },
+    right: { id: 'stretch-quad-standing-R', name: 'Standing Quad Stretch (R)' }
+  }
 ];
+
+const stretchRow = (id: string, name: string): ExerciseDefinition => ({
+  id,
+  name,
+  amount: STRETCH_DEFAULT_SECONDS,
+  unit: 'seconds'
+});
+
+export const stretchPickToExercises = (pick: StretchPick): ExerciseDefinition[] => {
+  if (pick.kind === 'single') return [stretchRow(pick.id, pick.name)];
+  return [stretchRow(pick.left.id, pick.left.name), stretchRow(pick.right.id, pick.right.name)];
+};
+
+export const workoutBilateralPairsComplete = (exercises: ExerciseDefinition[]): boolean => {
+  const ids = new Set(exercises.map((e) => e.id));
+  return STRETCH_BILATERAL_PAIRS.every(([left, right]) => ids.has(left) === ids.has(right));
+};
+
+type BreakMoveUnit = { exerciseIds: string[]; exercises: ExerciseDefinition[] };
+
+const stretchPickToUnit = (pick: StretchPick): BreakMoveUnit => {
+  const exercises = stretchPickToExercises(pick);
+  return { exerciseIds: exercises.map((e) => e.id), exercises };
+};
 
 const shuffleStretchPool = (randomValue: number): StretchPick[] => {
   const arr = [...STRETCH_POOL];
@@ -220,7 +267,7 @@ const shuffleStretchPool = (randomValue: number): StretchPick[] => {
   return arr;
 };
 
-/** 2–3 stretch rows; one-leg toe touch always adds L then R (15s each). */
+/** 2–3 stretch rows; bilateral picks always schedule left and right (15s each). */
 export const buildStretchBreakExercises = (randomValue: number = Math.random()): ExerciseDefinition[] => {
   const rowTarget = (() => {
     const r = Number.isFinite(randomValue) ? Math.abs(Math.sin(randomValue * 9999)) : Math.random();
@@ -228,33 +275,21 @@ export const buildStretchBreakExercises = (randomValue: number = Math.random()):
   })();
   const pool = shuffleStretchPool(randomValue);
   const out: ExerciseDefinition[] = [];
+  const usedPickKeys = new Set<string>();
+  const pickKey = (pick: StretchPick) => (pick.kind === 'single' ? pick.id : `${pick.left.id}|${pick.right.id}`);
   for (const pick of pool) {
     if (out.length >= rowTarget) break;
-    if (pick.kind === 'single') {
-      out.push({
-        id: pick.id,
-        name: pick.name,
-        amount: STRETCH_DEFAULT_SECONDS,
-        unit: 'seconds'
-      });
-    } else if (out.length + 2 <= rowTarget) {
-      out.push(
-        { id: 'stretch-toe-one-L', name: 'Seated Toe Touch One Leg (L)', amount: STRETCH_DEFAULT_SECONDS, unit: 'seconds' },
-        { id: 'stretch-toe-one-R', name: 'Seated Toe Touch One Leg (R)', amount: STRETCH_DEFAULT_SECONDS, unit: 'seconds' }
-      );
-    }
+    const rows = stretchPickToExercises(pick);
+    if (out.length + rows.length > rowTarget || usedPickKeys.has(pickKey(pick))) continue;
+    usedPickKeys.add(pickKey(pick));
+    rows.forEach((row) => out.push(row));
   }
-  const usedIds = new Set(out.map((e) => e.id));
-  while (out.length < rowTarget) {
-    const cand = STRETCH_POOL.find((p) => p.kind === 'single' && !usedIds.has(p.id));
-    if (!cand || cand.kind !== 'single') break;
-    usedIds.add(cand.id);
-    out.push({
-      id: cand.id,
-      name: cand.name,
-      amount: STRETCH_DEFAULT_SECONDS,
-      unit: 'seconds'
-    });
+  for (const pick of STRETCH_POOL) {
+    if (out.length >= rowTarget) break;
+    const rows = stretchPickToExercises(pick);
+    if (out.length + rows.length > rowTarget || usedPickKeys.has(pickKey(pick))) continue;
+    usedPickKeys.add(pickKey(pick));
+    rows.forEach((row) => out.push(row));
   }
   return out;
 };
@@ -269,46 +304,35 @@ export const estimateExerciseLoadSeconds = (ex: ExerciseDefinition): number => {
   return Math.round(ex.amount * perRep);
 };
 
-const collectStretchMoveCandidates = (): ExerciseDefinition[] => {
-  const out: ExerciseDefinition[] = [];
-  for (const pick of STRETCH_POOL) {
-    if (pick.kind === 'single') {
-      out.push({
-        id: pick.id,
-        name: pick.name,
-        amount: STRETCH_DEFAULT_SECONDS,
-        unit: 'seconds'
-      });
-    } else {
-      out.push(
-        { id: 'stretch-toe-one-L', name: 'Seated Toe Touch One Leg (L)', amount: STRETCH_DEFAULT_SECONDS, unit: 'seconds' },
-        { id: 'stretch-toe-one-R', name: 'Seated Toe Touch One Leg (R)', amount: STRETCH_DEFAULT_SECONDS, unit: 'seconds' }
-      );
-    }
-  }
-  return out;
-};
-
-const collectBreakMoveCandidates = (allowedWorkoutIds: string[]): ExerciseDefinition[] => {
+const collectBreakMoveUnits = (allowedWorkoutIds: string[]): BreakMoveUnit[] => {
   const allowed = new Set(resolveAllowedWorkoutIds(allowedWorkoutIds));
-  const out: ExerciseDefinition[] = [];
+  const units: BreakMoveUnit[] = [];
   for (const def of PREDEFINED_WORKOUTS) {
     if (!allowed.has(def.id)) continue;
     if (def.id === 'stretch-mobility') {
-      out.push(...collectStretchMoveCandidates());
+      STRETCH_POOL.forEach((pick) => units.push(stretchPickToUnit(pick)));
       continue;
     }
-    def.exercises.forEach((ex) => out.push({ ...ex }));
+    def.exercises.forEach((ex) => {
+      units.push({ exerciseIds: [ex.id], exercises: [{ ...ex }] });
+    });
   }
-  return out;
+  return units;
 };
 
-/** Random 2–3 min circuit: samples moves (repeats allowed) from everything you allow in Customize. */
+/** Quick-add rows on Dashboard (today totals + manual increment). */
+export const DASHBOARD_MANUAL_EXERCISES: readonly ExerciseDefinition[] = [
+  { id: 'pushups', name: 'Push-ups', amount: 5, unit: 'reps' },
+  { id: 'jacks', name: 'Jumping jacks', amount: 10, unit: 'reps' },
+  { id: 'squats', name: 'Air squats', amount: 5, unit: 'reps' },
+  { id: 'march', name: 'Marching in place', amount: 1, unit: 'minutes' },
+  { id: 'shadow', name: 'Shadowboxing', amount: 30, unit: 'seconds' }
+];
+
+/** Random 2–3 min circuit: one row per move id from everything you allow in Customize. */
 export const buildMixedBreakWorkout = (allowedWorkoutIds: string[], randomValue: number = Math.random()): WorkoutDefinition => {
-  let candidates = collectBreakMoveCandidates(allowedWorkoutIds);
-  if (candidates.length === 0) {
-    candidates = collectBreakMoveCandidates(DEFAULT_ALLOWED_WORKOUT_IDS);
-  }
+  let units = collectBreakMoveUnits(allowedWorkoutIds);
+  if (units.length === 0) units = collectBreakMoveUnits(DEFAULT_ALLOWED_WORKOUT_IDS);
   let seed = Math.floor(Number.isFinite(randomValue) ? Math.abs(randomValue * 1e9) % 1000000007 : Math.random() * 1e9) % 1000000007;
   const rnd = () => {
     seed = (seed * 48271 + 1) % 1000000007;
@@ -317,16 +341,29 @@ export const buildMixedBreakWorkout = (allowedWorkoutIds: string[], randomValue:
   const safe01 = Number.isFinite(randomValue) ? Math.abs(Math.sin(randomValue * 8888)) % 1 : Math.random();
   const targetSec = 120 + Math.floor(safe01 * 61);
   const selected: ExerciseDefinition[] = [];
+  const usedIds = new Set<string>();
+  const pickUniqueUnit = (): BreakMoveUnit | null => {
+    const pool = units.filter((u) => u.exerciseIds.every((id) => !usedIds.has(id)));
+    if (pool.length === 0) return null;
+    return pool[Math.floor(rnd() * pool.length)];
+  };
+  const addUnit = (unit: BreakMoveUnit) => {
+    unit.exerciseIds.forEach((id) => usedIds.add(id));
+    unit.exercises.forEach((ex) => {
+      selected.push({ ...ex });
+      sum += estimateExerciseLoadSeconds(ex);
+    });
+  };
   let sum = 0;
   while (sum < targetSec && selected.length < 30) {
-    const ex = candidates[Math.floor(rnd() * candidates.length)];
-    selected.push({ ...ex });
-    sum += estimateExerciseLoadSeconds(ex);
+    const unit = pickUniqueUnit();
+    if (!unit) break;
+    addUnit(unit);
   }
-  while (sum < 110 && candidates.length > 0 && selected.length < 36) {
-    const ex = candidates[Math.floor(rnd() * candidates.length)];
-    selected.push({ ...ex });
-    sum += estimateExerciseLoadSeconds(ex);
+  while (sum < 110 && selected.length < 36) {
+    const unit = pickUniqueUnit();
+    if (!unit) break;
+    addUnit(unit);
   }
   const totalLoad = selected.reduce((s, e) => s + estimateExerciseLoadSeconds(e), 0);
   const estimatedMinutes = Math.min(3, Math.max(2, Math.round(totalLoad / 60) || 2));
@@ -398,22 +435,30 @@ export interface FocusSessionTotals {
   last7DaysDeepWork: number;
 }
 
-export const countTodayDeepWorkSessions = (logs: FocusLogEntry[], nowTimestamp: number = Date.now()): number => {
-  const start = new Date(nowTimestamp); start.setHours(0, 0, 0, 0);
-  const startTimestamp = start.getTime(); const endTimestamp = startTimestamp + DAY_MS;
-  return logs.filter((entry) => entry.type === 'deep' && entry.completedAt >= startTimestamp && entry.completedAt < endTimestamp).length;
+export const countTodayDeepWorkSessions = (
+  logs: FocusLogEntry[],
+  nowTimestamp: number = Date.now(),
+  rolloverHour: number = DEFAULT_DAY_ROLLOVER_HOUR
+): number => {
+  const { startTs, endTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
+  return logs.filter((entry) => entry.type === 'deep' && entry.completedAt >= startTs && entry.completedAt < endTs).length;
 };
 
-export const countTodayPomodoroSessions = (logs: FocusLogEntry[], nowTimestamp: number = Date.now()): number => {
-  const start = new Date(nowTimestamp); start.setHours(0, 0, 0, 0);
-  const startTimestamp = start.getTime(); const endTimestamp = startTimestamp + DAY_MS;
-  return logs.filter((entry) => entry.type === 'pomodoro' && entry.completedAt >= startTimestamp && entry.completedAt < endTimestamp).length;
+export const countTodayPomodoroSessions = (
+  logs: FocusLogEntry[],
+  nowTimestamp: number = Date.now(),
+  rolloverHour: number = DEFAULT_DAY_ROLLOVER_HOUR
+): number => {
+  const { startTs, endTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
+  return logs.filter((entry) => entry.type === 'pomodoro' && entry.completedAt >= startTs && entry.completedAt < endTs).length;
 };
 
-export const summarizeFocusLogs = (logs: FocusLogEntry[], nowTimestamp: number = Date.now()): FocusSessionTotals => {
-  const start = new Date(nowTimestamp); start.setHours(0, 0, 0, 0);
-  const todayStart = start.getTime();
-  const todayEnd = todayStart + DAY_MS;
+export const summarizeFocusLogs = (
+  logs: FocusLogEntry[],
+  nowTimestamp: number = Date.now(),
+  rolloverHour: number = DEFAULT_DAY_ROLLOVER_HOUR
+): FocusSessionTotals => {
+  const { startTs: todayStart, endTs: todayEnd } = getStatsDayWindow(nowTimestamp, rolloverHour);
   const sevenDayStart = todayStart - 6 * DAY_MS;
   let totalPomodoros = 0;
   let totalDeepWork = 0;
@@ -470,6 +515,39 @@ export interface ExerciseRunAgg {
   timedSeconds: number;
 }
 
+export const summarizeTodayExerciseTotals = (
+  logs: WorkoutLogEntry[],
+  nowTimestamp: number = Date.now(),
+  rolloverHour: number = DEFAULT_DAY_ROLLOVER_HOUR
+): Record<string, ExerciseRunAgg> => {
+  const { startTs, endTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
+  let totals: Record<string, ExerciseRunAgg> = {};
+  logs.forEach((log) => {
+    if (log.completedAt < startTs || log.completedAt >= endTs) return;
+    const defs = (log.exercises ?? []).filter((e): e is ExerciseDefinition => 'unit' in e);
+    totals = mergeWorkoutExercisesIntoTotals(totals, defs);
+  });
+  return totals;
+};
+
+export const buildManualExerciseLogEntry = (
+  exercise: ExerciseDefinition,
+  id: string,
+  completedAt: number = Date.now()
+): WorkoutLogEntry => {
+  const vol = sumExerciseVolume([exercise]);
+  return {
+    id,
+    workoutId: 'manual',
+    workoutName: '✋ Manual',
+    completedAt,
+    exercises: [exercise],
+    totalReps: vol.reps,
+    totalTimedSeconds: vol.timedSeconds,
+    completionRatio: 1
+  };
+};
+
 export const mergeWorkoutExercisesIntoTotals = (
   prev: Record<string, ExerciseRunAgg>,
   exercises: ExerciseDefinition[]
@@ -488,14 +566,11 @@ export const mergeWorkoutExercisesIntoTotals = (
 
 export const formatExerciseRunAggLine = (agg: ExerciseRunAgg): string => {
   const parts: string[] = [];
-  if (agg.reps > 0) {
-    if (agg.id === 'pushups') parts.push(`${agg.reps} pushups`);
-    else parts.push(`${agg.reps} reps`);
-  }
+  if (agg.reps > 0) parts.push(String(agg.reps));
   if (agg.timedSeconds > 0) {
     if (agg.timedSeconds % 60 === 0 && agg.timedSeconds >= 60) parts.push(`${agg.timedSeconds / 60} min`);
     else parts.push(`${agg.timedSeconds}s`);
   }
-  if (parts.length === 0) return agg.label;
-  return `${agg.label} · ${parts.join(' · ')}`;
+  if (parts.length === 0) return `${agg.label}: 0`;
+  return `${agg.label}: ${parts.join(' · ')}`;
 };

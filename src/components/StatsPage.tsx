@@ -2,12 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
-import {
-  countTodayDeepWorkSessions,
-  countTodayPomodoroSessions,
-  summarizeFocusLogs,
-  summarizeWorkoutLogs
-} from '@/lib/workoutPlanner';
+import { summarizeFocusLogs, summarizeWorkoutLogs } from '@/lib/workoutPlanner';
 
 const timedMinutesLabel = (seconds: number) => {
   if (seconds <= 0) return '0m';
@@ -22,11 +17,11 @@ const focusMinutesLabel = (minutes: number) => {
 };
 
 const StatsPage = () => {
-  const { workoutLogs, focusLogs } = useSession();
+  const { workoutLogs, focusLogs, focusToday } = useSession();
   const cumulativeWorkoutStats = useMemo(() => summarizeWorkoutLogs(workoutLogs), [workoutLogs]);
   const focusStats = useMemo(() => summarizeFocusLogs(focusLogs), [focusLogs]);
-  const deepWorkToday = useMemo(() => countTodayDeepWorkSessions(focusLogs), [focusLogs]);
-  const pomodorosToday = useMemo(() => countTodayPomodoroSessions(focusLogs), [focusLogs]);
+  const deepWorkToday = focusToday.todayDeepWork;
+  const pomodorosToday = focusToday.todayPomodoros;
 
   return (
     <div className="space-y-6">
