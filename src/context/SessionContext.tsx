@@ -11,11 +11,17 @@ import {
 import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary';
 import { loadDayRolloverHourPref, saveDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import {
+  defaultWorkoutCustomizePrefs,
+  mergeExerciseOverride,
+  prefsHasAtLeastOneMove,
+  resolveAllowedStretchPickKeys,
+  resolveAllowedWorkoutIdsFromPrefs,
+  type WorkoutCustomizePrefs
+} from '@/lib/workoutCustomize';
+import {
   buildManualExerciseLogEntry,
-  DEFAULT_ALLOWED_WORKOUT_IDS,
   mergeWorkoutExercisesIntoTotals,
   pickWorkoutForBreak,
-  resolveAllowedWorkoutIds,
   sumExerciseVolume,
   summarizeFocusToday,
   summarizeTodayExerciseTotals,
@@ -24,6 +30,7 @@ import {
   SESSION_DURATIONS_MINUTES,
   type ExerciseDefinition,
   type ExerciseRunAgg,
+  type ExerciseUnit,
   type FocusLogEntry,
   type FocusTodayTotals,
   type SessionType,
@@ -56,7 +63,7 @@ import {
   persistFocusLog,
   persistWorkoutLog,
   saveActiveFlowState,
-  saveAllowedWorkoutIds
+  saveWorkoutCustomizePrefs
 } from '@/lib/sessionDb';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
@@ -79,7 +86,11 @@ interface SessionContextValue {
   setNextSessionType: (value: SessionType | null) => void;
   activeWorkout: WorkoutDefinition | null;
   workoutLogged: boolean;
-  allowedWorkoutIds: string[];
+  runExerciseTotals: Record<string, ExerciseRunAgg>;
+  runPomodoros: number;
+  runDeepWork: number;
+  runStartedAt: number | null;
+  workoutCustomizePrefs: WorkoutCustomizePrefs;
   workoutLogs: WorkoutLogEntry[];
   focusLogs: FocusLogEntry[];
   todayExerciseTotals: Record<string, ExerciseRunAgg>;
@@ -95,6 +106,11 @@ interface SessionContextValue {
   handleWorkoutCompletion: () => void;
   addManualExercise: (exercise: ExerciseDefinition) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
+  handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
+  updateExerciseOverride: (exerciseId: string, amount: number, unit: ExerciseUnit) => void;
+  updateStretchHoldSeconds: (seconds: number) => void;
+  addCustomExercise: (exercise: ExerciseDefinition) => void;
+  removeCustomExercise: (exerciseId: string) => void;
   updateBreakExerciseAmount: (index: number, amount: number) => void;
   pomodoroPosture: DeskPosture;
   focusDeskPosture: DeskPosture | null;
@@ -114,7 +130,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [activeWorkout, setActiveWorkout] = useState<WorkoutDefinition | null>(null);
   const [workoutLogged, setWorkoutLogged] = useState(false);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
-  const [allowedWorkoutIds, setAllowedWorkoutIds] = useState<string[]>(DEFAULT_ALLOWED_WORKOUT_IDS);
+  const [workoutCustomizePrefs, setWorkoutCustomizePrefs] = useState<WorkoutCustomizePrefs>(defaultWorkoutCustomizePrefs);
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLogEntry[]>([]);
   const [focusLogs, setFocusLogs] = useState<FocusLogEntry[]>([]);
   const [sessionStorageReady, setSessionStorageReady] = useState(false);
@@ -151,8 +167,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   remainingSecondsRef.current = remainingSeconds;
   const nextSessionTypeRef = useRef(nextSessionType);
   nextSessionTypeRef.current = nextSessionType;
-  const allowedWorkoutIdsRef = useRef(allowedWorkoutIds);
-  allowedWorkoutIdsRef.current = allowedWorkoutIds;
+  const workoutCustomizePrefsRef = useRef(workoutCustomizePrefs);
+  workoutCustomizePrefsRef.current = workoutCustomizePrefs;
   const pomodoroPostureRef = useRef(pomodoroPosture);
   pomodoroPostureRef.current = pomodoroPosture;
   const runStartedAtRef = useRef(runStartedAt);
@@ -333,7 +349,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     setLongBreakStage(null);
     setActiveSessionType(null);
     setNextSessionType(null);
-    setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIdsRef.current));
+    setActiveWorkout(pickWorkoutForBreak(workoutCustomizePrefsRef.current));
     setWorkoutLogged(false);
     workoutLoggedRef.current = false;
     applyExerciseTotals(empty);
@@ -443,7 +459,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     loadSessionStorage()
       .then((snapshot) => {
         if (cancelled) return;
-        setAllowedWorkoutIds(snapshot.allowedWorkoutIds);
+        setWorkoutCustomizePrefs(snapshot.workoutCustomizePrefs);
         setWorkoutLogs(snapshot.workoutLogs);
         setFocusLogs(snapshot.focusLogs);
         if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
@@ -463,10 +479,10 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!sessionStorageReady) return;
-    void saveAllowedWorkoutIds(allowedWorkoutIds).catch((error) => {
-      console.error('Failed to save allowed workouts:', error);
+    void saveWorkoutCustomizePrefs(workoutCustomizePrefs).catch((error) => {
+      console.error('Failed to save workout customize prefs:', error);
     });
-  }, [allowedWorkoutIds, sessionStorageReady]);
+  }, [workoutCustomizePrefs, sessionStorageReady]);
 
   useEffect(() => {
     if (phase === 'idle' || !sessionStorageReady) return;
@@ -509,7 +525,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         recordFocusSession(sessionType, 1);
         if (sessionType === 'pomodoro') {
           lastPomodoroPostureRef.current = pomodoroPostureRef.current;
-          setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIdsRef.current));
+          setActiveWorkout(pickWorkoutForBreak(workoutCustomizePrefsRef.current));
           setWorkoutLogged(false);
           workoutLoggedRef.current = false;
           setBreakVariant('short');
@@ -520,7 +536,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
           setPhaseTimer(secs, secs);
           return;
         }
-        setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIdsRef.current));
+        setActiveWorkout(pickWorkoutForBreak(workoutCustomizePrefsRef.current));
         setWorkoutLogged(false);
         workoutLoggedRef.current = false;
         setBreakVariant('long');
@@ -622,14 +638,64 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     [focusLogs, dayRolloverHour, statsDayWindowStart]
   );
 
-  const handleAllowedWorkoutToggle = useCallback((workoutId: string, enabled: boolean) => {
-    setAllowedWorkoutIds((current) => {
-      if (enabled) return resolveAllowedWorkoutIds([...new Set([...current, workoutId])]);
-      const next = current.filter((id) => id !== workoutId);
-      if (next.length === 0) return current;
+  const patchWorkoutPrefs = useCallback((patch: (current: WorkoutCustomizePrefs) => WorkoutCustomizePrefs | null) => {
+    setWorkoutCustomizePrefs((current) => {
+      const next = patch(current);
+      if (!next || !prefsHasAtLeastOneMove(next)) return current;
       return next;
     });
   }, []);
+
+  const handleAllowedWorkoutToggle = useCallback((workoutId: string, enabled: boolean) => {
+    patchWorkoutPrefs((current) => {
+      const ids = resolveAllowedWorkoutIdsFromPrefs(current);
+      const nextIds = enabled ? [...new Set([...ids, workoutId])] : ids.filter((id) => id !== workoutId);
+      if (!enabled && nextIds.length === 0 && resolveAllowedStretchPickKeys(current).length === 0 && current.customExercises.length === 0) return null;
+      return { ...current, allowedWorkoutIds: nextIds };
+    });
+  }, [patchWorkoutPrefs]);
+
+  const handleStretchPickToggle = useCallback((pickKey: string, enabled: boolean) => {
+    patchWorkoutPrefs((current) => {
+      const keys = resolveAllowedStretchPickKeys(current);
+      const nextKeys = enabled ? [...new Set([...keys, pickKey])] : keys.filter((k) => k !== pickKey);
+      if (!enabled && nextKeys.length === 0 && resolveAllowedWorkoutIdsFromPrefs(current).length === 0 && current.customExercises.length === 0) return null;
+      return { ...current, allowedStretchPickKeys: nextKeys };
+    });
+  }, [patchWorkoutPrefs]);
+
+  const updateExerciseOverride = useCallback((exerciseId: string, amount: number, unit: ExerciseUnit) => {
+    if (!Number.isFinite(amount)) return;
+    setWorkoutCustomizePrefs((current) => ({
+      ...current,
+      exerciseOverrides: mergeExerciseOverride(current.exerciseOverrides, exerciseId, amount, unit)
+    }));
+  }, []);
+
+  const updateStretchHoldSeconds = useCallback((seconds: number) => {
+    if (!Number.isFinite(seconds)) return;
+    const rounded = Math.max(1, Math.round(seconds));
+    setWorkoutCustomizePrefs((current) => ({ ...current, stretchHoldSeconds: rounded }));
+  }, []);
+
+  const addCustomExercise = useCallback((exercise: ExerciseDefinition) => {
+    if (!exercise.id || !exercise.name) return;
+    setWorkoutCustomizePrefs((current) => ({
+      ...current,
+      customExercises: [...current.customExercises.filter((e) => e.id !== exercise.id), exercise]
+    }));
+  }, []);
+
+  const removeCustomExercise = useCallback((exerciseId: string) => {
+    patchWorkoutPrefs((current) => {
+      const nextCustom = current.customExercises.filter((e) => e.id !== exerciseId);
+      if (nextCustom.length === current.customExercises.length) return null;
+      if (nextCustom.length === 0 && resolveAllowedWorkoutIdsFromPrefs(current).length === 0 && resolveAllowedStretchPickKeys(current).length === 0) return null;
+      const exerciseOverrides = { ...current.exerciseOverrides };
+      delete exerciseOverrides[exerciseId];
+      return { ...current, customExercises: nextCustom, exerciseOverrides };
+    });
+  }, [patchWorkoutPrefs]);
 
   const updateBreakExerciseAmount = useCallback((index: number, amount: number) => {
     if (!Number.isFinite(amount)) return;
@@ -679,7 +745,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       setNextSessionType,
       activeWorkout,
       workoutLogged,
-      allowedWorkoutIds,
+      runExerciseTotals,
+      runPomodoros,
+      runDeepWork,
+      runStartedAt,
+      workoutCustomizePrefs,
       workoutLogs,
       focusLogs,
       todayExerciseTotals,
@@ -695,6 +765,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       handleWorkoutCompletion,
       addManualExercise,
       handleAllowedWorkoutToggle,
+      handleStretchPickToggle,
+      updateExerciseOverride,
+      updateStretchHoldSeconds,
+      addCustomExercise,
+      removeCustomExercise,
       updateBreakExerciseAmount,
       pomodoroPosture,
       focusDeskPosture,
@@ -710,7 +785,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       nextSessionType,
       activeWorkout,
       workoutLogged,
-      allowedWorkoutIds,
+      runExerciseTotals,
+      runPomodoros,
+      runDeepWork,
+      runStartedAt,
+      workoutCustomizePrefs,
       workoutLogs,
       focusLogs,
       todayExerciseTotals,
@@ -726,6 +805,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       handleWorkoutCompletion,
       addManualExercise,
       handleAllowedWorkoutToggle,
+      handleStretchPickToggle,
+      updateExerciseOverride,
+      updateStretchHoldSeconds,
+      addCustomExercise,
+      removeCustomExercise,
       updateBreakExerciseAmount,
       pomodoroPosture,
       focusDeskPosture,

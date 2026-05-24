@@ -1,6 +1,11 @@
 import { getDb } from '@/lib/db';
 import { parsePersistedFlowState, type PersistedFlowState } from '@/lib/flowState';
 import {
+  allowedWorkoutIdsForLegacyKv,
+  normalizeWorkoutCustomizePrefs,
+  type WorkoutCustomizePrefs
+} from '@/lib/workoutCustomize';
+import {
   DEFAULT_ALLOWED_WORKOUT_IDS,
   normalizeWorkoutLogs,
   resolveAllowedWorkoutIds,
@@ -15,6 +20,7 @@ export const LEGACY_LS_KEYS = {
 } as const;
 
 export const KV_ALLOWED_WORKOUTS = 'allowed_workout_ids';
+export const KV_WORKOUT_CUSTOMIZE_PREFS = 'workout_customize_prefs_v1';
 export const KV_SESSION_MIGRATED = 'session_storage_migrated_v1';
 export const KV_ACTIVE_FLOW = 'active_flow_state_v1';
 
@@ -152,6 +158,24 @@ export const saveAllowedWorkoutIds = async (ids: string[]): Promise<void> => {
   await setKv(KV_ALLOWED_WORKOUTS, JSON.stringify(resolveAllowedWorkoutIds(ids)));
 };
 
+export const fetchWorkoutCustomizePrefs = async (): Promise<WorkoutCustomizePrefs> => {
+  const legacyIds = await fetchAllowedWorkoutIds();
+  const raw = await getKv(KV_WORKOUT_CUSTOMIZE_PREFS);
+  if (!raw) return normalizeWorkoutCustomizePrefs(null, legacyIds);
+  try {
+    return normalizeWorkoutCustomizePrefs(JSON.parse(raw) as Partial<WorkoutCustomizePrefs>, legacyIds);
+  } catch (error) {
+    console.error('Failed to parse workout_customize_prefs from app_kv:', error);
+    return normalizeWorkoutCustomizePrefs(null, legacyIds);
+  }
+};
+
+export const saveWorkoutCustomizePrefs = async (prefs: WorkoutCustomizePrefs): Promise<void> => {
+  const normalized = normalizeWorkoutCustomizePrefs(prefs, null);
+  await setKv(KV_WORKOUT_CUSTOMIZE_PREFS, JSON.stringify(normalized));
+  await setKv(KV_ALLOWED_WORKOUTS, JSON.stringify(allowedWorkoutIdsForLegacyKv(normalized)));
+};
+
 export const fetchFocusLogs = async (limit = MAX_HISTORY_ITEMS): Promise<FocusLogEntry[]> => {
   const db = await getDb();
   const rows = await db.select<FocusLogRow[]>(
@@ -271,7 +295,7 @@ export const migrateSessionStorageFromLocalStorageIfNeeded = async (): Promise<v
 };
 
 export type SessionStorageSnapshot = {
-  allowedWorkoutIds: string[];
+  workoutCustomizePrefs: WorkoutCustomizePrefs;
   workoutLogs: WorkoutLogEntry[];
   focusLogs: FocusLogEntry[];
   activeFlow: PersistedFlowState | null;
@@ -294,13 +318,13 @@ export const clearActiveFlowState = async (): Promise<void> => {
 
 export const loadSessionStorage = async (): Promise<SessionStorageSnapshot> => {
   await migrateSessionStorageFromLocalStorageIfNeeded();
-  const [allowedWorkoutIds, workoutLogs, focusLogs, activeFlow] = await Promise.all([
-    fetchAllowedWorkoutIds(),
+  const [workoutCustomizePrefs, workoutLogs, focusLogs, activeFlow] = await Promise.all([
+    fetchWorkoutCustomizePrefs(),
     fetchWorkoutLogs(),
     fetchFocusLogs(),
     fetchActiveFlowState()
   ]);
-  return { allowedWorkoutIds, workoutLogs, focusLogs, activeFlow };
+  return { workoutCustomizePrefs, workoutLogs, focusLogs, activeFlow };
 };
 
 export const persistFocusLog = async (entry: FocusLogEntry): Promise<void> => {
