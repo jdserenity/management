@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildManualExerciseLogEntry,
   buildMixedBreakWorkout,
   buildStretchBreakExercises,
   DEFAULT_ALLOWED_WORKOUT_IDS,
@@ -8,6 +9,7 @@ import {
   countTodayPomodoroSessions,
   mergePeriodStats,
   summarizeFocusLogs,
+  summarizeFocusToday,
   estimateExerciseLoadSeconds,
   exerciseRepsPart,
   exerciseTimedSecondsPart,
@@ -18,7 +20,9 @@ import {
   mergeWorkoutExercisesIntoTotals,
   pickWorkoutForBreak,
   resolveAllowedWorkoutIds,
+  workoutBilateralPairsComplete,
   sumExerciseVolume,
+  summarizeTodayExerciseTotals,
   summarizeWorkoutLogs,
   type ExerciseRunAgg,
   type FocusLogEntry,
@@ -64,6 +68,51 @@ describe('pickWorkoutForBreak / buildMixedBreakWorkout', () => {
     expect(workout.estimatedMinutes).toBeGreaterThanOrEqual(2);
     expect(workout.estimatedMinutes).toBeLessThanOrEqual(3);
   });
+
+  it('does not repeat the same exercise id in one break', () => {
+    for (let i = 0; i < 50; i++) {
+      const workout = buildMixedBreakWorkout(DEFAULT_ALLOWED_WORKOUT_IDS, i * 0.017 + 0.01);
+      const ids = workout.exercises.map((e) => e.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  it('always pairs left and right stretch sides in one break', () => {
+    for (let i = 0; i < 80; i++) {
+      const workout = buildMixedBreakWorkout(DEFAULT_ALLOWED_WORKOUT_IDS, i * 0.013 + 0.02);
+      expect(workoutBilateralPairsComplete(workout.exercises)).toBe(true);
+    }
+  });
+});
+
+describe('summarizeTodayExerciseTotals', () => {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const todayNoon = new Date('2026-05-24T12:00:00').getTime();
+
+  it('sums only logs from the current stats day (midnight rollover)', () => {
+    const logs: WorkoutLogEntry[] = [
+      buildManualExerciseLogEntry({ id: 'pushups', name: 'Push-ups', amount: 5, unit: 'reps' }, 'w1', todayNoon),
+      buildManualExerciseLogEntry({ id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' }, 'w2', todayNoon + 1000),
+      buildManualExerciseLogEntry({ id: 'pushups', name: 'Push-ups', amount: 99, unit: 'reps' }, 'w3', todayNoon - dayMs)
+    ];
+    const totals = summarizeTodayExerciseTotals(logs, todayNoon, 0);
+    expect(totals.pushups?.reps).toBe(15);
+  });
+
+  it('uses configurable rollover hour (4am default)', () => {
+    const beforeRollover = new Date(2026, 4, 24, 3, 0, 0).getTime();
+    const afterRollover = new Date(2026, 4, 24, 5, 0, 0).getTime();
+    const logs: WorkoutLogEntry[] = [
+      buildManualExerciseLogEntry({ id: 'pushups', name: 'Push-ups', amount: 5, unit: 'reps' }, 'w1', beforeRollover),
+      buildManualExerciseLogEntry({ id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' }, 'w2', afterRollover)
+    ];
+    const totals = summarizeTodayExerciseTotals(logs, afterRollover, 4);
+    expect(totals.pushups?.reps).toBe(10);
+  });
+
+  it('returns empty record when there are no logs today', () => {
+    expect(summarizeTodayExerciseTotals([], todayNoon)).toEqual({});
+  });
 });
 
 describe('buildStretchBreakExercises', () => {
@@ -92,12 +141,10 @@ describe('buildStretchBreakExercises', () => {
     }
   });
 
-  it('schedules both legs when one-leg toe touch appears', () => {
+  it('schedules both sides for every bilateral stretch pick', () => {
     for (let i = 0; i < 250; i++) {
       const ex = buildStretchBreakExercises(i * 0.019 + 0.003);
-      const hasL = ex.some((e) => e.id === 'stretch-toe-one-L');
-      const hasR = ex.some((e) => e.id === 'stretch-toe-one-R');
-      expect(hasL).toBe(hasR);
+      expect(workoutBilateralPairsComplete(ex)).toBe(true);
     }
   });
 });
@@ -196,14 +243,24 @@ describe('summarizeFocusLogs', () => {
       { id: 'f2', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 16, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 },
       { id: 'f3', type: 'pomodoro', completedAt: new Date(2026, 4, 13, 16, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 }
     ];
-    const totals = summarizeFocusLogs(logs, now);
+    const totals = summarizeFocusLogs(logs);
     expect(totals.totalDeepWork).toBe(1);
     expect(totals.totalPomodoros).toBe(2);
     expect(totals.totalFocusMinutes).toBe(140);
-    expect(totals.todayDeepWork).toBe(1);
-    expect(totals.todayPomodoros).toBe(1);
     expect(totals.weekly.length).toBeGreaterThanOrEqual(1);
     expect(totals.monthly.map((point) => point.bucket)).toEqual(['2026-05']);
+  });
+});
+
+describe('summarizeFocusToday', () => {
+  it('uses rollover hour for today counts', () => {
+    const now = new Date(2026, 4, 14, 2, 0, 0).getTime();
+    const logs: FocusLogEntry[] = [
+      { id: 'f1', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 1, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 },
+      { id: 'f2', type: 'pomodoro', completedAt: new Date(2026, 4, 13, 23, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 }
+    ];
+    expect(summarizeFocusToday(logs, now, 4).todayPomodoros).toBe(2);
+    expect(summarizeFocusToday(logs, now, 0).todayPomodoros).toBe(1);
   });
 });
 
@@ -242,10 +299,11 @@ describe('mergeWorkoutExercisesIntoTotals', () => {
 
 describe('formatExerciseRunAggLine', () => {
   it('formats reps and timed parts', () => {
-    expect(formatExerciseRunAggLine({ id: 'pushups', label: 'Push-ups', reps: 30, timedSeconds: 0 })).toBe('Push-ups · 30 pushups');
-    expect(formatExerciseRunAggLine({ id: 'jacks', label: 'Jumping jacks', reps: 30, timedSeconds: 0 })).toBe('Jumping jacks · 30 reps');
-    expect(formatExerciseRunAggLine({ id: 's', label: 'Shadow', reps: 0, timedSeconds: 90 })).toBe('Shadow · 90s');
-    expect(formatExerciseRunAggLine({ id: 'm', label: 'March', reps: 0, timedSeconds: 120 })).toBe('March · 2 min');
+    expect(formatExerciseRunAggLine({ id: 'pushups', label: 'Push-ups', reps: 30, timedSeconds: 0 })).toBe('Push-ups: 30');
+    expect(formatExerciseRunAggLine({ id: 'jacks', label: 'Jumping jacks', reps: 30, timedSeconds: 0 })).toBe('Jumping jacks: 30');
+    expect(formatExerciseRunAggLine({ id: 's', label: 'Shadow', reps: 0, timedSeconds: 90 })).toBe('Shadow: 90s');
+    expect(formatExerciseRunAggLine({ id: 'm', label: 'March', reps: 0, timedSeconds: 120 })).toBe('March: 2 min');
+    expect(formatExerciseRunAggLine({ id: 'pushups', label: 'Push-ups', reps: 0, timedSeconds: 0 })).toBe('Push-ups: 0');
   });
 });
 

@@ -6,12 +6,15 @@
 - Pomodoro sessions are 25 minutes of focus followed by a 5 minute break.
 - Deep Work sessions are 90 minutes of focus followed by a long break: 5 minutes of guided exercise then 10 minutes of relax (`SESSION_DURATIONS_MINUTES` in `src/lib/workoutPlanner.ts`, driven by `src/context/SessionContext.tsx`).
 - After each Pomodoro focus session, the break includes a short guided workout and a sit/stand switch reminder.
+- From idle, the Dashboard can start a standalone 5-minute exercise break (no prior focus block); mixed break workouts never repeat the same move id in one break.
+- Dashboard shows side-by-side **Today’s work** (pomodoros and deep work completed today) and **Today’s movement** (per-exercise totals including zeros, manual increment buttons). Underlying events live in `focus_log` and `workout_log`; “today” is computed with a configurable rollover hour (default 4:00 AM local, `stats_day_rollover_hour_v1` in Settings). Manual increments persist to `workout_log` as manual entries.
+- Asymmetric stretch picks (lateral shoulder, one-leg toe touch, standing quad) always schedule left and right in the same break.
 - Pomodoro sessions auto-schedule another Pomodoro session by default after the break.
 - Users can remove the following focus session or switch the next scheduled focus session between Pomodoro and Deep Work; a break is not labeled as a “session” in the UI.
 - During focus, users can convert Pomodoro ↔ Deep Work: remaining time is the target session length minus elapsed focus time (90 min for deep, 25 min for pomodoro); if deep focus already ran more than 25 minutes, switching to Pomodoro starts a full 25-minute block. Partial credit for the prior type applies if that focus phase ran ≥15 seconds.
 - Flows shorter than 15 seconds are omitted from the Dashboard Session totals card (live run counters and last-completed-flow summary); same 15-second threshold as phase logging (`src/lib/sessionProgress.ts`).
 - The app tracks and displays completed exercise totals for the current session and over long periods (weeks/months).
-- Stats tab shows only Weekly, Monthly, and All time rollups (`StatsPage.tsx`).
+- Stats tab shows only Weekly, Monthly, and All time rollups (`StatsPage.tsx`); period buckets use local calendar week/month. Dashboard **Today’s work** / **Today’s movement** use the user’s stats day rollover hour from Settings (not shown on Stats).
 
 ## Repository layout
 - `src/`: React UI, session engine, posture TypeScript (`src/posture/`), shared libs (`src/lib/`).
@@ -28,7 +31,7 @@
   - Tables in `mgmt.db`:
     - `posture_log` — posture samples (written from Rust `submit_posture_analysis`; read in Posture tab via `src/posture/postureLogDb.ts`).
     - `focus_log` / `workout_log` — completed focus sessions and break workouts for the Stats tab (`src/lib/sessionDb.ts`, `SessionContext`). Focus rows store partial credit when a focus phase ends early (`completion_ratio`). Phases shorter than 15 seconds are not logged. Stopping the flow during an exercise break does not create a workout row; a workout is logged only when the break timer finishes (≥15s in that break) or the user taps Complete Workout (≥15s in that break).
-    - `app_kv` — allowed workout ids, migration flags, last ended-flow summary, `active_flow_state_v1` (in-progress timer, chain counters, and break workout), and `posture_monitoring_enabled_v1` (posture tracking on/off; default on when unset).
+    - `app_kv` — allowed workout ids, migration flags, last ended-flow summary, `active_flow_state_v1` (in-progress timer, chain counters, and break workout), `posture_monitoring_enabled_v1` (posture tracking on/off; default on when unset), and `stats_day_rollover_hour_v1` (local hour when “today” stats reset; default 4).
 - Before session tables existed, focus/workout stats used browser `localStorage` only (not the posture SQLite file). Legacy keys are imported into SQLite when present; `localStorage` is not used for stats anymore.
 - Posture charts also keep a short in-memory buffer in `PostureSessionContext` for the current monitoring session only; long-term posture stats come from `posture_log`.
 - Posture calibration image path is stored with `tauri_plugin_store` in `.settings.dat` from `src/components/PosturePage.tsx`; baseline metrics use `localStorage` key `mgmt_posture_baseline_v1`.
@@ -52,7 +55,7 @@ flowchart TB
     PL["PosturePipeline src/components/PosturePipeline.tsx"]
   end
   subgraph tabs["Active tab component src/components/"]
-    D["Dashboard.tsx timer chain desk posture toggle"]
+    D["Dashboard.tsx timer chain desk posture today totals manual increment standalone exercise break"]
     PPg["PosturePage.tsx live score charts history export"]
     CW["CustomizeWorkoutPage.tsx allowlist switches"]
     ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]

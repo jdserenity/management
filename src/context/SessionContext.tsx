@@ -8,15 +8,22 @@ import {
   useState,
   type ReactNode
 } from 'react';
+import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary';
+import { loadDayRolloverHourPref, saveDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import {
+  buildManualExerciseLogEntry,
   DEFAULT_ALLOWED_WORKOUT_IDS,
   mergeWorkoutExercisesIntoTotals,
   pickWorkoutForBreak,
   resolveAllowedWorkoutIds,
   sumExerciseVolume,
+  summarizeFocusToday,
+  summarizeTodayExerciseTotals,
   SESSION_DURATIONS_MINUTES,
+  type ExerciseDefinition,
   type ExerciseRunAgg,
   type FocusLogEntry,
+  type FocusTodayTotals,
   type SessionType,
   type WorkoutDefinition,
   type WorkoutLogEntry
@@ -81,11 +88,17 @@ interface SessionContextValue {
   workoutLogs: WorkoutLogEntry[];
   focusLogs: FocusLogEntry[];
   lastSummary: LastFlowSummary | null;
+  todayExerciseTotals: Record<string, ExerciseRunAgg>;
+  focusToday: FocusTodayTotals;
+  dayRolloverHour: number;
+  setDayRolloverHour: (hour: number) => void;
   startFlow: (sessionType: SessionType) => void;
   convertFlowToDeepWork: () => void;
   convertFlowToPomodoro: () => void;
+  startExerciseBreak: () => void;
   finishFlow: () => void;
   handleWorkoutCompletion: () => void;
+  addManualExercise: (exercise: ExerciseDefinition) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   updateBreakExerciseAmount: (index: number, amount: number) => void;
   pomodoroPosture: DeskPosture;
@@ -111,6 +124,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLogEntry[]>([]);
   const [focusLogs, setFocusLogs] = useState<FocusLogEntry[]>([]);
   const [sessionStorageReady, setSessionStorageReady] = useState(false);
+  const [dayRolloverHour, setDayRolloverHourState] = useState(DEFAULT_DAY_ROLLOVER_HOUR);
+  const [statsDayWindowStart, setStatsDayWindowStart] = useState(() => getStatsDayWindow().startTs);
   const [runExerciseTotals, setRunExerciseTotals] = useState<Record<string, ExerciseRunAgg>>(() => emptyExerciseTotals());
   const [runPomodoros, setRunPomodoros] = useState(0);
   const [runDeepWork, setRunDeepWork] = useState(0);
@@ -314,6 +329,31 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     phaseStartedAtMsRef.current = 0;
   }, [applyExerciseTotals]);
 
+  const startExerciseBreak = useCallback(() => {
+    const empty = emptyExerciseTotals();
+    const startedAt = Date.now();
+    setRunStartedAt(startedAt);
+    runStartedAtRef.current = startedAt;
+    setLastSummary(null);
+    setPhase('break');
+    setBreakVariant('short');
+    setLongBreakStage(null);
+    setActiveSessionType(null);
+    setNextSessionType(null);
+    setActiveWorkout(pickWorkoutForBreak(allowedWorkoutIdsRef.current));
+    setWorkoutLogged(false);
+    workoutLoggedRef.current = false;
+    applyExerciseTotals(empty);
+    runPomodorosRef.current = 0;
+    runDeepWorkRef.current = 0;
+    setRunPomodoros(0);
+    setRunDeepWork(0);
+    markPhaseStarted();
+    const secs = SESSION_DURATIONS_MINUTES.break * 60;
+    setPhaseTimer(secs, secs);
+    schedulePersistFlow();
+  }, [applyExerciseTotals, markPhaseStarted, setPhaseTimer, schedulePersistFlow]);
+
   const startFlow = useCallback(
     (sessionType: SessionType) => {
       const empty = emptyExerciseTotals();
@@ -392,6 +432,33 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     }
     resetToIdle();
   }, [recordFocusSession, resetToIdle]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadDayRolloverHourPref()
+      .then((hour) => {
+        if (!cancelled) {
+          setDayRolloverHourState(hour);
+          setStatsDayWindowStart(getStatsDayWindow(Date.now(), hour).startTs);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load day rollover hour:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const tick = () => {
+      const { startTs } = getStatsDayWindow(Date.now(), dayRolloverHour);
+      setStatsDayWindowStart((prev) => (prev === startTs ? prev : startTs));
+    };
+    tick();
+    const id = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(id);
+  }, [dayRolloverHour]);
 
   useEffect(() => {
     let cancelled = false;
@@ -537,6 +604,41 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     logActiveWorkoutIfNeeded(1);
   }, [logActiveWorkoutIfNeeded]);
 
+  const addManualExercise = useCallback(
+    (exercise: ExerciseDefinition) => {
+      const entry = buildManualExerciseLogEntry(exercise, createId('workout'));
+      setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
+      void persistWorkoutLog(entry).catch((error) => {
+        console.error('Failed to persist manual exercise:', error);
+      });
+      if (phaseRef.current !== 'idle') {
+        applyExerciseTotals(mergeWorkoutExercisesIntoTotals(runExerciseTotalsRef.current, [exercise]));
+      }
+    },
+    [applyExerciseTotals]
+  );
+
+  const setDayRolloverHour = useCallback((hour: number) => {
+    void saveDayRolloverHourPref(hour)
+      .then((saved) => {
+        setDayRolloverHourState(saved);
+        setStatsDayWindowStart(getStatsDayWindow(Date.now(), saved).startTs);
+      })
+      .catch((error) => {
+        console.error('Failed to save day rollover hour:', error);
+      });
+  }, []);
+
+  const todayExerciseTotals = useMemo(
+    () => summarizeTodayExerciseTotals(workoutLogs, Date.now(), dayRolloverHour),
+    [workoutLogs, dayRolloverHour, statsDayWindowStart]
+  );
+
+  const focusToday = useMemo(
+    () => summarizeFocusToday(focusLogs, Date.now(), dayRolloverHour),
+    [focusLogs, dayRolloverHour, statsDayWindowStart]
+  );
+
   const handleAllowedWorkoutToggle = useCallback((workoutId: string, enabled: boolean) => {
     setAllowedWorkoutIds((current) => {
       if (enabled) return resolveAllowedWorkoutIds([...new Set([...current, workoutId])]);
@@ -602,11 +704,17 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       workoutLogs,
       focusLogs,
       lastSummary,
+      todayExerciseTotals,
+      focusToday,
+      dayRolloverHour,
+      setDayRolloverHour,
       startFlow,
       convertFlowToDeepWork,
       convertFlowToPomodoro,
+      startExerciseBreak,
       finishFlow,
       handleWorkoutCompletion,
+      addManualExercise,
       handleAllowedWorkoutToggle,
       updateBreakExerciseAmount,
       pomodoroPosture,
@@ -631,17 +739,24 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       workoutLogs,
       focusLogs,
       lastSummary,
+      todayExerciseTotals,
+      focusToday,
+      dayRolloverHour,
+      setDayRolloverHour,
       startFlow,
       convertFlowToDeepWork,
       convertFlowToPomodoro,
+      startExerciseBreak,
       finishFlow,
       handleWorkoutCompletion,
+      addManualExercise,
       handleAllowedWorkoutToggle,
       updateBreakExerciseAmount,
       pomodoroPosture,
       focusDeskPosture,
       nextDeskPostureIfPomodoro,
-      togglePomodoroDeskPosture
+      togglePomodoroDeskPosture,
+      statsDayWindowStart
     ]
   );
 

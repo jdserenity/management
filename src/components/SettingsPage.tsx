@@ -12,6 +12,8 @@ import { check } from '@tauri-apps/plugin-updater';
 import { useTheme } from 'next-themes';
 
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
+import { formatDayRolloverHourLabel } from '@/lib/dayBoundary';
+import { useSession } from '@/context/SessionContext';
 
 const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
 const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
@@ -440,6 +442,41 @@ const UpdateSettings = () => {
     );
 };
 
+const StatsDaySettings = () => {
+    const { t } = useTranslation();
+    const { dayRolloverHour, setDayRolloverHour } = useSession();
+    const hourOptions = Array.from({ length: 24 }, (_, hour) => ({
+        value: String(hour),
+        label: formatDayRolloverHourLabel(hour)
+    }));
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('settings.statsDayTitle', 'Stats day')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.statsDayRollover', 'Day starts at')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t('settings.statsDayRolloverDesc', 'Today’s work and movement totals reset at this time (default 4:00 AM).')}
+                        </p>
+                    </div>
+                    <Select value={String(dayRolloverHour)} onValueChange={(v) => setDayRolloverHour(Number(v))}>
+                        <SelectTrigger className="w-[250px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {hourOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 const ThemeSettings = () => {
     const { t } = useTranslation();
     const { theme, setTheme } = useTheme();
@@ -509,6 +546,7 @@ const SettingsPage = () => {
     return (
         <div className="space-y-6 p-4 md:p-6">
             <ThemeSettings />
+            <StatsDaySettings />
             <DetectionSettings />
             <CameraSettings />
             <NotificationSettings />
