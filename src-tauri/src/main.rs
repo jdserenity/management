@@ -709,19 +709,6 @@ pub fn run() {
                 ],
             ).build())
         .setup(|app| {
-            if let Ok(config_dir) = app.path().app_config_dir() {
-                let legacy_db = config_dir.join("posture_data.db");
-                let mgmt_db = config_dir.join("mgmt.db");
-                if legacy_db.exists() {
-                    if mgmt_db.exists() {
-                        let _ = fs::remove_file(&mgmt_db);
-                    }
-                    match fs::copy(&legacy_db, &mgmt_db) {
-                        Ok(_) => info!("Copied legacy posture_data.db to mgmt.db"),
-                        Err(e) => error!("Failed to copy posture_data.db to mgmt.db: {}", e),
-                    }
-                }
-            }
             let quit = PredefinedMenuItem::quit(app, Some("Quit Management"))?;
             let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>)?;
             let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>)?;
