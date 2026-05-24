@@ -14,9 +14,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{
   image::Image,
-  menu::{Menu, MenuItem, PredefinedMenuItem},
   path::{BaseDirectory, PathResolver},
-  tray::{TrayIcon, TrayIconBuilder},
+  tray::TrayIcon,
   AppHandle,
   Emitter,
   Manager,
@@ -36,6 +35,7 @@ use sqlx;
 use tauri_plugin_log::{Target, TargetKind};
 use tauri_plugin_sql::{DbInstances, Migration, MigrationKind};
 
+mod app_presence;
 mod camera_capture;
 mod camera_watch;
 mod posture_bridge;
@@ -115,6 +115,7 @@ pub(crate) struct AppState {
     translations: Arc<Translations>,
     current_language: Arc<Mutex<String>>,
     battery_saving_mode: Arc<Mutex<bool>>,
+    menu_bar_only: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
 }
 
@@ -488,6 +489,20 @@ async fn set_current_language(state: State<'_, AppState>, lang: String) -> Resul
 }
 
 #[tauri::command]
+fn set_app_presence_mode(app: AppHandle, state: State<'_, AppState>, mode: String) -> Result<(), String> {
+    app_presence::apply_app_presence_mode(&app, &state, &mode)
+}
+
+#[tauri::command]
+fn get_app_presence_mode(state: State<'_, AppState>) -> Result<String, String> {
+    Ok(if app_presence::menu_bar_only_from_state(&state) {
+        app_presence::MODE_MENU_BAR.to_string()
+    } else {
+        app_presence::MODE_DOCK.to_string()
+    })
+}
+
+#[tauri::command]
 async fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
     info!("Application restart requested");
     if let Ok(exe_path) = std::env::current_exe() {
@@ -709,14 +724,8 @@ pub fn run() {
                 ],
             ).build())
         .setup(|app| {
-            let quit = PredefinedMenuItem::quit(app, Some("Quit Management"))?;
-            let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>)?;
-            let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>)?;
-            let stop_monitoring_item = MenuItem::with_id(app, "stop_monitoring", "Stop Monitoring", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&start_monitoring_item, &stop_monitoring_item, &PredefinedMenuItem::separator(app)?, &show, &quit])?;
-
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            app.set_activation_policy(tauri::ActivationPolicy::Regular);
             #[cfg(desktop)]
             {
                 use tauri_plugin_autostart::ManagerExt;
@@ -743,6 +752,7 @@ pub fn run() {
                 translations: translations,
                 current_language: Arc::new(Mutex::new("en".to_string())),
                 battery_saving_mode: Arc::new(Mutex::new(false)),
+                menu_bar_only: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
             };
             app.manage(app_state.clone());
@@ -762,77 +772,16 @@ pub fn run() {
             });
 
             info!("Posture analysis runs in the webview; Rust captures preview frames only.");
-            let default_icon = app
-                .default_window_icon()
-                .cloned()
-                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "기본 창 아이콘을 찾을 수 없습니다."))?;
-
-            let tray = TrayIconBuilder::new()
-                .icon(default_icon)
-                .tooltip("Management")
-                .menu(&menu)
-                .on_menu_event(move |app, event| {
-                    let state = app.state::<AppState>();
-                    match event.id.as_ref() {
-                        "quit" => app.exit(0),
-                        "show" => if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.unminimize();
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        },
-                        "start_monitoring" => {
-                            info!("'Start Monitoring' clicked");
-                            *lock_or_recover(&state.monitoring_active) = true;
-                            *lock_or_recover(&state.camera_yield_paused) = false;
-                            *lock_or_recover(&state.force_capture_now) = true;
-                            if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
-                                if let Some(default_icon) = app.default_window_icon() {
-                                    if let Err(e) = tray.set_icon(Some(default_icon.clone())) {
-                                        error!("Failed to update tray icon: {}", e);
-                                    }
-                                } else {
-                                    warn!("Default window icon not found; skipping tray icon update.");
-                                }
-                            }
-                            let _ = app.emit("monitoring-state-changed", &serde_json::json!({ "active": true }));
-                        }
-                        "stop_monitoring" => {
-                            info!("'Stop Monitoring' clicked");
-                            *lock_or_recover(&state.monitoring_active) = false;
-                            *lock_or_recover(&state.force_capture_now) = false;
-                            *lock_or_recover(&state.camera_yield_paused) = false;
-                            release_camera(&state, "tray stop_monitoring action");
-                            if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
-                                if let Ok(monitoring_off_icon_path) = app.path().resolve("icons/monitoring_off.png", BaseDirectory::Resource) {
-                                    if let Ok(bytes) = fs::read(&monitoring_off_icon_path) {
-                                        if let Ok(monitoring_off_icon) = Image::from_bytes(&bytes) {
-                                            if let Err(e) = tray.set_icon(Some(monitoring_off_icon)) {
-                                                error!("Failed to update tray icon: {}", e);
-                                            }
-                                        } else {
-                                            error!("Failed to create icon image");
-                                        }
-                                    } else {
-                                        error!("Failed to read icon file");
-                                    }
-                                } else {
-                                    error!("Failed to resolve icon path");
-                                }
-                            }
-                            let _ = app.emit("monitoring-state-changed", &serde_json::json!({ "active": false }));
-                        }
-                        _ => {}
-                    }
-                })
-                .build(app)?;
-            *lock_or_recover(&app_state.tray) = Some(tray);
             info!("Management application initialized");
             Ok(())
         })
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
-                api.prevent_close();
-                let _ = window.hide();
+                let state = window.state::<AppState>();
+                if app_presence::menu_bar_only_from_state(&state) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
             tauri::WindowEvent::Destroyed => {
                 let state = window.state::<AppState>();
@@ -858,6 +807,8 @@ pub fn run() {
             set_monitoring_interval,
             set_current_language,
             set_battery_saving_mode,
+            set_app_presence_mode,
+            get_app_presence_mode,
             restart_app
         ])
         .run(tauri::generate_context!());

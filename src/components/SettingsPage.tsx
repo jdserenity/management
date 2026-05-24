@@ -14,6 +14,11 @@ import { useTheme } from 'next-themes';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
 import { formatDayRolloverHourLabel } from '@/lib/dayBoundary';
 import { useSession } from '@/context/SessionContext';
+import {
+  getAppPresenceModePref,
+  setAppPresenceModePref,
+  type AppPresenceMode,
+} from '@/lib/appPresencePref';
 
 const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
 const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
@@ -477,6 +482,59 @@ const StatsDaySettings = () => {
     );
 };
 
+const AppPresenceSettings = () => {
+    const { t } = useTranslation();
+    const [menuBarOnly, setMenuBarOnly] = useState(false);
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        getAppPresenceModePref()
+            .then((mode) => {
+                setMenuBarOnly(mode === 'menu_bar');
+                setLoaded(true);
+            })
+            .catch(console.error);
+    }, []);
+
+    const applyMode = useCallback(async (mode: AppPresenceMode) => {
+        await setAppPresenceModePref(mode);
+        await invoke('set_app_presence_mode', { mode });
+    }, []);
+
+    const handleToggle = (checked: boolean) => {
+        const mode: AppPresenceMode = checked ? 'menu_bar' : 'dock';
+        setMenuBarOnly(checked);
+        applyMode(mode).catch(console.error);
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('settings.appPresenceTitle', 'App icon location')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.menuBarOnly', 'Menu bar only')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t(
+                                'settings.menuBarOnlyDesc',
+                                'Off: Management appears in the Dock and App Switcher (normal app). On: icon stays in the menu bar; closing the window hides the app instead of quitting.'
+                            )}
+                        </p>
+                    </div>
+                    <Switch
+                        checked={menuBarOnly}
+                        onCheckedChange={handleToggle}
+                        disabled={!loaded}
+                        aria-label={t('settings.menuBarOnly', 'Menu bar only')}
+                    />
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 const ThemeSettings = () => {
     const { t } = useTranslation();
     const { theme, setTheme } = useTheme();
@@ -545,6 +603,7 @@ const NotificationSettings = () => {
 const SettingsPage = () => {
     return (
         <div className="space-y-6 p-4 md:p-6">
+            <AppPresenceSettings />
             <ThemeSettings />
             <StatsDaySettings />
             <DetectionSettings />
