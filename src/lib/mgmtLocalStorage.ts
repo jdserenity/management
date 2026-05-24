@@ -10,4 +10,5 @@ export const MGMT_LS = {
   shoulderSensitivity: 'mgmt_shoulder_sensitivity',
   monitoringInterval: 'mgmt_monitoring_interval',
   poorPostureThreshold: 'mgmt_poor_posture_threshold',
+  postureMonitoringEnabled: 'mgmt_posture_monitoring_enabled',
 } as const;
