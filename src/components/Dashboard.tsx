@@ -14,6 +14,7 @@ import {
   type ExerciseUnit,
   type SessionType
 } from '@/lib/workoutPlanner';
+import { canConvertFocusSession, isFlowLongEnoughToDisplay } from '@/lib/sessionProgress';
 
 const Dashboard = () => {
   const {
@@ -29,8 +30,11 @@ const Dashboard = () => {
     runExerciseTotals,
     runPomodoros,
     runDeepWork,
+    runStartedAt,
     lastSummary,
     startFlow,
+    convertFlowToDeepWork,
+    convertFlowToPomodoro,
     finishFlow,
     handleWorkoutCompletion,
     updateBreakExerciseAmount,
@@ -140,6 +144,19 @@ const Dashboard = () => {
   const nextEmoji = (t: SessionType) => (t === 'pomodoro' ? '🍅' : '🎯');
   const nextTitle = (t: SessionType) => (t === 'pomodoro' ? 'Pomodoro' : 'Deep work');
 
+  const showCurrentFlowTotals = useMemo(() => {
+    if (phase === 'idle' || runStartedAt === null) return false;
+    return isFlowLongEnoughToDisplay(runStartedAt);
+  }, [phase, runStartedAt, remainingSeconds]);
+
+  const displayLastSummary = useMemo(
+    () => lastSummary !== null && isFlowLongEnoughToDisplay(lastSummary.startedAt, lastSummary.endedAt),
+    [lastSummary]
+  );
+
+  const showConvertToDeepWork = canConvertFocusSession(phase, activeSessionType, 'deep');
+  const showConvertToPomodoro = canConvertFocusSession(phase, activeSessionType, 'pomodoro');
+
   return (
     <div className="space-y-6">
       <Card>
@@ -162,7 +179,17 @@ const Dashboard = () => {
                       Swap
                     </Button>
                   )}
-                  {activeSessionType === 'deep' && <span className="text-xs text-muted-foreground">· deep work</span>}
+                  {showConvertToDeepWork && (
+                    <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs shrink-0" onClick={convertFlowToDeepWork} aria-label="Switch this focus block to deep work">
+                      🎯 Deep work
+                    </Button>
+                  )}
+                  {showConvertToPomodoro && (
+                    <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs shrink-0" onClick={convertFlowToPomodoro} aria-label="Switch this focus block to pomodoro">
+                      🍅 Pomodoro
+                    </Button>
+                  )}
+                  {activeSessionType === 'deep' && !showConvertToPomodoro && <span className="text-xs text-muted-foreground">· deep work</span>}
                 </div>
               )}
             </div>
@@ -302,7 +329,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          {(phase !== 'idle' || lastSummary) && (
+          {(showCurrentFlowTotals || displayLastSummary) && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -311,10 +338,10 @@ const Dashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {phase !== 'idle' && (
+                {showCurrentFlowTotals && (
                   <p className="text-xs text-muted-foreground">🍅 {runPomodoros} · 🎯 {runDeepWork}</p>
                 )}
-                {phase !== 'idle' && (
+                {showCurrentFlowTotals && (
                   <div className="space-y-2">
                     {exerciseLines.length === 0 ? (
                       <p className="text-sm text-muted-foreground">—</p>
@@ -327,8 +354,8 @@ const Dashboard = () => {
                     )}
                   </div>
                 )}
-                {phase !== 'idle' && lastSummary && <Separator />}
-                {lastSummary && (
+                {showCurrentFlowTotals && displayLastSummary && <Separator />}
+                {displayLastSummary && lastSummary && (
                   <div className="space-y-2 text-sm">
                     <p className="font-medium">Last completed flow</p>
                     <p className="text-muted-foreground text-xs">

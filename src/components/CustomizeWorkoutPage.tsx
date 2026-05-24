@@ -12,7 +12,7 @@ const CustomizeWorkoutPage = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TimerReset className="h-5 w-5 text-violet-600" />
-          Customize workout
+          Customize workouts
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Exercise breaks build a random ~2–3 minute circuit from the moves you enable (repeats allowed).

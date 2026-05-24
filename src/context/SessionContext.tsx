@@ -30,9 +30,14 @@ import {
   isResumableFlow
 } from '@/lib/flowState';
 import {
+  canConvertFocusSession,
   computeCompletionRatio,
   creditFocusMinutes,
+  focusElapsedSeconds,
+  isFlowLongEnoughToDisplay,
   isPhaseLongEnoughToLog,
+  remainingSecondsWhenConvertingToDeep,
+  remainingSecondsWhenConvertingToPomodoro,
   scaleExercisesByRatio
 } from '@/lib/sessionProgress';
 import {
@@ -71,11 +76,14 @@ interface SessionContextValue {
   runExerciseTotals: Record<string, ExerciseRunAgg>;
   runPomodoros: number;
   runDeepWork: number;
+  runStartedAt: number | null;
   allowedWorkoutIds: string[];
   workoutLogs: WorkoutLogEntry[];
   focusLogs: FocusLogEntry[];
   lastSummary: LastFlowSummary | null;
   startFlow: (sessionType: SessionType) => void;
+  convertFlowToDeepWork: () => void;
+  convertFlowToPomodoro: () => void;
   finishFlow: () => void;
   handleWorkoutCompletion: () => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
@@ -336,6 +344,32 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     [applyExerciseTotals, markPhaseStarted, setPhaseTimer, schedulePersistFlow]
   );
 
+  const convertFocusSession = useCallback(
+    (target: SessionType) => {
+      const current = activeSessionTypeRef.current;
+      if (!canConvertFocusSession(phaseRef.current, current, target)) return;
+      const elapsed = focusElapsedSeconds(phasePlannedSecondsRef.current, remainingSecondsRef.current);
+      const ratio = computeCompletionRatio(phasePlannedSecondsRef.current, remainingSecondsRef.current);
+      recordFocusSession(current!, ratio);
+      const planned = SESSION_DURATIONS_MINUTES[target] * 60;
+      const remaining =
+        target === 'deep' ? remainingSecondsWhenConvertingToDeep(elapsed) : remainingSecondsWhenConvertingToPomodoro(elapsed);
+      setActiveSessionType(target);
+      setNextSessionType('pomodoro');
+      if (target === 'pomodoro') {
+        const prev = lastPomodoroPostureRef.current;
+        setPomodoroPosture(prev === null ? 'sitting' : prev === 'sitting' ? 'standing' : 'sitting');
+      }
+      markPhaseStarted();
+      setPhaseTimer(remaining, planned);
+      schedulePersistFlow();
+    },
+    [recordFocusSession, markPhaseStarted, setPhaseTimer, schedulePersistFlow]
+  );
+
+  const convertFlowToDeepWork = useCallback(() => convertFocusSession('deep'), [convertFocusSession]);
+  const convertFlowToPomodoro = useCallback(() => convertFocusSession('pomodoro'), [convertFocusSession]);
+
   const finishFlow = useCallback(() => {
     if (phaseRef.current === 'focus' && activeSessionTypeRef.current) {
       const ratio = computeCompletionRatio(phasePlannedSecondsRef.current, remainingSecondsRef.current);
@@ -343,7 +377,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     }
     // Stopping during a break does not log a workout (no scaled partial credit).
     const finishedAt = Date.now();
-    if (runStartedAtRef.current !== null) {
+    if (runStartedAtRef.current !== null && isFlowLongEnoughToDisplay(runStartedAtRef.current, finishedAt)) {
       const summary: LastFlowSummary = {
         startedAt: runStartedAtRef.current,
         endedAt: finishedAt,
@@ -563,11 +597,14 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       runExerciseTotals,
       runPomodoros,
       runDeepWork,
+      runStartedAt,
       allowedWorkoutIds,
       workoutLogs,
       focusLogs,
       lastSummary,
       startFlow,
+      convertFlowToDeepWork,
+      convertFlowToPomodoro,
       finishFlow,
       handleWorkoutCompletion,
       handleAllowedWorkoutToggle,
@@ -589,11 +626,14 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       runExerciseTotals,
       runPomodoros,
       runDeepWork,
+      runStartedAt,
       allowedWorkoutIds,
       workoutLogs,
       focusLogs,
       lastSummary,
       startFlow,
+      convertFlowToDeepWork,
+      convertFlowToPomodoro,
       finishFlow,
       handleWorkoutCompletion,
       handleAllowedWorkoutToggle,

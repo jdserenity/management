@@ -6,6 +6,7 @@ import {
   STRETCH_DEFAULT_SECONDS,
   countTodayDeepWorkSessions,
   countTodayPomodoroSessions,
+  mergePeriodStats,
   summarizeFocusLogs,
   estimateExerciseLoadSeconds,
   exerciseRepsPart,
@@ -169,10 +170,6 @@ describe('summarizeWorkoutLogs', () => {
     expect(totals.totalReps).toBe(45);
     expect(totals.totalTimedSeconds).toBe(180);
     expect(totals.totalWorkouts).toBe(3);
-    expect(totals.last7DaysReps).toBe(30);
-    expect(totals.last7DaysTimedSeconds).toBe(60);
-    expect(totals.last30DaysReps).toBe(30);
-    expect(totals.last30DaysTimedSeconds).toBe(60);
     expect(totals.weekly.length).toBeGreaterThanOrEqual(2);
     expect(totals.monthly.map((point) => point.bucket)).toEqual(['2026-04', '2026-05']);
   });
@@ -205,7 +202,8 @@ describe('summarizeFocusLogs', () => {
     expect(totals.totalFocusMinutes).toBe(140);
     expect(totals.todayDeepWork).toBe(1);
     expect(totals.todayPomodoros).toBe(1);
-    expect(totals.last7DaysPomodoros).toBe(2);
+    expect(totals.weekly.length).toBeGreaterThanOrEqual(1);
+    expect(totals.monthly.map((point) => point.bucket)).toEqual(['2026-05']);
   });
 });
 
@@ -217,6 +215,19 @@ describe('countTodayPomodoroSessions', () => {
       { id: 'f2', type: 'pomodoro', completedAt: new Date(2026, 4, 13, 8, 0, 0).getTime(), durationMinutes: 25, plannedDurationMinutes: 25, completionRatio: 1 }
     ];
     expect(countTodayPomodoroSessions(logs, now)).toBe(1);
+  });
+});
+
+describe('mergePeriodStats', () => {
+  it('merges workout and focus buckets by period key', () => {
+    const merged = mergePeriodStats(
+      [{ bucket: '2026-05-12', reps: 10, timedSeconds: 30, workouts: 1 }],
+      [{ bucket: '2026-05-12', pomodoros: 2, deepWork: 1, focusMinutes: 50 }]
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.reps).toBe(10);
+    expect(merged[0]?.pomodoros).toBe(2);
+    expect(merged[0]?.focusMinutes).toBe(50);
   });
 });
 

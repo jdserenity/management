@@ -27,7 +27,7 @@ type NavItem = {
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, component: Dashboard },
   { id: 'posture', label: 'Posture', icon: Camera, component: PosturePage },
-  { id: 'customize', label: 'Customize workout', icon: SlidersHorizontal, component: CustomizeWorkoutPage },
+  { id: 'customize', label: 'Customize workouts', icon: SlidersHorizontal, component: CustomizeWorkoutPage },
   { id: 'stats', label: 'Stats', icon: BarChart3, component: StatsPage },
   { id: 'settings', label: 'Settings', icon: Settings, component: SettingsPage },
 ];

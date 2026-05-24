@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
 import {
-  countTodayDeepWorkSessions,
-  countTodayPomodoroSessions,
+  mergePeriodStats,
   summarizeFocusLogs,
-  summarizeWorkoutLogs
+  summarizeWorkoutLogs,
+  type PeriodStatsPoint
 } from '@/lib/workoutPlanner';
 
 const timedMinutesLabel = (seconds: number) => {
@@ -21,98 +21,73 @@ const focusMinutesLabel = (minutes: number) => {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 };
 
+const periodLine = (point: PeriodStatsPoint) =>
+  `🍅 ${point.pomodoros} · 🎯 ${point.deepWork} · ⏳ ${focusMinutesLabel(point.focusMinutes)} · 📊 ${point.reps} reps · ⏱️ ${timedMinutesLabel(point.timedSeconds)} · 🏋️ ${point.workouts}`;
+
+const PeriodBucketList = ({ points }: { points: PeriodStatsPoint[] }) => (
+  <div className="space-y-2">
+    {points.length === 0 && <p className="text-sm text-muted-foreground">—</p>}
+    {points.map((point) => (
+      <div key={point.bucket} className="flex flex-col gap-1 rounded-md border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <span className="font-medium">{point.bucket}</span>
+        <span className="text-muted-foreground tabular-nums sm:text-right">{periodLine(point)}</span>
+      </div>
+    ))}
+  </div>
+);
+
 const StatsPage = () => {
   const { workoutLogs, focusLogs } = useSession();
-  const cumulativeWorkoutStats = useMemo(() => summarizeWorkoutLogs(workoutLogs), [workoutLogs]);
+  const workoutStats = useMemo(() => summarizeWorkoutLogs(workoutLogs), [workoutLogs]);
   const focusStats = useMemo(() => summarizeFocusLogs(focusLogs), [focusLogs]);
-  const deepWorkToday = useMemo(() => countTodayDeepWorkSessions(focusLogs), [focusLogs]);
-  const pomodorosToday = useMemo(() => countTodayPomodoroSessions(focusLogs), [focusLogs]);
+  const weekly = useMemo(() => mergePeriodStats(workoutStats.weekly, focusStats.weekly), [workoutStats.weekly, focusStats.weekly]);
+  const monthly = useMemo(() => mergePeriodStats(workoutStats.monthly, focusStats.monthly), [workoutStats.monthly, focusStats.monthly]);
+
+  const allTime: PeriodStatsPoint = {
+    bucket: 'All time',
+    pomodoros: focusStats.totalPomodoros,
+    deepWork: focusStats.totalDeepWork,
+    focusMinutes: focusStats.totalFocusMinutes,
+    reps: workoutStats.totalReps,
+    timedSeconds: workoutStats.totalTimedSeconds,
+    workouts: workoutStats.totalWorkouts
+  };
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🍅 Pomodoros (all time)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{focusStats.totalPomodoros}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🎯 Deep work (all time)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{focusStats.totalDeepWork}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">⏳ Focus time (all time)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{focusMinutesLabel(focusStats.totalFocusMinutes)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🍅 Pomodoros today</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{pomodorosToday}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🎯 Deep work today</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{deepWorkToday}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">📊 Total reps</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{cumulativeWorkoutStats.totalReps}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">⏱️ Timed (all time)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{timedMinutesLabel(cumulativeWorkoutStats.totalTimedSeconds)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🏋️ Total workouts</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{cumulativeWorkoutStats.totalWorkouts}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">📅 Reps (7d)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{cumulativeWorkoutStats.last7DaysReps}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">⏱️ Timed (7d)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{timedMinutesLabel(cumulativeWorkoutStats.last7DaysTimedSeconds)}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🍅 Pomodoros (7d)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{focusStats.last7DaysPomodoros}</p></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">🎯 Deep work (7d)</CardTitle></CardHeader>
-          <CardContent><p className="text-2xl font-bold">{focusStats.last7DaysDeepWork}</p></CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-indigo-600" />
+            📅 Weekly
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PeriodBucketList points={weekly} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-indigo-600" />
-            📈 Weekly & monthly workouts
+            <BarChart3 className="h-5 w-5 text-violet-600" />
+            🗓️ Monthly
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <p className="font-medium mb-2">Weekly</p>
-            <div className="space-y-2">
-              {cumulativeWorkoutStats.weekly.length === 0 && <p className="text-sm text-muted-foreground">—</p>}
-              {cumulativeWorkoutStats.weekly.map((point) => (
-                <div key={point.bucket} className="flex items-center justify-between text-sm rounded-md border px-3 py-2 gap-2">
-                  <span>{point.bucket}</span>
-                  <span className="text-right tabular-nums">{point.reps} reps · {timedMinutesLabel(point.timedSeconds)} · {point.workouts} workouts</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="font-medium mb-2">Monthly</p>
-            <div className="space-y-2">
-              {cumulativeWorkoutStats.monthly.length === 0 && <p className="text-sm text-muted-foreground">—</p>}
-              {cumulativeWorkoutStats.monthly.map((point) => (
-                <div key={point.bucket} className="flex items-center justify-between text-sm rounded-md border px-3 py-2 gap-2">
-                  <span>{point.bucket}</span>
-                  <span className="text-right tabular-nums">{point.reps} reps · {timedMinutesLabel(point.timedSeconds)} · {point.workouts} workouts</span>
-                </div>
-              ))}
-            </div>
-          </div>
+        <CardContent>
+          <PeriodBucketList points={monthly} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-blue-600" />
+            ♾️ All time
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border px-3 py-3 text-sm font-medium tabular-nums">{periodLine(allTime)}</div>
         </CardContent>
       </Card>
     </div>

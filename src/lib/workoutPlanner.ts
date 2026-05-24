@@ -65,12 +65,25 @@ export interface WorkoutTotals {
   totalReps: number;
   totalTimedSeconds: number;
   totalWorkouts: number;
-  last7DaysReps: number;
-  last7DaysTimedSeconds: number;
-  last30DaysReps: number;
-  last30DaysTimedSeconds: number;
   weekly: TimeSeriesPoint[];
   monthly: TimeSeriesPoint[];
+}
+
+export interface FocusTimeSeriesPoint {
+  bucket: string;
+  pomodoros: number;
+  deepWork: number;
+  focusMinutes: number;
+}
+
+export interface PeriodStatsPoint {
+  bucket: string;
+  pomodoros: number;
+  deepWork: number;
+  focusMinutes: number;
+  reps: number;
+  timedSeconds: number;
+  workouts: number;
 }
 
 export const SESSION_DURATIONS_MINUTES = {
@@ -347,25 +360,13 @@ const logTimedSeconds = (log: WorkoutLogEntry): number => {
 };
 
 export const summarizeWorkoutLogs = (logs: WorkoutLogEntry[], nowTimestamp: number = Date.now()): WorkoutTotals => {
-  const now = new Date(nowTimestamp); now.setHours(0, 0, 0, 0);
-  const todayStart = now.getTime();
-  const sevenDayStart = todayStart - (6 * DAY_MS);
-  const thirtyDayStart = todayStart - (29 * DAY_MS);
-  let totalReps = 0; let totalTimedSeconds = 0; let last7DaysReps = 0; let last7DaysTimedSeconds = 0; let last30DaysReps = 0; let last30DaysTimedSeconds = 0;
+  let totalReps = 0; let totalTimedSeconds = 0;
   const weeklyMap = new Map<string, TimeSeriesPoint>();
   const monthlyMap = new Map<string, TimeSeriesPoint>();
   logs.forEach((log) => {
     const timed = logTimedSeconds(log);
     totalReps += log.totalReps;
     totalTimedSeconds += timed;
-    if (log.completedAt >= sevenDayStart) {
-      last7DaysReps += log.totalReps;
-      last7DaysTimedSeconds += timed;
-    }
-    if (log.completedAt >= thirtyDayStart) {
-      last30DaysReps += log.totalReps;
-      last30DaysTimedSeconds += timed;
-    }
     const weekBucket = toWeekBucket(log.completedAt);
     const monthBucket = toMonthBucket(new Date(log.completedAt));
     const weekPoint = weeklyMap.get(weekBucket) || { bucket: weekBucket, reps: 0, timedSeconds: 0, workouts: 0 };
@@ -379,10 +380,6 @@ export const summarizeWorkoutLogs = (logs: WorkoutLogEntry[], nowTimestamp: numb
     totalReps,
     totalTimedSeconds,
     totalWorkouts: logs.length,
-    last7DaysReps,
-    last7DaysTimedSeconds,
-    last30DaysReps,
-    last30DaysTimedSeconds,
     weekly,
     monthly
   };
@@ -394,8 +391,8 @@ export interface FocusSessionTotals {
   totalFocusMinutes: number;
   todayPomodoros: number;
   todayDeepWork: number;
-  last7DaysPomodoros: number;
-  last7DaysDeepWork: number;
+  weekly: FocusTimeSeriesPoint[];
+  monthly: FocusTimeSeriesPoint[];
 }
 
 export const countTodayDeepWorkSessions = (logs: FocusLogEntry[], nowTimestamp: number = Date.now()): number => {
@@ -414,35 +411,64 @@ export const summarizeFocusLogs = (logs: FocusLogEntry[], nowTimestamp: number =
   const start = new Date(nowTimestamp); start.setHours(0, 0, 0, 0);
   const todayStart = start.getTime();
   const todayEnd = todayStart + DAY_MS;
-  const sevenDayStart = todayStart - 6 * DAY_MS;
   let totalPomodoros = 0;
   let totalDeepWork = 0;
   let totalFocusMinutes = 0;
   let todayPomodoros = 0;
   let todayDeepWork = 0;
-  let last7DaysPomodoros = 0;
-  let last7DaysDeepWork = 0;
+  const weeklyMap = new Map<string, FocusTimeSeriesPoint>();
+  const monthlyMap = new Map<string, FocusTimeSeriesPoint>();
+  const bumpFocusPoint = (map: Map<string, FocusTimeSeriesPoint>, bucket: string, entry: FocusLogEntry) => {
+    const point = map.get(bucket) || { bucket, pomodoros: 0, deepWork: 0, focusMinutes: 0 };
+    point.focusMinutes += entry.durationMinutes;
+    if (entry.type === 'pomodoro') point.pomodoros += 1;
+    else point.deepWork += 1;
+    map.set(bucket, point);
+  };
   logs.forEach((entry) => {
     totalFocusMinutes += entry.durationMinutes;
+    bumpFocusPoint(weeklyMap, toWeekBucket(entry.completedAt), entry);
+    bumpFocusPoint(monthlyMap, toMonthBucket(new Date(entry.completedAt)), entry);
     if (entry.type === 'pomodoro') {
       totalPomodoros += 1;
       if (entry.completedAt >= todayStart && entry.completedAt < todayEnd) todayPomodoros += 1;
-      if (entry.completedAt >= sevenDayStart) last7DaysPomodoros += 1;
     } else {
       totalDeepWork += 1;
       if (entry.completedAt >= todayStart && entry.completedAt < todayEnd) todayDeepWork += 1;
-      if (entry.completedAt >= sevenDayStart) last7DaysDeepWork += 1;
     }
   });
+  const weekly = [...weeklyMap.values()].sort((a, b) => a.bucket.localeCompare(b.bucket)).slice(-8);
+  const monthly = [...monthlyMap.values()].sort((a, b) => a.bucket.localeCompare(b.bucket)).slice(-6);
   return {
     totalPomodoros,
     totalDeepWork,
     totalFocusMinutes,
     todayPomodoros,
     todayDeepWork,
-    last7DaysPomodoros,
-    last7DaysDeepWork
+    weekly,
+    monthly
   };
+};
+
+export const mergePeriodStats = (workoutPoints: TimeSeriesPoint[], focusPoints: FocusTimeSeriesPoint[]): PeriodStatsPoint[] => {
+  const map = new Map<string, PeriodStatsPoint>();
+  const ensure = (bucket: string): PeriodStatsPoint =>
+    map.get(bucket) || { bucket, pomodoros: 0, deepWork: 0, focusMinutes: 0, reps: 0, timedSeconds: 0, workouts: 0 };
+  workoutPoints.forEach((p) => {
+    const point = ensure(p.bucket);
+    point.reps += p.reps;
+    point.timedSeconds += p.timedSeconds;
+    point.workouts += p.workouts;
+    map.set(p.bucket, point);
+  });
+  focusPoints.forEach((p) => {
+    const point = ensure(p.bucket);
+    point.pomodoros += p.pomodoros;
+    point.deepWork += p.deepWork;
+    point.focusMinutes += p.focusMinutes;
+    map.set(p.bucket, point);
+  });
+  return [...map.values()].sort((a, b) => a.bucket.localeCompare(b.bucket));
 };
 
 export const formatClock = (totalSeconds: number): string => {

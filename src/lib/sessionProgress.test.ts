@@ -1,12 +1,53 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canConvertFocusSession,
   computeCompletionRatio,
   creditFocusMinutes,
+  focusElapsedSeconds,
+  isFlowLongEnoughToDisplay,
   isPhaseLongEnoughToLog,
   MIN_PHASE_LOG_SECONDS,
   phaseElapsedSeconds,
+  remainingSecondsWhenConvertingToDeep,
+  remainingSecondsWhenConvertingToPomodoro,
   scaleExercisesByRatio
 } from '@/lib/sessionProgress';
+
+describe('isFlowLongEnoughToDisplay', () => {
+  it('rejects flows under 15 seconds', () => {
+    const start = 1_000_000;
+    expect(isFlowLongEnoughToDisplay(start, start + 14_999)).toBe(false);
+    expect(isFlowLongEnoughToDisplay(start, start + 15_000)).toBe(true);
+  });
+});
+
+describe('canConvertFocusSession', () => {
+  it('allows conversion only during focus when switching session type', () => {
+    expect(canConvertFocusSession('focus', 'pomodoro', 'deep')).toBe(true);
+    expect(canConvertFocusSession('focus', 'deep', 'pomodoro')).toBe(true);
+    expect(canConvertFocusSession('focus', 'pomodoro', 'pomodoro')).toBe(false);
+    expect(canConvertFocusSession('break', 'pomodoro', 'deep')).toBe(false);
+    expect(canConvertFocusSession('idle', null, 'deep')).toBe(false);
+  });
+});
+
+describe('focus conversion remaining time', () => {
+  it('subtracts elapsed focus time from deep work (90 min)', () => {
+    expect(remainingSecondsWhenConvertingToDeep(10 * 60)).toBe(80 * 60);
+    expect(remainingSecondsWhenConvertingToDeep(0)).toBe(90 * 60);
+  });
+
+  it('subtracts elapsed from pomodoro unless over 25 min then full pomodoro', () => {
+    expect(remainingSecondsWhenConvertingToPomodoro(10 * 60)).toBe(15 * 60);
+    expect(remainingSecondsWhenConvertingToPomodoro(25 * 60)).toBe(0);
+    expect(remainingSecondsWhenConvertingToPomodoro(25 * 60 + 1)).toBe(25 * 60);
+    expect(remainingSecondsWhenConvertingToPomodoro(40 * 60)).toBe(25 * 60);
+  });
+
+  it('measures elapsed focus seconds from timer', () => {
+    expect(focusElapsedSeconds(25 * 60, 15 * 60)).toBe(10 * 60);
+  });
+});
 
 describe('isPhaseLongEnoughToLog', () => {
   it('rejects phases under 15 seconds', () => {

@@ -8,8 +8,10 @@
 - After each Pomodoro focus session, the break includes a short guided workout and a sit/stand switch reminder.
 - Pomodoro sessions auto-schedule another Pomodoro session by default after the break.
 - Users can remove the following focus session or switch the next scheduled focus session between Pomodoro and Deep Work; a break is not labeled as a “session” in the UI.
+- During focus, users can convert Pomodoro ↔ Deep Work: remaining time is the target session length minus elapsed focus time (90 min for deep, 25 min for pomodoro); if deep focus already ran more than 25 minutes, switching to Pomodoro starts a full 25-minute block. Partial credit for the prior type applies if that focus phase ran ≥15 seconds.
+- Flows shorter than 15 seconds are omitted from the Dashboard Session totals card (live run counters and last-completed-flow summary); same 15-second threshold as phase logging (`src/lib/sessionProgress.ts`).
 - The app tracks and displays completed exercise totals for the current session and over long periods (weeks/months).
-- The app tracks how many Deep Work sessions were completed during the current day.
+- Stats tab shows only Weekly, Monthly, and All time rollups (`StatsPage.tsx`).
 
 ## Repository layout
 - `src/`: React UI, session engine, posture TypeScript (`src/posture/`), shared libs (`src/lib/`).

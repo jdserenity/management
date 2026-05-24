@@ -1,4 +1,4 @@
-import type { ExerciseDefinition, StoredExercise } from '@/lib/workoutPlanner';
+import { SESSION_DURATIONS_MINUTES, type ExerciseDefinition, type SessionType, type StoredExercise } from '@/lib/workoutPlanner';
 
 /** Shorter phases are treated as accidental starts and are not logged. */
 export const MIN_PHASE_LOG_SECONDS = 15;
@@ -11,6 +11,36 @@ export const isPhaseLongEnoughToLog = (
   minSeconds: number = MIN_PHASE_LOG_SECONDS,
   nowMs: number = Date.now()
 ): boolean => phaseElapsedSeconds(phaseStartedAtMs, nowMs) >= minSeconds;
+
+/** Whole flows shorter than this are hidden from Session totals (same threshold as phase logging). */
+export const isFlowLongEnoughToDisplay = (
+  startedAtMs: number,
+  endedAtMs: number = Date.now(),
+  minSeconds: number = MIN_PHASE_LOG_SECONDS
+): boolean => endedAtMs - startedAtMs >= minSeconds * 1000;
+
+export const canConvertFocusSession = (
+  phase: 'idle' | 'focus' | 'break',
+  activeSessionType: SessionType | null,
+  target: SessionType
+): boolean => phase === 'focus' && activeSessionType !== null && activeSessionType !== target;
+
+/** Elapsed seconds in the current focus phase from planned length and remaining time. */
+export const focusElapsedSeconds = (phasePlannedSeconds: number, remainingSeconds: number): number =>
+  Math.max(0, Math.min(phasePlannedSeconds, phasePlannedSeconds - Math.max(0, remainingSeconds)));
+
+/** Deep work time left after pomodoro focus: 90 min minus elapsed focus time. */
+export const remainingSecondsWhenConvertingToDeep = (elapsedSeconds: number): number => {
+  const deepSec = SESSION_DURATIONS_MINUTES.deep * 60;
+  return Math.max(0, deepSec - elapsedSeconds);
+};
+
+/** Pomodoro time left after deep focus: 25 min minus elapsed, or full 25 min if elapsed > 25 min. */
+export const remainingSecondsWhenConvertingToPomodoro = (elapsedSeconds: number): number => {
+  const pomSec = SESSION_DURATIONS_MINUTES.pomodoro * 60;
+  if (elapsedSeconds > pomSec) return pomSec;
+  return Math.max(0, pomSec - elapsedSeconds);
+};
 
 /** Fraction of the phase completed (0–1). `remainingSeconds` is time left in the phase. */
 export const computeCompletionRatio = (plannedSeconds: number, remainingSeconds: number): number => {
