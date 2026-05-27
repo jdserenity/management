@@ -1,6 +1,14 @@
 import type { BreakVariant, FlowPhase, LongBreakStage } from '@/lib/flowState';
 import type { SessionType } from '@/lib/workoutPlanner';
 
+/** Match Dashboard flow labels. */
+export const SESSION_FLOW_EMOJI = {
+  pomodoro: '🍅',
+  deep: '🎯',
+  exerciseBreak: '🏃',
+  relax: '☕'
+} as const;
+
 const pad2 = (n: number): string => String(n).padStart(2, '0');
 
 export const formatTimerMmSs = (totalSeconds: number): string => {
@@ -14,18 +22,16 @@ export const formatSessionTrayTitle = (
   phase: FlowPhase,
   remainingSeconds: number,
   activeSessionType: SessionType | null,
-  breakVariant: BreakVariant | null,
   longBreakStage: LongBreakStage | null
 ): string | null => {
   if (phase === 'idle') return null;
   const time = formatTimerMmSs(remainingSeconds);
   if (phase === 'focus') {
-    const tag = activeSessionType === 'deep' ? 'DW' : 'P';
-    return `${tag} ${time}`;
+    const emoji = activeSessionType === 'deep' ? SESSION_FLOW_EMOJI.deep : SESSION_FLOW_EMOJI.pomodoro;
+    return `${emoji} ${time}`;
   }
-  if (longBreakStage === 'relax') return `Relax ${time}`;
-  if (breakVariant === 'long') return `Break ${time}`;
-  return `Break ${time}`;
+  if (longBreakStage === 'relax') return `${SESSION_FLOW_EMOJI.relax} ${time}`;
+  return `${SESSION_FLOW_EMOJI.exerciseBreak} ${time}`;
 };
 
 /** Value sent to `set_tray_session_label` — empty string clears the menu bar title on macOS. */

@@ -14,11 +14,11 @@ describe('sessionAlertLabels', () => {
   });
 
   it('formats tray title for focus and break', () => {
-    expect(formatSessionTrayTitle('focus', 90, 'pomodoro', null, null)).toBe('P 1:30');
-    expect(formatSessionTrayTitle('focus', 60, 'deep', null, null)).toBe('DW 1:00');
-    expect(formatSessionTrayTitle('break', 300, null, 'short', null)).toBe('Break 5:00');
-    expect(formatSessionTrayTitle('break', 600, null, 'long', 'relax')).toBe('Relax 10:00');
-    expect(formatSessionTrayTitle('idle', 0, null, null, null)).toBeNull();
+    expect(formatSessionTrayTitle('focus', 90, 'pomodoro', null)).toBe('🍅 1:30');
+    expect(formatSessionTrayTitle('focus', 60, 'deep', null)).toBe('🎯 1:00');
+    expect(formatSessionTrayTitle('break', 300, null, null)).toBe('🏃 5:00');
+    expect(formatSessionTrayTitle('break', 600, null, 'relax')).toBe('☕ 10:00');
+    expect(formatSessionTrayTitle('idle', 0, null, null)).toBeNull();
   });
 
   it('countdown beeps only at 5..1', () => {
@@ -29,8 +29,8 @@ describe('sessionAlertLabels', () => {
   });
 
   it('tray invoke arg clears on idle', () => {
-    expect(traySessionLabelInvokeArg('idle', 'P 1:00')).toBe('');
-    expect(traySessionLabelInvokeArg('focus', 'P 1:00')).toBe('P 1:00');
+    expect(traySessionLabelInvokeArg('idle', '🍅 1:00')).toBe('');
+    expect(traySessionLabelInvokeArg('focus', '🍅 1:00')).toBe('🍅 1:00');
   });
 
   it('phase notify copy for focus and break', () => {

@@ -4,7 +4,6 @@ import { useSession } from '@/context/SessionContext';
 import {
   formatSessionTrayTitle,
   sessionPhaseNotifyCopy,
-  shouldPlayCountdownBeep,
   traySessionLabelInvokeArg
 } from '@/lib/sessionAlertLabels';
 import {
@@ -13,7 +12,7 @@ import {
   SESSION_ALERTS_PREFS_CHANGED,
   type SessionAlertsPrefs
 } from '@/lib/sessionAlertsPref';
-import { playCountdownTick, playPhaseChangeChime } from '@/lib/sessionSounds';
+import { playCountdownTick, playPhaseChangeChime, scheduleCountdownBeeps } from '@/lib/sessionSounds';
 
 const phaseSnapshotKey = (
   phase: string,
@@ -37,7 +36,8 @@ const SessionAlerts = () => {
   const [prefsReady, setPrefsReady] = useState(false);
   const prevPhaseKeyRef = useRef('idle');
   const phaseAlertsBaselineSetRef = useRef(false);
-  const lastCountdownSecondRef = useRef<number | null>(null);
+  const countdownScheduledForPhaseRef = useRef<string | null>(null);
+  const cancelCountdownRef = useRef<(() => void) | null>(null);
   const trayLabelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadPrefs = () => {
@@ -63,7 +63,7 @@ const SessionAlerts = () => {
     if (!alertsActive) return;
     if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
     trayLabelTimerRef.current = setTimeout(() => {
-      const formatted = formatSessionTrayTitle(phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage);
+      const formatted = formatSessionTrayTitle(phase, remainingSeconds, activeSessionType, longBreakStage);
       const label = traySessionLabelInvokeArg(phase, formatted);
       invoke('set_tray_session_label', { label }).catch(console.error);
     }, 200);
@@ -73,15 +73,25 @@ const SessionAlerts = () => {
   }, [alertsActive, phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage]);
 
   useEffect(() => {
-    if (!alertsActive || phase === 'idle') {
-      lastCountdownSecondRef.current = null;
+    cancelCountdownRef.current?.();
+    cancelCountdownRef.current = null;
+    if (!alertsActive || !prefs.countdownSound || phase === 'idle') {
+      countdownScheduledForPhaseRef.current = null;
       return;
     }
-    if (!prefs.countdownSound || !shouldPlayCountdownBeep(remainingSeconds)) return;
-    if (lastCountdownSecondRef.current === remainingSeconds) return;
-    lastCountdownSecondRef.current = remainingSeconds;
-    playCountdownTick();
-  }, [alertsActive, prefs.countdownSound, phase, remainingSeconds]);
+    if (remainingSeconds > 5) {
+      countdownScheduledForPhaseRef.current = null;
+      return;
+    }
+    if (remainingSeconds < 1) return;
+    if (countdownScheduledForPhaseRef.current === phaseKey) return;
+    countdownScheduledForPhaseRef.current = phaseKey;
+    cancelCountdownRef.current = scheduleCountdownBeeps(remainingSeconds, playCountdownTick);
+    return () => {
+      cancelCountdownRef.current?.();
+      cancelCountdownRef.current = null;
+    };
+  }, [alertsActive, prefs.countdownSound, phase, phaseKey, remainingSeconds]);
 
   useEffect(() => {
     if (!alertsActive) return;

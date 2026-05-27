@@ -19,6 +19,7 @@ import { MGMT_LS } from '@/lib/mgmtLocalStorage';
 import { applyPostureMonitoringFromPref } from '@/lib/postureMonitoringPref';
 import { applyAppPresenceFromPref } from '@/lib/appPresencePref';
 import { loadSessionAlertsPrefs } from '@/lib/sessionAlertsPref';
+import { primeSessionAudio } from '@/lib/sessionSounds';
 
 type NavItem = {
   id: string;
@@ -43,6 +44,13 @@ function App() {
 
   useEffect(() => {
     invoke('set_current_language', { lang: 'en' }).catch(console.error);
+    const prime = () => primeSessionAudio();
+    window.addEventListener('pointerdown', prime, { once: true });
+    window.addEventListener('keydown', prime, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', prime);
+      window.removeEventListener('keydown', prime);
+    };
   }, []);
 
   useEffect(() => {
