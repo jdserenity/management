@@ -19,6 +19,12 @@ import {
   setAppPresenceModePref,
   type AppPresenceMode,
 } from '@/lib/appPresencePref';
+import {
+  loadSessionAlertsPrefs,
+  notifySessionAlertsPrefsChanged,
+  saveSessionAlertsPref,
+  type SessionAlertsPrefs,
+} from '@/lib/sessionAlertsPref';
 
 const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
 const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
@@ -535,6 +541,102 @@ const AppPresenceSettings = () => {
     );
 };
 
+const SessionAlertSettings = () => {
+    const { t } = useTranslation();
+    const [prefs, setPrefs] = useState<SessionAlertsPrefs | null>(null);
+
+    useEffect(() => {
+        loadSessionAlertsPrefs()
+            .then(setPrefs)
+            .catch(console.error);
+    }, []);
+
+    const patch = (key: keyof SessionAlertsPrefs, value: boolean) => {
+        if (!prefs) return;
+        const next = { ...prefs, [key]: value };
+        setPrefs(next);
+        saveSessionAlertsPref(key, value)
+            .then(() => notifySessionAlertsPrefsChanged())
+            .catch(console.error);
+    };
+
+    if (!prefs) return null;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('settings.sessionAlertsTitle', 'Focus & break alerts')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.sessionSound', 'Sound alerts')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t('settings.sessionSoundDesc', 'Play a short chime when a focus or break phase starts or the flow ends.')}
+                        </p>
+                    </div>
+                    <Switch checked={prefs.sound} onCheckedChange={(v) => patch('sound', v)} />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.sessionCountdownSound', '5-second countdown')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t('settings.sessionCountdownSoundDesc', 'Tick each second during the last 5 seconds before a phase ends.')}
+                        </p>
+                    </div>
+                    <Switch checked={prefs.countdownSound} onCheckedChange={(v) => patch('countdownSound', v)} />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.sessionFocusWindow', 'Bring app to front')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t('settings.sessionFocusWindowDesc', 'Show and focus the window when a phase changes.')}
+                        </p>
+                    </div>
+                    <Switch checked={prefs.focusWindow} onCheckedChange={(v) => patch('focusWindow', v)} />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.sessionDockBounce', 'Bounce Dock icon')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t(
+                                'settings.sessionDockBounceDesc',
+                                'When bringing the app to front, also bounce the Dock icon (macOS). Requires Bring app to front.'
+                            )}
+                        </p>
+                    </div>
+                    <Switch
+                        checked={prefs.dockBounce}
+                        onCheckedChange={(v) => patch('dockBounce', v)}
+                        disabled={!prefs.focusWindow}
+                    />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.sessionNotify', 'System notifications')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t('settings.sessionNotifyDesc', 'Desktop notification when focus, break, or relax phases start.')}
+                        </p>
+                    </div>
+                    <Switch checked={prefs.notify} onCheckedChange={(v) => patch('notify', v)} />
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.sessionTrayTimer', 'Menu bar timer')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t(
+                                'settings.sessionTrayTimerDesc',
+                                'Keep the Dock icon and also show a menu bar icon with a live countdown (e.g. P 24:59). macOS only for the text timer.'
+                            )}
+                        </p>
+                    </div>
+                    <Switch checked={prefs.trayTimer} onCheckedChange={(v) => patch('trayTimer', v)} />
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
 const ThemeSettings = () => {
     const { t } = useTranslation();
     const { theme, setTheme } = useTheme();
@@ -604,6 +706,7 @@ const SettingsPage = () => {
     return (
         <div className="space-y-6 p-4 md:p-6">
             <AppPresenceSettings />
+            <SessionAlertSettings />
             <ThemeSettings />
             <StatsDaySettings />
             <DetectionSettings />

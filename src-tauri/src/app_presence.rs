@@ -23,6 +23,40 @@ pub fn is_menu_bar_only_mode(mode: &str) -> bool {
   normalize_app_presence_mode(mode) == MODE_MENU_BAR
 }
 
+fn show_main_window(app: &AppHandle) {
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+  }
+}
+
+pub fn focus_main_window(app: &AppHandle, dock_bounce: bool) {
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    #[cfg(target_os = "macos")]
+    if dock_bounce {
+      let _ = window.request_user_attention(Some(tauri::UserAttentionType::Critical));
+    }
+  }
+}
+
+pub fn set_tray_session_label(_app: &AppHandle, state: &AppState, label: Option<&str>) {
+  if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
+    let trimmed = label.map(str::trim).filter(|s| !s.is_empty());
+    // macOS keeps the last title when set_title(None); empty string clears it.
+    #[cfg(target_os = "macos")]
+    let title = trimmed.or(Some(""));
+    #[cfg(not(target_os = "macos"))]
+    let title = trimmed;
+    if let Err(e) = tray.set_title(title) {
+      error!("Failed to set tray title: {}", e);
+    }
+  }
+}
+
 fn build_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
   let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
@@ -41,17 +75,18 @@ fn build_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
   .map_err(|e| e.to_string())
 }
 
+fn build_timer_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
+  let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
+  let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
+  Menu::with_items(app, &[&show, &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?, &quit])
+    .map_err(|e| e.to_string())
+}
+
 fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
   let state = app.state::<AppState>();
   match event_id {
     "quit" => app.exit(0),
-    "show" => {
-      if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-      }
-    }
+    "show" => show_main_window(app),
     "start_monitoring" => {
       info!("'Start Monitoring' clicked");
       *lock_or_recover(&state.monitoring_active) = true;
@@ -97,7 +132,7 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
   }
 }
 
-pub fn install_tray(app: &AppHandle, state: &AppState) -> Result<(), String> {
+pub fn install_tray(app: &AppHandle, state: &AppState, timer_only: bool) -> Result<(), String> {
   if lock_or_recover(&state.tray).is_some() {
     return Ok(());
   }
@@ -105,7 +140,7 @@ pub fn install_tray(app: &AppHandle, state: &AppState) -> Result<(), String> {
     .default_window_icon()
     .cloned()
     .ok_or_else(|| "Default window icon not found".to_string())?;
-  let menu = build_tray_menu(app)?;
+  let menu = if timer_only { build_timer_tray_menu(app)? } else { build_tray_menu(app)? };
   let tray = TrayIconBuilder::new()
     .icon(default_icon)
     .tooltip("Management")
@@ -133,10 +168,8 @@ pub fn apply_app_presence_mode(app: &AppHandle, state: &AppState, mode: &str) ->
     };
     app.set_activation_policy(policy).map_err(|e| e.to_string())?;
   }
-  if menu_bar_only {
-    install_tray(app, state)?;
-  } else {
-    remove_tray(state);
+  sync_tray_installation(app, state)?;
+  if !menu_bar_only && !session_tray_timer_from_state(state) {
     if let Some(window) = app.get_webview_window("main") {
       let _ = window.unminimize();
       let _ = window.show();
@@ -148,6 +181,27 @@ pub fn apply_app_presence_mode(app: &AppHandle, state: &AppState, mode: &str) ->
 
 pub fn menu_bar_only_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.menu_bar_only)
+}
+
+pub fn session_tray_timer_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.session_tray_timer)
+}
+
+pub fn sync_tray_installation(app: &AppHandle, state: &AppState) -> Result<(), String> {
+  let menu_bar_only = menu_bar_only_from_state(state);
+  let session_tray_timer = session_tray_timer_from_state(state);
+  remove_tray(state);
+  if menu_bar_only {
+    install_tray(app, state, false)?;
+  } else if session_tray_timer {
+    install_tray(app, state, true)?;
+  }
+  Ok(())
+}
+
+pub fn apply_session_tray_timer(app: &AppHandle, state: &AppState, enabled: bool) -> Result<(), String> {
+  *lock_or_recover(&state.session_tray_timer) = enabled;
+  sync_tray_installation(app, state)
 }
 
 #[cfg(test)]

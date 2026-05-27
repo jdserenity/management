@@ -11,6 +11,7 @@ import PosturePage from '@/components/PosturePage';
 import CustomizeWorkoutPage from '@/components/CustomizeWorkoutPage';
 import StatsPage from '@/components/StatsPage';
 import SettingsPage from '@/components/SettingsPage';
+import SessionAlerts from '@/components/SessionAlerts';
 import { LayoutDashboard, Camera, Settings, SlidersHorizontal, BarChart3 } from 'lucide-react';
 import './App.css';
 import { useTranslation } from 'react-i18next';
@@ -72,6 +73,7 @@ function App() {
 
   return (
     <SessionProvider>
+      <SessionAlerts />
       <PostureSessionProvider>
       <PosturePipeline />
       <div className="flex h-screen flex-col bg-background text-foreground">

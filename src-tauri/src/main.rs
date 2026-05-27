@@ -116,6 +116,7 @@ pub(crate) struct AppState {
     current_language: Arc<Mutex<String>>,
     battery_saving_mode: Arc<Mutex<bool>>,
     menu_bar_only: Arc<Mutex<bool>>,
+    session_tray_timer: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
 }
 
@@ -503,6 +504,42 @@ fn get_app_presence_mode(state: State<'_, AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn focus_main_window(app: AppHandle, dock_bounce: bool) -> Result<(), String> {
+    app_presence::focus_main_window(&app, dock_bounce);
+    Ok(())
+}
+
+#[tauri::command]
+fn set_tray_session_label(app: AppHandle, state: State<'_, AppState>, label: String) -> Result<(), String> {
+    app_presence::set_tray_session_label(&app, &state, Some(label.as_str()));
+    Ok(())
+}
+
+#[tauri::command]
+fn set_session_tray_timer_enabled(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    app_presence::apply_session_tray_timer(&app, &state, enabled)
+}
+
+#[tauri::command]
+fn notify_session_phase(app: AppHandle, title: String, body: String) -> Result<(), String> {
+    if title.is_empty() && body.is_empty() {
+        return Ok(());
+    }
+    let result = app
+        .notification()
+        .builder()
+        .title(if title.is_empty() { "Management" } else { &title })
+        .body(&body)
+        .icon("icons/icon.png".to_string())
+        .show();
+    if let Err(e) = result {
+        error!("Failed to send session notification: {}", e);
+        return Err(e.to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
 async fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
     info!("Application restart requested");
     if let Ok(exe_path) = std::env::current_exe() {
@@ -753,6 +790,7 @@ pub fn run() {
                 current_language: Arc::new(Mutex::new("en".to_string())),
                 battery_saving_mode: Arc::new(Mutex::new(false)),
                 menu_bar_only: Arc::new(Mutex::new(false)),
+                session_tray_timer: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
             };
             app.manage(app_state.clone());
@@ -809,6 +847,10 @@ pub fn run() {
             set_battery_saving_mode,
             set_app_presence_mode,
             get_app_presence_mode,
+            focus_main_window,
+            set_tray_session_label,
+            set_session_tray_timer_enabled,
+            notify_session_phase,
             restart_app
         ])
         .run(tauri::generate_context!());
