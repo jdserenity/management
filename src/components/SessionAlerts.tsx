@@ -100,7 +100,7 @@ const SessionAlerts = () => {
       if (prefs.focusWindow) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
       if (prefs.notify) {
         const copy = sessionPhaseNotifyCopy(phase, activeSessionType, breakVariant, longBreakStage);
-        if (copy) invoke('notify_session_phase', copy).catch(console.error);
+        if (copy) invoke('notify_session_phase', { title: copy.title, body: copy.body }).catch(console.error);
       }
       return;
     }

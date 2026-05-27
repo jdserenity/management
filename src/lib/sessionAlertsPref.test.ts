@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  defaultSessionAlertsPrefs,
   KV_SESSION_TRAY_TIMER,
   loadSessionAlertsPrefs,
   saveSessionAlertsPref
