@@ -556,7 +556,10 @@ const SessionAlertSettings = () => {
         const next = { ...prefs, [key]: value };
         setPrefs(next);
         saveSessionAlertsPref(key, value)
-            .then(() => notifySessionAlertsPrefsChanged())
+            .then(() => {
+                if (key === 'trayTimer') void invoke('set_session_tray_timer_enabled', { enabled: value }).catch(console.error);
+                notifySessionAlertsPrefsChanged();
+            })
             .catch(console.error);
     };
 

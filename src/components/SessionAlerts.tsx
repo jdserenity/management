@@ -30,19 +30,20 @@ const SessionAlerts = () => {
     breakVariant,
     longBreakStage,
     activeSessionType,
-    remainingSeconds
+    remainingSeconds,
+    sessionStorageReady
   } = useSession();
   const [prefs, setPrefs] = useState<SessionAlertsPrefs>(defaultSessionAlertsPrefs);
   const [prefsReady, setPrefsReady] = useState(false);
   const prevPhaseKeyRef = useRef('idle');
-  const skipInitialPhaseAlertRef = useRef(true);
+  const phaseAlertsBaselineSetRef = useRef(false);
   const lastCountdownSecondRef = useRef<number | null>(null);
+  const trayLabelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadPrefs = () => {
     void loadSessionAlertsPrefs()
-      .then(async (loaded) => {
+      .then((loaded) => {
         setPrefs(loaded);
-        await invoke('set_session_tray_timer_enabled', { enabled: loaded.trayTimer });
         setPrefsReady(true);
       })
       .catch(console.error);
@@ -56,23 +57,23 @@ const SessionAlerts = () => {
   }, []);
 
   const phaseKey = phaseSnapshotKey(phase, breakVariant, longBreakStage, activeSessionType);
+  const alertsActive = prefsReady && sessionStorageReady;
 
   useEffect(() => {
-    if (!prefsReady) return;
-    const formatted = formatSessionTrayTitle(phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage);
-    const label = traySessionLabelInvokeArg(phase, formatted);
-    invoke('set_tray_session_label', { label }).catch(console.error);
-  }, [
-    prefsReady,
-    phase,
-    remainingSeconds,
-    activeSessionType,
-    breakVariant,
-    longBreakStage
-  ]);
+    if (!alertsActive) return;
+    if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
+    trayLabelTimerRef.current = setTimeout(() => {
+      const formatted = formatSessionTrayTitle(phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage);
+      const label = traySessionLabelInvokeArg(phase, formatted);
+      invoke('set_tray_session_label', { label }).catch(console.error);
+    }, 200);
+    return () => {
+      if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
+    };
+  }, [alertsActive, phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage]);
 
   useEffect(() => {
-    if (!prefsReady || phase === 'idle') {
+    if (!alertsActive || phase === 'idle') {
       lastCountdownSecondRef.current = null;
       return;
     }
@@ -80,16 +81,17 @@ const SessionAlerts = () => {
     if (lastCountdownSecondRef.current === remainingSeconds) return;
     lastCountdownSecondRef.current = remainingSeconds;
     playCountdownTick();
-  }, [prefsReady, prefs.countdownSound, phase, remainingSeconds]);
+  }, [alertsActive, prefs.countdownSound, phase, remainingSeconds]);
 
   useEffect(() => {
-    if (!prefsReady) return;
-    const prev = prevPhaseKeyRef.current;
-    prevPhaseKeyRef.current = phaseKey;
-    if (skipInitialPhaseAlertRef.current) {
-      skipInitialPhaseAlertRef.current = false;
+    if (!alertsActive) return;
+    if (!phaseAlertsBaselineSetRef.current) {
+      prevPhaseKeyRef.current = phaseKey;
+      phaseAlertsBaselineSetRef.current = true;
       return;
     }
+    const prev = prevPhaseKeyRef.current;
+    prevPhaseKeyRef.current = phaseKey;
     if (prev === phaseKey) return;
 
     const enteringActive = phase !== 'idle';
@@ -116,7 +118,7 @@ const SessionAlerts = () => {
       }
     }
   }, [
-    prefsReady,
+    alertsActive,
     prefs.sound,
     prefs.focusWindow,
     prefs.dockBounce,

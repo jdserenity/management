@@ -11,6 +11,8 @@ use crate::{lock_or_recover, release_camera, AppState};
 
 pub const MODE_DOCK: &str = "dock";
 pub const MODE_MENU_BAR: &str = "menu_bar";
+/// Single tray id so toggling menu-bar timer off removes the same icon from the system.
+pub const TRAY_ICON_ID: &str = "management-tray";
 
 pub fn normalize_app_presence_mode(mode: &str) -> &'static str {
   match mode.trim().to_ascii_lowercase().as_str() {
@@ -133,15 +135,13 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
 }
 
 pub fn install_tray(app: &AppHandle, state: &AppState, timer_only: bool) -> Result<(), String> {
-  if lock_or_recover(&state.tray).is_some() {
-    return Ok(());
-  }
+  remove_tray(app, state);
   let default_icon = app
     .default_window_icon()
     .cloned()
     .ok_or_else(|| "Default window icon not found".to_string())?;
   let menu = if timer_only { build_timer_tray_menu(app)? } else { build_tray_menu(app)? };
-  let tray = TrayIconBuilder::new()
+  let tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
     .icon(default_icon)
     .tooltip("Management")
     .menu(&menu)
@@ -152,8 +152,12 @@ pub fn install_tray(app: &AppHandle, state: &AppState, timer_only: bool) -> Resu
   Ok(())
 }
 
-pub fn remove_tray(state: &AppState) {
+pub fn remove_tray(app: &AppHandle, state: &AppState) {
   *lock_or_recover(&state.tray) = None;
+  if let Some(tray) = app.remove_tray_by_id(TRAY_ICON_ID) {
+    drop(tray);
+    info!("Tray icon removed ({})", TRAY_ICON_ID);
+  }
 }
 
 pub fn apply_app_presence_mode(app: &AppHandle, state: &AppState, mode: &str) -> Result<(), String> {
@@ -190,7 +194,7 @@ pub fn session_tray_timer_from_state(state: &AppState) -> bool {
 pub fn sync_tray_installation(app: &AppHandle, state: &AppState) -> Result<(), String> {
   let menu_bar_only = menu_bar_only_from_state(state);
   let session_tray_timer = session_tray_timer_from_state(state);
-  remove_tray(state);
+  remove_tray(app, state);
   if menu_bar_only {
     install_tray(app, state, false)?;
   } else if session_tray_timer {

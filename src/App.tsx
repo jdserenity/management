@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
 import { applyPostureMonitoringFromPref } from '@/lib/postureMonitoringPref';
 import { applyAppPresenceFromPref } from '@/lib/appPresencePref';
+import { loadSessionAlertsPrefs } from '@/lib/sessionAlertsPref';
 
 type NavItem = {
   id: string;
@@ -45,7 +46,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    applyAppPresenceFromPref((mode) => invoke('set_app_presence_mode', { mode })).catch(console.error);
+    void (async () => {
+      try {
+        await applyAppPresenceFromPref((mode) => invoke('set_app_presence_mode', { mode }));
+        const alerts = await loadSessionAlertsPrefs();
+        await invoke('set_session_tray_timer_enabled', { enabled: alerts.trayTimer });
+      } catch (e) {
+        console.error(e);
+      }
+    })();
     applyPostureMonitoringFromPref((cmd) => invoke(cmd)).catch(console.error);
 
     const batterySavingMode = localStorage.getItem(MGMT_LS.batterySavingMode) === 'true';

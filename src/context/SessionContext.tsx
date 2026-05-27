@@ -116,6 +116,7 @@ interface SessionContextValue {
   focusDeskPosture: DeskPosture | null;
   nextDeskPostureIfPomodoro: DeskPosture | null;
   togglePomodoroDeskPosture: () => void;
+  sessionStorageReady: boolean;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -154,6 +155,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   workoutLoggedRef.current = workoutLogged;
   const flowPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processTimerEndRef = useRef<() => void>(() => {});
+  const prevRemainingForTimerEndRef = useRef<number | null>(null);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -464,6 +466,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         setFocusLogs(snapshot.focusLogs);
         if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
           applyPersistedFlow(snapshot.activeFlow);
+          if (snapshot.activeFlow.remainingSeconds === 0) prevRemainingForTimerEndRef.current = -1;
         }
       })
       .catch((error) => {
@@ -517,7 +520,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [phase]);
 
   useEffect(() => {
-    const onTimerEnd = () => {
+    processTimerEndRef.current = () => {
       if (phaseRef.current === 'idle') return;
       if (remainingSecondsRef.current !== 0) return;
       if (phaseRef.current === 'focus' && activeSessionTypeRef.current) {
@@ -583,16 +586,19 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         workoutLoggedRef.current = false;
       }
     };
-    processTimerEndRef.current = onTimerEnd;
-    onTimerEnd();
-  }, [
-    remainingSeconds,
-    recordFocusSession,
-    logActiveWorkoutIfNeeded,
-    finishFlow,
-    setPhaseTimer,
-    markPhaseStarted
-  ]);
+  }, [recordFocusSession, logActiveWorkoutIfNeeded, finishFlow, setPhaseTimer, markPhaseStarted]);
+
+  useEffect(() => {
+    if (!sessionStorageReady || phase === 'idle') {
+      prevRemainingForTimerEndRef.current = remainingSeconds;
+      return;
+    }
+    const prev = prevRemainingForTimerEndRef.current;
+    prevRemainingForTimerEndRef.current = remainingSeconds;
+    if (remainingSeconds !== 0) return;
+    if (prev === 0) return;
+    processTimerEndRef.current();
+  }, [remainingSeconds, phase, sessionStorageReady]);
 
   const handleWorkoutCompletion = useCallback(() => {
     logActiveWorkoutIfNeeded(1);
@@ -774,7 +780,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       pomodoroPosture,
       focusDeskPosture,
       nextDeskPostureIfPomodoro,
-      togglePomodoroDeskPosture
+      togglePomodoroDeskPosture,
+      sessionStorageReady
     }),
     [
       phase,
@@ -815,6 +822,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       focusDeskPosture,
       nextDeskPostureIfPomodoro,
       togglePomodoroDeskPosture,
+      sessionStorageReady,
       statsDayWindowStart
     ]
   );
