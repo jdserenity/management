@@ -1,0 +1,225 @@
+{
+  "tdee": 2500,
+  "protein": 80,
+  "staples": [
+    {
+      "id": "coffee",
+      "name": "Morning Brew",
+      "calories": 242,
+      "protein": 27,
+      "ingredients": [
+        {
+          "name": "200 ml Coffee",
+          "calories": 0,
+          "protein": 0
+        },
+        {
+          "name": "200 ml Milk",
+          "calories": 117,
+          "protein": 6
+        },
+        {
+          "name": "Nutren Powder",
+          "calories": 115,
+          "protein": 5
+        },
+        {
+          "name": "Protein Powder",
+          "calories": 125,
+          "protein": 21
+        },
+        {
+          "name": "Creatine Powder",
+          "calories": 0,
+          "protein": 0
+        }
+      ]
+    },
+    {
+      "id": "olive-oil",
+      "name": "Olive Oil",
+      "calories": 400,
+      "protein": 0
+    }
+  ],
+  "regulars": [
+    {
+      "id": "yogurt",
+      "name": "Yogurt w/ Granola",
+      "calories": 440,
+      "protein": 17,
+      "ingredients": [
+        {
+          "name": "Yogurt",
+          "calories": 150,
+          "protein": 11
+        },
+        {
+          "name": "Granola",
+          "calories": 150,
+          "protein": 4
+        },
+        {
+          "name": "Small Banana",
+          "calories": 70,
+          "protein": 1
+        },
+        {
+          "name": "Small Banana",
+          "calories": 70,
+          "protein": 1
+        }
+      ]
+    },
+    {
+      "id": "cereal",
+      "name": "Milk w/ Cereal",
+      "calories": 470,
+      "protein": 14,
+      "ingredients": [
+        {
+          "name": "Milk",
+          "calories": 130,
+          "protein": 7
+        },
+        {
+          "name": "Cereal",
+          "calories": 200,
+          "protein": 5
+        },
+        {
+          "name": "Small Banana",
+          "calories": 70,
+          "protein": 1
+        },
+        {
+          "name": "Small Banana",
+          "calories": 70,
+          "protein": 1
+        }
+      ]
+    },
+    {
+      "id": "cheese-sandwich",
+      "name": "Cheese Sandwich",
+      "calories": 325,
+      "protein": 13,
+      "ingredients": [
+        {
+          "name": "Bread Slice",
+          "calories": 65,
+          "protein": 2
+        },
+        {
+          "name": "Bread Slice",
+          "calories": 65,
+          "protein": 2
+        },
+        {
+          "name": "Cream Cheese",
+          "calories": 75,
+          "protein": 2
+        },
+        {
+          "name": "Minas Cheese",
+          "calories": 120,
+          "protein": 7
+        }
+      ]
+    },
+    {
+      "id": "pbj-sandwich",
+      "name": "PB & J",
+      "calories": 360,
+      "protein": 13,
+      "ingredients": [
+        {
+          "name": "Bread Slice",
+          "calories": 75,
+          "protein": 3
+        },
+        {
+          "name": "Bread Slice",
+          "calories": 75,
+          "protein": 3
+        },
+        {
+          "name": "Nut Butter",
+          "calories": 180,
+          "protein": 7
+        },
+        {
+          "name": "Jam",
+          "calories": 50,
+          "protein": 0
+        }
+      ]
+    },
+    {
+      "id": "three-eggs",
+      "name": "3 Eggs",
+      "calories": 210,
+      "protein": 18,
+      "ingredients": [
+        {
+          "name": "Egg",
+          "calories": 70,
+          "protein": 6
+        }
+      ]
+    }
+  ],
+  "day": "2026-06-17",
+  "entries": [
+    {
+      "id": "1781701862682-exnr4j",
+      "kind": "staple",
+      "refId": "olive-oil",
+      "label": "Olive Oil",
+      "calories": 400,
+      "protein": 0,
+      "count": 1,
+      "updatedAt": "2026-06-17T13:11:02.682Z"
+    },
+    {
+      "id": "1781701863409-p6pvul",
+      "kind": "staple",
+      "refId": "coffee",
+      "label": "Morning Brew",
+      "calories": 242,
+      "protein": 27,
+      "count": 1,
+      "updatedAt": "2026-06-17T13:11:03.409Z"
+    },
+    {
+      "id": "1781701866091-lhrs3f",
+      "kind": "regular",
+      "refId": "yogurt",
+      "label": "Yogurt w/ Granola",
+      "calories": 440,
+      "protein": 17,
+      "count": 1,
+      "updatedAt": "2026-06-17T13:11:06.091Z"
+    },
+    {
+      "id": "1781706466372-z7dnye",
+      "kind": "custom",
+      "refId": null,
+      "label": "Mini Breads",
+      "calories": 150,
+      "protein": 4,
+      "count": 1,
+      "updatedAt": "2026-06-17T14:27:46.372Z"
+    },
+    {
+      "id": "1781706682456-iqxfut",
+      "kind": "custom",
+      "refId": null,
+      "label": "Pasta w/ Creme De leite",
+      "calories": 735,
+      "protein": 18,
+      "count": 1,
+      "updatedAt": "2026-06-17T14:31:22.456Z"
+    }
+  ]
+}

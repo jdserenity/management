@@ -2,7 +2,8 @@
 
 ## Product Intent
 - The app is being repurposed from posture tracking into a personal background manager for focus and movement.
-- The core workflow is session-driven: users run either a Pomodoro focus session or a Deep Work focus session.
+- **Daily tab** (`DailyPage.tsx`) is the default landing tab: **nutrition** (TDEE targets, today’s food log, staples/regulars) and **habits** (streak tracker heatmaps, daily/weekly activities, pause/reset/archive). Ported from Obsidian plugins; data lives in SQLite (`src/lib/tdeeDb.ts`, `src/lib/streakDb.ts`). Day boundary uses the same `stats_day_rollover_hour_v1` as work/movement stats.
+- **Work tab** (`Dashboard.tsx`, nav label “Work”) is the session-driven focus flow below.
 - Pomodoro sessions are 25 minutes of focus followed by a 5 minute break.
 - Deep Work sessions are 90 minutes of focus followed by a long break: 5 minutes of guided exercise then 10 minutes of relax (`SESSION_DURATIONS_MINUTES` in `src/lib/workoutPlanner.ts`, driven by `src/context/SessionContext.tsx`).
 - After each Pomodoro focus session, the break includes a short guided workout and a sit/stand switch reminder.
@@ -30,7 +31,9 @@
   - Tables in `mgmt.db`:
     - `posture_log` — posture samples (written from Rust `submit_posture_analysis`; read in Posture tab via `src/posture/postureLogDb.ts`).
     - `focus_log` / `workout_log` — completed focus sessions and break workouts for the Stats tab (`src/lib/sessionDb.ts`, `SessionContext`). Focus rows store partial credit when a focus phase ends early (`completion_ratio`). Phases shorter than 15 seconds are not logged. Stopping the flow during an exercise break does not create a workout row; a workout is logged only when the break timer finishes (≥15s in that break) or the user taps Complete Workout (≥15s in that break).
-    - `app_kv` — allowed workout ids (legacy), `workout_customize_prefs_v1` (per-exercise amounts, stretch pick toggles, hold seconds, custom exercises), migration flags, last ended-flow summary, `active_flow_state_v1` (in-progress timer, chain counters, and break workout), `posture_monitoring_enabled_v1` (posture tracking on/off; default on when unset), `app_presence_mode_v1` (`dock` = normal app in Dock/App Switcher on macOS; `menu_bar` = menu-bar-only with system tray, hide-on-close; default `dock` when unset), `stats_day_rollover_hour_v1` (local hour when “today” stats reset; default 4), and session alert prefs (`session_alert_sound_v1`, `session_alert_countdown_sound_v1`, `session_alert_focus_window_v1`, `session_alert_dock_bounce_v1`, `session_alert_notify_v1`, `session_tray_timer_v1`; defaults: sound, countdown, and focus window on; dock bounce, notify, and tray timer off — see `src/lib/sessionAlertsPref.ts` and Settings).
+    - `app_kv` — allowed workout ids (legacy), `workout_customize_prefs_v1` (per-exercise amounts, stretch pick toggles, hold seconds, custom exercises), migration flags, last ended-flow summary, `active_flow_state_v1` (in-progress timer, chain counters, and break workout), `posture_monitoring_enabled_v1` (posture tracking on/off; default on when unset), `app_presence_mode_v1` (`dock` = normal app in Dock/App Switcher on macOS; `menu_bar` = menu-bar-only with system tray, hide-on-close; default `dock` when unset), `stats_day_rollover_hour_v1` (local hour when “today” stats reset; default 4; shared by work stats, nutrition log day, and streak current day), `streak_heatmap_color_v1` (optional hex for daily habits heatmap; default green CSS when unset), `vault_import_tdee_v1` / `vault_import_streak_v1` (timestamps set by one-time vault import script), and session alert prefs (`session_alert_sound_v1`, `session_alert_countdown_sound_v1`, `session_alert_focus_window_v1`, `session_alert_dock_bounce_v1`, `session_alert_notify_v1`, `session_tray_timer_v1`; defaults: sound, countdown, and focus window on; dock bounce, notify, and tray timer off — see `src/lib/sessionAlertsPref.ts` and Settings).
+    - `nutrition_config`, `nutrition_staples`, `nutrition_regulars`, `nutrition_entries` — TDEE targets, meal defs, and today-only log entries (`src/lib/tdeeDb.ts`, migration v5).
+    - `streak_activities`, `streak_log_cells`, `streak_activity_meta` — habit definitions, per-day log cells, pause/reset meta (`src/lib/streakDb.ts`, migration v6).
 - Before session tables existed, focus/workout stats used browser `localStorage` only (not the posture SQLite file). Legacy keys are imported into SQLite when present; `localStorage` is not used for stats anymore.
 - Posture charts also keep a short in-memory buffer in `PostureSessionContext` for the current monitoring session only; long-term posture stats come from `posture_log`.
 - Posture calibration image path is stored with `tauri_plugin_store` in `.settings.dat` from `src/components/PosturePage.tsx`; baseline metrics use `localStorage` key `mgmt_posture_baseline_v1`.
@@ -45,7 +48,7 @@ These diagrams stay aligned with `src/` and `src-tauri/` whenever navigation, se
 ```mermaid
 flowchart TB
   subgraph app["src/App.tsx"]
-    nav["Tab buttons: dashboard posture customize stats settings"]
+    nav["Tab buttons: daily work posture customize stats settings"]
     boot["On mount: invoke Rust settings sync from MGMT_LS keys"]
   end
   subgraph providers["Providers always mounted"]
@@ -54,12 +57,14 @@ flowchart TB
     PL["PosturePipeline src/components/PosturePipeline.tsx"]
   end
   subgraph tabs["Active tab component src/components/"]
-    D["Dashboard.tsx timer chain desk posture today totals manual increment standalone exercise break"]
+    Daily["DailyPage.tsx nutrition TdeeSection habits StreakSection"]
+    D["Dashboard.tsx Work tab timer chain today totals"]
     PPg["PosturePage.tsx live score charts history export"]
     CW["CustomizeWorkoutPage.tsx move toggles editable amounts stretches custom exercises"]
     ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]
-    SE["SettingsPage.tsx camera monitoring battery restart"]
+    SE["SettingsPage.tsx camera monitoring battery habits heatmap restart"]
   end
+  nav --> Daily
   nav --> D
   nav --> PPg
   nav --> CW
@@ -134,7 +139,7 @@ Grouped by call site; all are registered on the Rust builder in `main.rs` (`invo
 | --- | --- | --- |
 | Boot | `set_current_language`, `set_app_presence_mode`, `set_battery_saving_mode`, `set_selected_camera`, `set_monitoring_interval`, `set_detection_settings` | `src/App.tsx` |
 | Session alerts | `focus_main_window`, `set_tray_session_label`, `set_session_tray_timer_enabled`, `notify_session_phase` | `src/components/SessionAlerts.tsx` (prefs in `sessionAlertsPref.ts`; tray title via `app_presence.rs`) |
-| Settings | same tuning commands plus `get_available_cameras`, `set_app_presence_mode`, session alert prefs (saved in `app_kv`, applied via `SessionAlerts`), `restart_app` | `src/components/SettingsPage.tsx` |
+| Settings | same tuning commands plus `get_available_cameras`, `set_app_presence_mode`, session alert prefs (saved in `app_kv`, applied via `SessionAlerts`), stats day rollover, habits heatmap color (`streakHeatmapPref.ts`), `restart_app` | `src/components/SettingsPage.tsx` |
 | Posture pipeline | `submit_posture_analysis` | `src/components/PosturePipeline.tsx` |
 | Posture page | `initialize_pose_model`, `save_calibrated_image`, `delete_calibrated_image`, `clear_posture_debouncer`, `get_monitoring_status`, `request_preview_frame` | `src/components/PosturePage.tsx` |
 

@@ -7,12 +7,13 @@ import { SessionProvider } from '@/context/SessionContext';
 import { PostureSessionProvider } from '@/context/PostureSessionContext';
 import PosturePipeline from '@/components/PosturePipeline';
 import Dashboard from '@/components/Dashboard';
+import DailyPage from '@/components/DailyPage';
 import PosturePage from '@/components/PosturePage';
 import CustomizeWorkoutPage from '@/components/CustomizeWorkoutPage';
 import StatsPage from '@/components/StatsPage';
 import SettingsPage from '@/components/SettingsPage';
 import SessionAlerts from '@/components/SessionAlerts';
-import { LayoutDashboard, Camera, Settings, SlidersHorizontal, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Camera, Settings, SlidersHorizontal, BarChart3, Sun } from 'lucide-react';
 import './App.css';
 import { useTranslation } from 'react-i18next';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
@@ -29,7 +30,8 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, component: Dashboard },
+  { id: 'daily', label: 'Daily', icon: Sun, component: DailyPage },
+  { id: 'work', label: 'Work', icon: LayoutDashboard, component: Dashboard },
   { id: 'posture', label: 'Posture', icon: Camera, component: PosturePage },
   { id: 'customize', label: 'Customize workouts', icon: SlidersHorizontal, component: CustomizeWorkoutPage },
   { id: 'stats', label: 'Stats', icon: BarChart3, component: StatsPage },
@@ -38,9 +40,9 @@ const navItems: NavItem[] = [
 
 function App() {
   const { t } = useTranslation();
-  const [activeComponentId, setActiveComponentId] = useState('dashboard');
+  const [activeComponentId, setActiveComponentId] = useState('daily');
 
-  const ActiveComponent = navItems.find((item) => item.id === activeComponentId)?.component || Dashboard;
+  const ActiveComponent = navItems.find((item) => item.id === activeComponentId)?.component || DailyPage;
 
   useEffect(() => {
     invoke('set_current_language', { lang: 'en' }).catch(console.error);

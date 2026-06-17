@@ -39,7 +39,9 @@
     }
   },
   "nav": {
-    "dashboard": "Dashboard",
+    "daily": "Daily",
+    "work": "Work",
+    "dashboard": "Work",
     "posture": "Posture",
     "customize": "Customize workouts",
     "stats": "Stats",

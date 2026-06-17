@@ -1,0 +1,833 @@
+/* Streak Tracker — Management Daily tab */
+
+.streak-tracker-container {
+  padding: 16px;
+  font-family: inherit;
+}
+
+.streak-tracker-empty {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* Heatmap */
+.streak-heatmap-container {
+  margin-bottom: 20px;
+  --streak-heatmap-cell: 11px;
+}
+
+.streak-heatmap-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.streak-nav-btn {
+  background: var(--border);
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 1.2em;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.streak-nav-btn:hover:not(.streak-nav-btn-disabled) {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.streak-nav-btn-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.streak-year-label {
+  font-weight: 600;
+  font-size: 1em;
+  color: var(--foreground);
+  min-width: 50px;
+  text-align: center;
+}
+
+.streak-heatmap-scroll {
+  overflow: visible;
+  max-width: 100%;
+}
+
+.streak-heatmap-months {
+  display: flex;
+  gap: 0;
+  margin-left: 28px;
+  margin-bottom: 4px;
+  font-size: 0.7em;
+  color: var(--muted-foreground);
+}
+
+.streak-heatmap-month {
+  flex-shrink: 0;
+  text-align: left;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.streak-heatmap-wrapper {
+  display: flex;
+  gap: 4px;
+}
+
+.streak-heatmap-days {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.6em;
+  color: var(--muted-foreground);
+  width: 24px;
+  min-width: 24px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 4px;
+}
+
+.streak-heatmap-day {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.streak-heatmap-grid {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.streak-heatmap-week {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.streak-heatmap-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--border);
+  box-sizing: border-box;
+}
+.streak-heatmap-cell.streak-heatmap-perfect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.streak-heatmap-check {
+  font-size: clamp(5px, 58%, 11px);
+  line-height: 1;
+  font-weight: 700;
+  color: #000;
+  pointer-events: none;
+  user-select: none;
+}
+
+.streak-heatmap-cell:hover:not(.streak-heatmap-empty) {
+  outline: 1px solid var(--muted-foreground);
+  outline-offset: 1px;
+}
+
+.streak-heatmap-empty {
+  background: transparent;
+}
+
+/* Heatmap intensity levels - green theme by default */
+.streak-heatmap-level-0 {
+  background: var(--border);
+}
+
+.streak-heatmap-level-1 {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.streak-heatmap-level-2 {
+  background: rgba(34, 197, 94, 0.4);
+}
+
+.streak-heatmap-level-3 {
+  background: rgba(34, 197, 94, 0.6);
+}
+
+.streak-heatmap-level-4 {
+  background: rgba(34, 197, 94, 0.8);
+}
+
+.streak-heatmap-level-5 {
+  background: rgb(34, 197, 94);
+}
+
+/* Dark theme adjustments */
+.dark .streak-heatmap-level-1 {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.dark .streak-heatmap-level-2 {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.dark .streak-heatmap-level-3 {
+  background: rgba(34, 197, 94, 0.5);
+}
+
+.dark .streak-heatmap-level-4 {
+  background: rgba(34, 197, 94, 0.7);
+}
+
+.dark .streak-heatmap-level-5 {
+  background: rgb(34, 197, 94);
+}
+
+/* Weekly heatmap (single row, red theme) */
+.streak-weekly-heatmap-container {
+  margin-bottom: 20px;
+}
+
+.streak-weekly-months {
+  margin-left: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.streak-weekly-heatmap-row {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.streak-weekly-cell {
+  flex: 1 1 0;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--border);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.streak-weekly-cell-current {
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.45);
+}
+.streak-weekly-cell.streak-weekly-perfect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.streak-weekly-check {
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 700;
+  color: #000;
+  pointer-events: none;
+  user-select: none;
+}
+
+.streak-weekly-cell:hover:not(.streak-weekly-level-0) {
+  outline: 1px solid var(--muted-foreground);
+  outline-offset: 1px;
+}
+
+.streak-weekly-level-0 {
+  background: var(--border);
+}
+
+.streak-weekly-level-1 {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.streak-weekly-level-2 {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+.streak-weekly-level-3 {
+  background: rgba(239, 68, 68, 0.6);
+}
+
+.streak-weekly-level-4 {
+  background: rgba(239, 68, 68, 0.8);
+}
+
+.streak-weekly-level-5 {
+  background: rgb(239, 68, 68);
+}
+
+.dark .streak-weekly-level-1 {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.dark .streak-weekly-level-2 {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.dark .streak-weekly-level-3 {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.dark .streak-weekly-level-4 {
+  background: rgba(239, 68, 68, 0.7);
+}
+
+.dark .streak-weekly-level-5 {
+  background: rgb(239, 68, 68);
+}
+
+/* Section labels between daily and weekly activities */
+.streak-section-label {
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  padding: 4px 2px 2px;
+}
+
+/* Activities */
+.streak-activities {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.streak-activity {
+  background: var(--secondary);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.streak-activity-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.streak-activity-name {
+  font-weight: 600;
+  font-size: 1em;
+  color: var(--foreground);
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  --streak-link-color: #8b5cf6;
+}
+
+.streak-activity-name.clickable {
+  cursor: pointer;
+}
+
+.streak-activity-name.clickable:hover {
+  color: var(--primary);
+}
+
+/* Activity name with links */
+.streak-activity-name.clickable-parts {
+  cursor: default;
+}
+
+.streak-activity-name.streak-activity-name-wrap {
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: unset;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.streak-activity-header:has(.streak-activity-name-wrap) {
+  align-items: flex-start;
+}
+
+.streak-activity-description {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--background);
+  border-radius: 4px;
+  border-left: 3px solid var(--primary);
+}
+
+.streak-activity-description.collapsed {
+  display: none;
+}
+
+.streak-activity-description p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.9em;
+  line-height: 1.5;
+  cursor: text;
+}
+
+.streak-description-editor {
+  width: 100%;
+  min-height: 60px;
+  padding: 4px 6px;
+  font-size: 0.9em;
+  font-family: inherit;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+  background: var(--background);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+}
+
+/* Stats - pushed to the right */
+.streak-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85em;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.streak-stat {
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+.streak-streak-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  line-height: 1;
+}
+
+.streak-streak-emoji {
+  font-size: 1.3em;
+  line-height: 1;
+}
+
+.streak-streak-emoji-small {
+  font-size: 0.95em;
+}
+
+.streak-streak-num {
+  font-size: 1.25em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+
+/* 6–9: warmup */
+.streak-current.streak-streak-tier-mid .streak-streak-num {
+  color: #c4a032;
+  text-shadow:
+    0 0 5px rgba(255, 200, 80, 0.38),
+    0 0 10px rgba(255, 170, 50, 0.22);
+}
+.dark .streak-current.streak-streak-tier-mid .streak-streak-num {
+  color: #d4b048;
+  text-shadow:
+    0 0 6px rgba(255, 205, 90, 0.42),
+    0 0 11px rgba(255, 175, 55, 0.26);
+}
+.streak-longest.streak-streak-tier-mid .streak-streak-num {
+  color: #727983;
+  text-shadow:
+    0 0 5px rgba(195, 205, 218, 0.4),
+    0 0 10px rgba(155, 165, 180, 0.26);
+}
+.dark .streak-longest.streak-streak-tier-mid .streak-streak-num {
+  color: #949da8;
+  text-shadow:
+    0 0 6px rgba(210, 218, 228, 0.45),
+    0 0 11px rgba(170, 180, 195, 0.3);
+}
+
+/* 10+ current: full gold */
+.streak-streak-tier-gold .streak-streak-emoji {
+  filter: drop-shadow(0 0 5px rgba(255, 200, 70, 0.65));
+}
+.streak-streak-tier-gold .streak-streak-num {
+  color: #e8b020;
+  text-shadow:
+    0 0 6px rgba(255, 215, 90, 0.9),
+    0 0 14px rgba(255, 175, 50, 0.55),
+    0 1px 0 rgba(90, 55, 0, 0.4);
+}
+.dark .streak-streak-tier-gold .streak-streak-num {
+  color: #ffd84a;
+  text-shadow:
+    0 0 8px rgba(255, 220, 100, 0.95),
+    0 0 18px rgba(255, 190, 60, 0.65),
+    0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* 10+ longest: black + silver */
+.streak-streak-tier-silver .streak-streak-emoji {
+  filter: drop-shadow(0 0 4px rgba(175, 185, 200, 0.5));
+}
+.streak-streak-tier-silver .streak-streak-num {
+  color: #141414;
+  text-shadow:
+    0 0 5px rgba(210, 218, 228, 0.85),
+    0 0 11px rgba(165, 175, 190, 0.6),
+    0 0 2px rgba(255, 255, 255, 0.35);
+}
+.dark .streak-streak-tier-silver .streak-streak-num {
+  color: #080808;
+  text-shadow:
+    0 0 6px rgba(220, 228, 238, 0.9),
+    0 0 14px rgba(175, 185, 200, 0.7),
+    0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.streak-rate-orange {
+  color: rgb(249, 115, 22);
+}
+
+.streak-rate-green {
+  color: rgb(34, 197, 94);
+}
+
+.streak-rate-red {
+  color: rgb(239, 68, 68);
+}
+
+.streak-rate-blue {
+  color: rgb(59, 130, 246);
+}
+
+/* Inline Buttons (checkmark and X) */
+.streak-buttons {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.streak-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.streak-btn-success {
+  background: var(--border);
+  color: var(--muted-foreground);
+}
+
+.streak-btn-success:hover {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgb(34, 197, 94);
+}
+
+.streak-btn-success.streak-btn-active {
+  background: rgb(34, 197, 94);
+  color: white;
+}
+
+.streak-btn-locked {
+  pointer-events: none;
+  opacity: 0.35;
+  cursor: default;
+}
+
+.streak-btn-fail {
+  background: var(--border);
+  color: var(--muted-foreground);
+}
+
+.streak-btn-fail:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: rgb(239, 68, 68);
+}
+
+.streak-btn-fail.streak-btn-active {
+  background: rgb(239, 68, 68);
+  color: white;
+}
+
+/* Weekly activity "this week" progress stat */
+.streak-week-progress {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Weekly buttons: slightly tighter gap so N buttons don't sprawl */
+.streak-buttons-weekly {
+  gap: 3px;
+}
+
+/* Day-specific chips for scheduledDays weekly activities */
+.streak-day-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 5px;
+  border-radius: 6px;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.streak-day-chip-label {
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.streak-day-chip.streak-day-chip-success {
+  background-color: rgb(34, 197, 94);
+  color: white;
+}
+
+.streak-day-chip.streak-day-chip-success:hover {
+  background-color: rgb(34, 197, 94);
+  color: white;
+}
+
+.streak-day-chip.streak-day-chip-failed {
+  background-color: rgb(239, 68, 68);
+  color: white;
+  pointer-events: none;
+}
+
+.streak-day-chip.streak-day-chip-today {
+  background-color: var(--border);
+  color: var(--foreground);
+}
+
+.streak-day-chip.streak-day-chip-today:hover {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: rgb(34, 197, 94);
+}
+
+.streak-day-chip.streak-day-chip-future {
+  background-color: var(--border);
+  color: var(--muted-foreground);
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+/* Responsive adjustments */
+@media (max-width: 500px) {
+  .streak-activity-header {
+    flex-wrap: wrap;
+  }
+
+  .streak-stats {
+    margin-left: 0;
+    width: 100%;
+    margin-top: 6px;
+    padding-left: 60px;
+  }
+
+  .streak-heatmap-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .streak-heatmap-wrapper {
+    width: max-content;
+  }
+
+  .streak-heatmap-days {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--background);
+  }
+
+  .streak-heatmap-day {
+    flex: none;
+    height: var(--streak-heatmap-cell);
+  }
+
+  .streak-heatmap-grid {
+    flex: none;
+    width: max-content;
+  }
+
+  .streak-heatmap-week {
+    flex: none;
+    width: var(--streak-heatmap-cell);
+  }
+
+  .streak-heatmap-cell {
+    width: var(--streak-heatmap-cell);
+    height: var(--streak-heatmap-cell);
+    aspect-ratio: unset;
+  }
+}
+
+/* ── Secondary mode ─────────────────────────────────────────────────── */
+
+/* Primary buttons: hidden when modifier is held */
+.streak-secondary-mode .streak-btn-primary {
+  display: none;
+}
+
+/* Secondary buttons: always visible in Management (Obsidian used modifier key) */
+.streak-btn-secondary {
+  display: inline-flex;
+}
+.streak-secondary-mode .streak-btn-secondary {
+  display: flex;
+}
+
+/* Pause button — orange theme */
+.streak-btn-pause {
+  background: var(--border);
+  color: var(--muted-foreground);
+}
+.streak-btn-pause:hover {
+  background: rgba(249, 115, 22, 0.2);
+  color: rgb(249, 115, 22);
+}
+.streak-btn-pause:active {
+  background: rgba(249, 115, 22, 0.35);
+  color: rgb(249, 115, 22);
+}
+
+/* Reset stats button — icon + reset count */
+.streak-btn-reset {
+  background: var(--border);
+  color: var(--muted-foreground);
+  align-items: center;
+  gap: 0.2em;
+  padding: 0 0.35em;
+  font-size: 0.85em;
+  line-height: 1;
+}
+.streak-reset-icon {
+  font-size: 1.05em;
+}
+.streak-reset-count {
+  font-variant-numeric: tabular-nums;
+  min-width: 0.9em;
+}
+.streak-btn-reset:hover {
+  background: rgba(234, 179, 8, 0.2);
+  color: rgb(234, 179, 8);
+}
+.streak-btn-reset:active {
+  background: rgba(234, 179, 8, 0.35);
+  color: rgb(234, 179, 8);
+}
+
+/* Archive button — muted filing-box tone */
+.streak-btn-archive {
+  background: var(--border);
+  color: var(--muted-foreground);
+  font-size: 1em;
+  line-height: 1;
+}
+.streak-btn-archive:hover {
+  background: rgba(139, 92, 246, 0.18);
+  color: rgb(167, 139, 250);
+}
+.streak-btn-archive:active {
+  background: rgba(139, 92, 246, 0.28);
+  color: rgb(196, 181, 253);
+}
+
+/* ── Paused activity ─────────────────────────────────────────────────── */
+
+.streak-activity-paused {
+  position: relative;
+}
+
+/* Disable primary buttons on paused activities */
+.streak-activity-paused .streak-btn-primary {
+  pointer-events: none;
+  opacity: 0.3;
+  filter: saturate(0.3) brightness(0.85);
+}
+.streak-activity-paused .streak-day-chip.streak-btn-primary {
+  pointer-events: none;
+  opacity: 0.3;
+  filter: saturate(0.3) brightness(0.85);
+}
+
+/* Cool/desaturate the name and stats */
+.streak-activity-paused .streak-activity-name,
+.streak-activity-paused .streak-stats {
+  opacity: 0.55;
+  filter: saturate(0.4) brightness(0.9);
+}
+
+/* Frozen overlay — icy blue gradient with frosted border */
+.streak-pause-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: linear-gradient(
+    155deg,
+    rgba(186, 230, 255, 0.14) 0%,
+    rgba(96, 165, 250, 0.09) 45%,
+    rgba(186, 230, 255, 0.17) 100%
+  );
+  border: 1px solid rgba(147, 210, 255, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(220, 245, 255, 0.18),
+    inset 0 0 18px rgba(96, 165, 250, 0.07);
+  pointer-events: none;
+}
+
+/* ── Mobile-only layout: 3-line activity cards (buttons / title / stats) */
+.is-mobile .streak-activity-header {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* Buttons on line 1 — full width so title is forced below */
+.is-mobile .streak-buttons {
+  flex: 0 0 100%;
+  width: 100%;
+}
+
+/* Title on line 2 */
+.is-mobile .streak-activity-name {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+/* Stats on line 3, left-aligned */
+.is-mobile .streak-stats {
+  flex: 0 0 100%;
+  width: 100%;
+  margin-left: 0;
+  margin-top: 4px;
+  padding-left: 0;
+}
