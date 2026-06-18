@@ -12,6 +12,7 @@ export interface CompanionSessionValue {
   remainingSeconds: number;
   phase: ActiveFlowDocument['flow']['phase'];
   syncStatus: ReturnType<SyncClient['getStatus']>;
+  syncDetail: string | null;
   deviceId: string;
   isLeader: boolean;
   showExercisePanel: boolean;
@@ -31,6 +32,7 @@ export const CompanionSessionProvider = ({
   const [activeFlow, setActiveFlow] = useState<ActiveFlowDocument | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [syncStatus, setSyncStatus] = useState(client.getStatus());
+  const [syncDetail, setSyncDetail] = useState<string | null>(client.getLastError?.() ?? null);
   const [isLeader, setIsLeader] = useState(false);
   const activeFlowRef = useRef<ActiveFlowDocument | null>(null);
   const phaseEndsAtMsRef = useRef(0);
@@ -70,6 +72,7 @@ export const CompanionSessionProvider = ({
   useEffect(() => {
     return client.subscribeActiveFlow((doc) => {
       setSyncStatus(client.getStatus());
+      setSyncDetail(client.getLastError?.() ?? null);
       if (!doc) {
         setActiveFlow(null);
         setIsLeader(false);
@@ -148,13 +151,14 @@ export const CompanionSessionProvider = ({
       remainingSeconds,
       phase: flow?.phase ?? 'idle',
       syncStatus,
+      syncDetail,
       deviceId: client.deviceId,
       isLeader,
       showExercisePanel,
       completeWorkout,
       updateExerciseAmount
     }),
-    [activeFlow, remainingSeconds, flow?.phase, syncStatus, client.deviceId, isLeader, showExercisePanel, completeWorkout, updateExerciseAmount]
+    [activeFlow, remainingSeconds, flow?.phase, syncStatus, syncDetail, client.deviceId, isLeader, showExercisePanel, completeWorkout, updateExerciseAmount]
   );
 
   return <CompanionSessionContext.Provider value={value}>{children}</CompanionSessionContext.Provider>;

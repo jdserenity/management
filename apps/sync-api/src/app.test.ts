@@ -55,4 +55,18 @@ describe('sync-api', () => {
     const row = (await get.json()) as { doc: { leaderDeviceId: string } };
     expect(row.doc.leaderDeviceId).toBe('phone');
   });
+
+  it('allows CORS preflight without bearer token', async () => {
+    const app = createSyncApp(new MemoryActiveFlowStore(), 'test-token');
+    const res = await app.request('/v1/active-flow', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'http://localhost:5173',
+        'Access-Control-Request-Method': 'GET',
+        'Access-Control-Request-Headers': 'authorization,content-type'
+      }
+    });
+    expect(res.status).toBeLessThan(400);
+    expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+  });
 });

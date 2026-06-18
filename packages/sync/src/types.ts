@@ -17,6 +17,7 @@ export interface SyncClient {
   readonly deviceId: string;
   readonly role: SyncDeviceRole;
   getStatus(): SyncConnectionStatus;
+  getLastError?(): string | null;
   subscribeActiveFlow(listener: (doc: ActiveFlowDocument | null) => void): () => void;
   publishActiveFlow(doc: ActiveFlowDocument | null): Promise<void>;
 }

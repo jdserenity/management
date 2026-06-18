@@ -36,6 +36,7 @@ export class HttpSyncClient implements SyncClient {
   private readonly baseUrl: string;
   private readonly token: string;
   private readonly pollIntervalMs: number;
+  private lastError: string | null = null;
 
   constructor(options: HttpSyncClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
@@ -48,6 +49,22 @@ export class HttpSyncClient implements SyncClient {
 
   getStatus(): SyncConnectionStatus {
     return this.status;
+  }
+
+  getLastError(): string | null {
+    return this.lastError;
+  }
+
+  private fail(err: unknown): void {
+    this.lastError = err instanceof Error ? err.message : String(err);
+    this.setStatus('error');
+    this.notify();
+  }
+
+  private succeed(): void {
+    this.lastError = null;
+    this.setStatus('online');
+    this.notify();
   }
 
   private setStatus(status: SyncConnectionStatus): void {
@@ -69,14 +86,12 @@ export class HttpSyncClient implements SyncClient {
   private async pull(): Promise<void> {
     try {
       const res = await this.fetchImpl(`${this.baseUrl}/v1/active-flow`, { headers: this.headers() });
-      if (!res.ok) throw new Error(`sync pull failed: ${res.status}`);
+      if (!res.ok) throw new Error(`sync pull failed: HTTP ${res.status}`);
       const body = (await res.json()) as unknown;
       this.activeFlow = parseActiveFlowResponse(body);
-      this.setStatus('online');
-      this.notify();
-    } catch {
-      this.setStatus('error');
-      this.notify();
+      this.succeed();
+    } catch (err) {
+      this.fail(err);
     }
   }
 
@@ -97,18 +112,22 @@ export class HttpSyncClient implements SyncClient {
   }
 
   async publishActiveFlow(doc: ActiveFlowDocument | null): Promise<void> {
-    const payload = doc
-      ? createActiveFlowDocument(doc.flow, this.deviceId, doc.phaseEndsAtMs, doc.updatedAtMs ?? Date.now())
-      : null;
-    const res = await this.fetchImpl(`${this.baseUrl}/v1/active-flow`, {
-      method: 'PUT',
-      headers: this.headers(),
-      body: JSON.stringify({ doc: payload })
-    });
-    if (!res.ok) throw new Error(`sync publish failed: ${res.status}`);
-    const body = (await res.json()) as unknown;
-    this.activeFlow = parseActiveFlowResponse(body);
-    this.setStatus('online');
-    this.notify();
+    try {
+      const payload = doc
+        ? createActiveFlowDocument(doc.flow, this.deviceId, doc.phaseEndsAtMs, doc.updatedAtMs ?? Date.now())
+        : null;
+      const res = await this.fetchImpl(`${this.baseUrl}/v1/active-flow`, {
+        method: 'PUT',
+        headers: this.headers(),
+        body: JSON.stringify({ doc: payload })
+      });
+      if (!res.ok) throw new Error(`sync publish failed: HTTP ${res.status}`);
+      const body = (await res.json()) as unknown;
+      this.activeFlow = parseActiveFlowResponse(body);
+      this.succeed();
+    } catch (err) {
+      this.fail(err);
+      throw err;
+    }
   }
 }

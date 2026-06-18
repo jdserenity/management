@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCompanionSession } from '../context/CompanionSessionContext';
 
 export const BreakSessionView = () => {
-  const { activeFlow, remainingSeconds, phase, syncStatus, isLeader, showExercisePanel, completeWorkout } = useCompanionSession();
+  const { activeFlow, remainingSeconds, phase, syncStatus, syncDetail, isLeader, showExercisePanel, completeWorkout } = useCompanionSession();
   const flow = activeFlow?.flow ?? null;
   const exercises = flow?.activeWorkout?.exercises ?? [];
 
@@ -30,8 +30,15 @@ export const BreakSessionView = () => {
           <p className="mt-2 text-xs text-muted-foreground">
             Sync: {syncStatus}
             {isLeader ? ' · leading' : ' · watching'}
-            {syncStatus === 'error' ? ' — check sync-api on :8787 and root .env' : ''}
           </p>
+          {syncStatus === 'error' && syncDetail ? (
+            <p className="mt-1 text-xs text-destructive">{syncDetail}</p>
+          ) : null}
+          {import.meta.env.DEV ? (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              API: {import.meta.env.VITE_SYNC_API_URL || '(not set — using memory bus)'}
+            </p>
+          ) : null}
         </div>
 
         {showExercisePanel ? (

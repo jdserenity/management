@@ -19,12 +19,16 @@ export const createSyncApp = (store: ActiveFlowStore, apiToken: string) => {
   app.use(
     '*',
     cors({
-      origin: ['http://localhost:5173', 'http://localhost:1420', 'http://127.0.0.1:5173', 'http://127.0.0.1:1420'],
+      origin: (origin) => origin,
       allowHeaders: ['Authorization', 'Content-Type'],
       allowMethods: ['GET', 'PUT', 'OPTIONS']
     })
   );
-  app.use('/v1/*', bearerAuth({ token: apiToken }));
+  const requireAuth = bearerAuth({ token: apiToken });
+  app.use('/v1/*', async (c, next) => {
+    if (c.req.method === 'OPTIONS') return next();
+    return requireAuth(c, next);
+  });
 
   app.get('/health', (c) => c.json({ ok: true }));
 

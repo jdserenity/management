@@ -14,6 +14,7 @@ export const createSyncClient = (options: CreateSyncClientOptions): SyncClient =
   const url = options.apiUrl?.trim();
   const token = options.apiToken?.trim();
   if (url && token) {
+    if (import.meta.env?.DEV) console.info(`[sync] HTTP client → ${url}`);
     return new HttpSyncClient({
       baseUrl: url,
       token,
