@@ -21,6 +21,11 @@ export const createSyncClient = (options: CreateSyncClientOptions): SyncClient =
       deviceId: options.deviceId
     });
   }
+  if (import.meta.env?.DEV) {
+    console.warn(
+      '[sync] VITE_SYNC_API_URL or VITE_SYNC_API_TOKEN missing — using in-memory bus only (other apps will not see updates).'
+    );
+  }
   return new MemorySyncClient(options.memoryBusKey ?? 'default', {
     role: options.role,
     deviceId: options.deviceId

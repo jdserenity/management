@@ -367,6 +367,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     const startedAt = Date.now();
     setRunStartedAt(startedAt);
     runStartedAtRef.current = startedAt;
+    phaseRef.current = 'break';
+    breakVariantRef.current = 'short';
+    longBreakStageRef.current = null;
+    activeSessionTypeRef.current = null;
+    nextSessionTypeRef.current = null;
     setPhase('break');
     setBreakVariant('short');
     setLongBreakStage(null);

@@ -30,6 +30,7 @@ export const BreakSessionView = () => {
           <p className="mt-2 text-xs text-muted-foreground">
             Sync: {syncStatus}
             {isLeader ? ' · leading' : ' · watching'}
+            {syncStatus === 'error' ? ' — check sync-api on :8787 and root .env' : ''}
           </p>
         </div>
 

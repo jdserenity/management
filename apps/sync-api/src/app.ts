@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { bearerAuth } from 'hono/bearer-auth';
 import type { ActiveFlowDocument } from '@mgmt/sync';
 import type { ActiveFlowStore } from './store';
@@ -15,6 +16,14 @@ const parseBodyDoc = (raw: unknown): ActiveFlowDocument | null => {
 
 export const createSyncApp = (store: ActiveFlowStore, apiToken: string) => {
   const app = new Hono();
+  app.use(
+    '*',
+    cors({
+      origin: ['http://localhost:5173', 'http://localhost:1420', 'http://127.0.0.1:5173', 'http://127.0.0.1:1420'],
+      allowHeaders: ['Authorization', 'Content-Type'],
+      allowMethods: ['GET', 'PUT', 'OPTIONS']
+    })
+  );
   app.use('/v1/*', bearerAuth({ token: apiToken }));
 
   app.get('/health', (c) => c.json({ ok: true }));
