@@ -6,6 +6,9 @@ const createDeviceId = (): string => {
   return `dev-${Date.now()}-${Math.round(Math.random() * 1_000_000)}`;
 };
 
+/** Bound fetch — assigning `window.fetch` to a variable breaks without `.bind()`. */
+const boundFetch: typeof fetch = (...args) => globalThis.fetch(...args);
+
 export interface HttpSyncClientOptions {
   baseUrl: string;
   token: string;
@@ -44,7 +47,7 @@ export class HttpSyncClient implements SyncClient {
     this.role = options.role ?? 'viewer';
     this.deviceId = options.deviceId ?? createDeviceId();
     this.pollIntervalMs = options.pollIntervalMs ?? 2000;
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? boundFetch;
   }
 
   getStatus(): SyncConnectionStatus {

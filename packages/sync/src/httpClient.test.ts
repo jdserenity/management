@@ -70,4 +70,16 @@ describe('HttpSyncClient', () => {
     const body = JSON.parse(String(init.body)) as { doc: { leaderDeviceId: string } };
     expect(body.doc.leaderDeviceId).toBe('leader-1');
   });
+
+  it('default fetch is bound to globalThis', async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ doc: null })
+    }));
+    vi.stubGlobal('fetch', fetchSpy);
+    const client = new HttpSyncClient({ baseUrl: 'http://localhost:8787', token: 't', pollIntervalMs: 60_000 });
+    client.subscribeActiveFlow(() => {});
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    vi.unstubAllGlobals();
+  });
 });
