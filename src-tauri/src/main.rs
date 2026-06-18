@@ -764,6 +764,12 @@ pub fn run() {
                         sql: "CREATE TABLE IF NOT EXISTS nutrition_config (id INTEGER PRIMARY KEY CHECK (id = 1), tdee INTEGER NOT NULL DEFAULT 0, protein INTEGER NOT NULL DEFAULT 0, log_day TEXT NOT NULL DEFAULT ''); CREATE TABLE IF NOT EXISTS nutrition_staples (id TEXT PRIMARY KEY, name TEXT NOT NULL, calories INTEGER NOT NULL, protein INTEGER NOT NULL DEFAULT 0, ingredients_json TEXT, sort_order INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS nutrition_regulars (id TEXT PRIMARY KEY, name TEXT NOT NULL, calories INTEGER NOT NULL, protein INTEGER NOT NULL DEFAULT 0, ingredients_json TEXT, sort_order INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS nutrition_entries (id TEXT NOT NULL, log_day TEXT NOT NULL, kind TEXT NOT NULL, ref_id TEXT, label TEXT NOT NULL, calories INTEGER NOT NULL, protein INTEGER NOT NULL DEFAULT 0, count INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (id, log_day));",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 6,
+                        description: "streak_tracker_tables",
+                        sql: "CREATE TABLE IF NOT EXISTS streak_activities (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', description TEXT, frequency TEXT NOT NULL DEFAULT 'daily', weekly_target INTEGER, scheduled_days_json TEXT, can_fail INTEGER NOT NULL DEFAULT 0, archived_at TEXT, sort_order INTEGER NOT NULL DEFAULT 0); CREATE TABLE IF NOT EXISTS streak_log_cells (log_date TEXT NOT NULL, activity_id TEXT NOT NULL, state TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (log_date, activity_id)); CREATE TABLE IF NOT EXISTS streak_activity_meta (activity_id TEXT PRIMARY KEY, start_date TEXT, pause_since TEXT, unpaused_at TEXT, reset_count INTEGER NOT NULL DEFAULT 0);",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {
