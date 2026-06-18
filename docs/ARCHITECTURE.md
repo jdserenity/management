@@ -17,8 +17,20 @@
 
 ## Repository layout
 - `src/`: React UI, session engine, posture TypeScript (`src/posture/`), shared libs (`src/lib/`).
+- `packages/core/`: platform-agnostic session types, flow state, timer math, display helpers (`@mgmt/core`).
+- `packages/sync/`: sync client interface, HTTP client, in-memory bus (`@mgmt/sync`).
+- `apps/sync-api/`: Turso-backed HTTP API for active session sync (`@mgmt/sync-api`).
+- `apps/companion/`: Vite PWA mobile companion (`@mgmt/companion`); break/focus timer viewer; no posture.
 - `src-tauri/src/main.rs`: Tauri app entry, tray, background camera loop, SQL migrations, posture ingest command.
 - `src-tauri/src/posture_bridge.rs`: posture debouncer and ingest payload types used from `main.rs`.
+
+## Mobile companion (in progress)
+- PWA in `apps/companion` (`npm run dev:companion`, port 5173).
+- Remote sync uses Turso (libSQL) via `apps/sync-api` (`npm run dev:sync-api`, default `http://localhost:8787`). Clients authenticate with `SYNC_API_TOKEN` / `VITE_SYNC_API_TOKEN` (see `.env.example`).
+- Phone is the intended **leader** during exercise breaks; companion auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
+- Shared session logic lives in `@mgmt/core`; desktop `src/lib/flowState.ts` and `src/lib/sessionProgress.ts` re-export from there.
+- `@mgmt/sync` defines `ActiveFlowDocument`, `HttpSyncClient`, and `createSyncClient`; `MemorySyncClient` remains for offline dev without the API.
+- Companion UI reuses desktop Tailwind tokens and shadcn `Card`/`Button` via Vite aliases; scope excludes posture, camera, and tray settings.
 
 ## Frontend Runtime
 - The desktop app uses Tauri with a React + TypeScript frontend (`src/main.tsx` → `src/App.tsx`).
