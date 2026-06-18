@@ -18,6 +18,7 @@ import {
   type SessionType
 } from '@/lib/workoutPlanner';
 import { canConvertFocusSession, showSessionChainControls } from '@/lib/sessionProgress';
+import { shouldScheduleExerciseOnPomodoroBreak } from '@/lib/exerciseBreak';
 
 const Dashboard = () => {
   const {
@@ -43,7 +44,8 @@ const Dashboard = () => {
     updateBreakExerciseAmount,
     focusDeskPosture,
     nextDeskPostureIfPomodoro,
-    togglePomodoroDeskPosture
+    togglePomodoroDeskPosture,
+    runPomodoros
   } = useSession();
 
   const formatDesk = (p: DeskPosture) => (p === 'sitting' ? 'Sitting' : 'Standing');
@@ -97,9 +99,12 @@ const Dashboard = () => {
   const breakPreview = useMemo(() => {
     if (phase === 'idle' || isStandaloneExerciseBreak) return null;
     if (phase === 'focus' && activeSessionType === 'pomodoro') {
+      const willExercise = shouldScheduleExerciseOnPomodoroBreak(runPomodoros + 1);
       return {
-        title: '🏃 Exercise break',
-        detail: `${SESSION_DURATIONS_MINUTES.break} min before next focus`
+        title: willExercise ? '🏃 Exercise break' : '☕ Short break',
+        detail: willExercise
+          ? `${SESSION_DURATIONS_MINUTES.break} min before next focus`
+          : `${SESSION_DURATIONS_MINUTES.break} min · sit/stand reminder`
       } as const;
     }
     if (phase === 'focus' && activeSessionType === 'deep') {
@@ -110,7 +115,7 @@ const Dashboard = () => {
     }
     if (phase === 'break' && breakVariant === 'short') {
       return {
-        title: '🏃 Exercise break',
+        title: activeWorkout ? '🏃 Exercise break' : '☕ Short break',
         detail: `${SESSION_DURATIONS_MINUTES.break} min`
       } as const;
     }
@@ -133,7 +138,7 @@ const Dashboard = () => {
       } as const;
     }
     return null;
-  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak]);
+  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak, runPomodoros, activeWorkout]);
 
   const unitShort = (unit: ExerciseUnit) => (unit === 'reps' ? 'reps' : unit === 'seconds' ? 'sec' : 'min');
 

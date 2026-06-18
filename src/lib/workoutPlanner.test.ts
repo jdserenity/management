@@ -26,6 +26,8 @@ import {
   summarizeTodayExerciseTotals,
   summarizeTodayStretchTotals,
   stretchBodyRegionForId,
+  stretchPickToExercises,
+  STRETCH_PICK_CATALOG,
   formatTimedSecondsTotal,
   summarizeWorkoutLogs,
   type ExerciseRunAgg,
@@ -49,21 +51,21 @@ describe('pickWorkoutForBreak / buildMixedBreakWorkout', () => {
     allowedWorkoutIds: ['march-spot', 'air-squats'],
     allowedStretchPickKeys: [],
     exerciseOverrides: {},
-    stretchHoldSeconds: 15,
+    stretchHoldSeconds: 20,
     customExercises: []
   }, null);
   const prefsMarchPush = normalizeWorkoutCustomizePrefs({
     allowedWorkoutIds: ['march-spot', 'push-ups'],
     allowedStretchPickKeys: [],
     exerciseOverrides: {},
-    stretchHoldSeconds: 15,
+    stretchHoldSeconds: 20,
     customExercises: []
   }, null);
   const prefsStretchOnly = normalizeWorkoutCustomizePrefs({
     allowedWorkoutIds: [],
     allowedStretchPickKeys: ['stretch-butterfly', 'stretch-neck-roll'],
     exerciseOverrides: {},
-    stretchHoldSeconds: 15,
+    stretchHoldSeconds: 20,
     customExercises: []
   }, null);
   const prefsDefault = defaultWorkoutCustomizePrefs();
@@ -116,7 +118,7 @@ describe('pickWorkoutForBreak / buildMixedBreakWorkout', () => {
       allowedWorkoutIds: ['push-ups'],
       allowedStretchPickKeys: [],
       exerciseOverrides: { pushups: { amount: 5, unit: 'reps' } },
-      stretchHoldSeconds: 15,
+      stretchHoldSeconds: 20,
       customExercises: []
     }, null);
     const workout = pickWorkoutForBreak(prefs, 0.42);
@@ -162,6 +164,7 @@ describe('summarizeTodayStretchTotals', () => {
     expect(stretchBodyRegionForId('stretch-neck-roll')).toBe('upper');
     expect(stretchBodyRegionForId('stretch-lateral-shoulder-L')).toBe('upper');
     expect(stretchBodyRegionForId('stretch-butterfly')).toBe('lower');
+    expect(stretchBodyRegionForId('stretch-foot')).toBe('lower');
     expect(stretchBodyRegionForId('pushups')).toBeNull();
   });
 
@@ -200,14 +203,16 @@ describe('buildStretchBreakExercises', () => {
     }
   });
 
-  it('defaults each stretch to 15 seconds', () => {
+  it('uses per-stretch default hold times', () => {
     for (let i = 0; i < 30; i++) {
       const ex = buildStretchBreakExercises(i * 0.041);
       ex.forEach((row) => {
-        expect(row.amount).toBe(STRETCH_DEFAULT_SECONDS);
+        expect([20, 30]).toContain(row.amount);
         expect(row.unit).toBe('seconds');
       });
     }
+    const neckPick = STRETCH_PICK_CATALOG.find((row) => row.key === 'stretch-neck-roll')!.pick;
+    expect(stretchPickToExercises(neckPick, 30)[0]?.amount).toBe(30);
   });
 
   it('never uses stretch-fill placeholder ids', () => {

@@ -5,6 +5,8 @@ import {
   defaultWorkoutCustomizePrefs,
   formatTimedDuration,
   normalizeWorkoutCustomizePrefs,
+  stretchHoldSecondsForPickKey,
+  STRETCH_DEFAULT_SECONDS,
   type WorkoutCustomizePrefs
 } from '@/lib/workoutCustomize';
 
@@ -149,7 +151,7 @@ export const PREDEFINED_WORKOUTS: WorkoutDefinition[] = [
     name: '🥊 Light Shadowboxing',
     estimatedMinutes: 1.5,
     exercises: [
-      { id: 'shadow', name: 'Light shadowboxing', amount: 90, unit: 'seconds' }
+      { id: 'shadow', name: 'Light shadowboxing', amount: 60, unit: 'seconds' }
     ]
   }
 ];
@@ -162,6 +164,7 @@ export const STRETCH_PICK_CATALOG: readonly { key: string; label: string; pick: 
   { key: 'stretch-butterfly', label: 'Butterfly Stretch', pick: { kind: 'single', id: 'stretch-butterfly', name: 'Butterfly Stretch' } },
   { key: 'stretch-neck-roll', label: 'Neck Roll', pick: { kind: 'single', id: 'stretch-neck-roll', name: 'Neck Roll' } },
   { key: 'stretch-hip-roll', label: 'Hip Roll', pick: { kind: 'single', id: 'stretch-hip-roll', name: 'Hip Roll' } },
+  { key: 'stretch-foot', label: 'Foot Stretch', pick: { kind: 'single', id: 'stretch-foot', name: 'Foot Stretch' } },
   {
     key: 'stretch-lateral-shoulder',
     label: 'Lateral Shoulder Stretch (left and right)',
@@ -244,7 +247,7 @@ export const resolveAllowedWorkoutIds = (allowedWorkoutIds: string[]): string[] 
   return filtered.length > 0 ? filtered : DEFAULT_ALLOWED_WORKOUT_IDS;
 };
 
-export const STRETCH_DEFAULT_SECONDS = 15;
+export { STRETCH_DEFAULT_SECONDS } from '@/lib/workoutCustomize';
 
 export type StretchBodyRegion = 'upper' | 'lower';
 
@@ -258,6 +261,7 @@ export const STRETCH_UPPER_BODY_IDS = new Set<string>([
 export const STRETCH_LOWER_BODY_IDS = new Set<string>([
   'stretch-butterfly',
   'stretch-hip-roll',
+  'stretch-foot',
   'stretch-toe-both',
   'stretch-toe-one-L',
   'stretch-toe-one-R',
@@ -319,6 +323,14 @@ export const STRETCH_BILATERAL_PAIRS: readonly (readonly [string, string])[] = [
 
 const STRETCH_POOL: StretchPick[] = STRETCH_PICK_CATALOG.map((row) => row.pick);
 
+const stretchCatalogKeyForPick = (pick: StretchPick): string | null => {
+  for (const row of STRETCH_PICK_CATALOG) {
+    if (row.pick.kind === 'single' && pick.kind === 'single' && row.pick.id === pick.id) return row.key;
+    if (row.pick.kind === 'bilateral' && pick.kind === 'bilateral' && row.pick.left.id === pick.left.id) return row.key;
+  }
+  return null;
+};
+
 const stretchRow = (id: string, name: string, holdSeconds: number = STRETCH_DEFAULT_SECONDS): ExerciseDefinition => ({
   id,
   name,
@@ -357,8 +369,15 @@ const shuffleStretchPool = (randomValue: number): StretchPick[] => {
   return arr;
 };
 
-/** 2–3 stretch rows; bilateral picks always schedule left and right (15s each). */
-export const buildStretchBreakExercises = (randomValue: number = Math.random()): ExerciseDefinition[] => {
+/** 2–3 stretch rows; bilateral picks always schedule left and right. */
+export const buildStretchBreakExercises = (
+  randomValue: number = Math.random(),
+  prefs: WorkoutCustomizePrefs = defaultWorkoutCustomizePrefs()
+): ExerciseDefinition[] => {
+  const holdForPick = (pick: StretchPick) => {
+    const key = stretchCatalogKeyForPick(pick);
+    return key ? stretchHoldSecondsForPickKey(key, prefs) : STRETCH_DEFAULT_SECONDS;
+  };
   const rowTarget = (() => {
     const r = Number.isFinite(randomValue) ? Math.abs(Math.sin(randomValue * 9999)) : Math.random();
     return r < 0.5 ? 2 : 3;
@@ -369,14 +388,14 @@ export const buildStretchBreakExercises = (randomValue: number = Math.random()):
   const pickKey = (pick: StretchPick) => (pick.kind === 'single' ? pick.id : `${pick.left.id}|${pick.right.id}`);
   for (const pick of pool) {
     if (out.length >= rowTarget) break;
-    const rows = stretchPickToExercises(pick);
+    const rows = stretchPickToExercises(pick, holdForPick(pick));
     if (out.length + rows.length > rowTarget || usedPickKeys.has(pickKey(pick))) continue;
     usedPickKeys.add(pickKey(pick));
     rows.forEach((row) => out.push(row));
   }
   for (const pick of STRETCH_POOL) {
     if (out.length >= rowTarget) break;
-    const rows = stretchPickToExercises(pick);
+    const rows = stretchPickToExercises(pick, holdForPick(pick));
     if (out.length + rows.length > rowTarget || usedPickKeys.has(pickKey(pick))) continue;
     usedPickKeys.add(pickKey(pick));
     rows.forEach((row) => out.push(row));
@@ -397,7 +416,6 @@ export const estimateExerciseLoadSeconds = (ex: ExerciseDefinition): number => {
 const collectBreakMoveUnits = (prefs: WorkoutCustomizePrefs): BreakMoveUnit[] => {
   const allowedWorkouts = new Set(prefs.allowedWorkoutIds);
   const allowedStretchKeys = new Set(prefs.allowedStretchPickKeys);
-  const holdSeconds = prefs.stretchHoldSeconds > 0 ? prefs.stretchHoldSeconds : STRETCH_DEFAULT_SECONDS;
   const overrides = prefs.exerciseOverrides;
   const units: BreakMoveUnit[] = [];
   for (const def of PREDEFINED_WORKOUTS) {
@@ -410,6 +428,7 @@ const collectBreakMoveUnits = (prefs: WorkoutCustomizePrefs): BreakMoveUnit[] =>
   }
   STRETCH_PICK_CATALOG.forEach((row) => {
     if (!allowedStretchKeys.has(row.key)) return;
+    const holdSeconds = stretchHoldSecondsForPickKey(row.key, prefs);
     units.push(stretchPickToUnit(row.pick, holdSeconds, overrides));
   });
   prefs.customExercises.forEach((ex) => {
