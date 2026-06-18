@@ -65,6 +65,14 @@ import {
   saveActiveFlowState,
   saveWorkoutCustomizePrefs
 } from '@/lib/sessionDb';
+import {
+  applyRemoteActiveFlow,
+  buildActiveFlowDocument,
+  createDesktopSyncClient,
+  isRemoteActiveFlow,
+  isSyncViewer
+} from '@/lib/sessionSync';
+import type { SyncClient } from '@mgmt/sync';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
@@ -154,6 +162,9 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const workoutLoggedRef = useRef(workoutLogged);
   workoutLoggedRef.current = workoutLogged;
   const flowPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncClientRef = useRef<SyncClient | null>(null);
+  const syncLeaderDeviceIdRef = useRef<string | null>(null);
+  const lastPublishedAtMsRef = useRef(0);
   const processTimerEndRef = useRef<() => void>(() => {});
   const prevRemainingForTimerEndRef = useRef<number | null>(null);
 
@@ -211,8 +222,18 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     if (flowPersistTimerRef.current) clearTimeout(flowPersistTimerRef.current);
     flowPersistTimerRef.current = setTimeout(() => {
       if (phaseRef.current === 'idle') return;
-      void saveActiveFlowState(buildPersistedFlow()).catch((error) => {
+      const flow = buildPersistedFlow();
+      void saveActiveFlowState(flow).catch((error) => {
         console.error('Failed to persist active flow:', error);
+      });
+      const client = syncClientRef.current;
+      if (!client) return;
+      if (isSyncViewer(syncLeaderDeviceIdRef.current, client.deviceId)) return;
+      const now = Date.now();
+      const doc = buildActiveFlowDocument(flow, client.deviceId, phaseEndsAtMsRef.current, now);
+      lastPublishedAtMsRef.current = now;
+      void client.publishActiveFlow(doc).catch((error) => {
+        console.error('Failed to publish active flow to sync:', error);
       });
     }, 400);
   }, [buildPersistedFlow]);
@@ -481,6 +502,32 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [applyPersistedFlow]);
 
   useEffect(() => {
+    const client = createDesktopSyncClient();
+    syncClientRef.current = client;
+    return client.subscribeActiveFlow((doc) => {
+      if (!doc) return;
+      syncLeaderDeviceIdRef.current = doc.leaderDeviceId;
+      if (!isRemoteActiveFlow(doc, client.deviceId)) return;
+      if (doc.updatedAtMs <= lastPublishedAtMsRef.current) return;
+      const wasLogged = workoutLoggedRef.current;
+      const applied = applyRemoteActiveFlow(doc);
+      phaseEndsAtMsRef.current = applied.phaseEndsAtMs;
+      applyPersistedFlow(applied.flow);
+      if (applied.flow.workoutLogged && !wasLogged) logActiveWorkoutIfNeeded(1);
+    });
+  }, [applyPersistedFlow, logActiveWorkoutIfNeeded]);
+
+  useEffect(() => {
+    const client = syncClientRef.current;
+    if (!client || !sessionStorageReady || phase !== 'idle') return;
+    if (isSyncViewer(syncLeaderDeviceIdRef.current, client.deviceId)) return;
+    lastPublishedAtMsRef.current = Date.now();
+    void client.publishActiveFlow(null).catch((error) => {
+      console.error('Failed to clear remote active flow:', error);
+    });
+  }, [phase, sessionStorageReady]);
+
+  useEffect(() => {
     if (!sessionStorageReady) return;
     void saveWorkoutCustomizePrefs(workoutCustomizePrefs).catch((error) => {
       console.error('Failed to save workout customize prefs:', error);
@@ -523,6 +570,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     processTimerEndRef.current = () => {
       if (phaseRef.current === 'idle') return;
       if (remainingSecondsRef.current !== 0) return;
+      const syncClient = syncClientRef.current;
+      if (isSyncViewer(syncLeaderDeviceIdRef.current, syncClient?.deviceId ?? '')) return;
       if (phaseRef.current === 'focus' && activeSessionTypeRef.current) {
         const sessionType = activeSessionTypeRef.current;
         recordFocusSession(sessionType, 1);
