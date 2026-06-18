@@ -70,7 +70,8 @@ import {
   buildActiveFlowDocument,
   createDesktopSyncClient,
   isRemoteActiveFlow,
-  isSyncViewer
+  isSyncViewer,
+  syncLeaderDeviceIdFromDoc
 } from '@/lib/sessionSync';
 import type { SyncClient } from '@mgmt/sync';
 
@@ -510,8 +511,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     const client = createDesktopSyncClient();
     syncClientRef.current = client;
     return client.subscribeActiveFlow((doc) => {
+      syncLeaderDeviceIdRef.current = syncLeaderDeviceIdFromDoc(doc);
       if (!doc) return;
-      syncLeaderDeviceIdRef.current = doc.leaderDeviceId;
       if (!isRemoteActiveFlow(doc, client.deviceId)) return;
       if (doc.updatedAtMs <= lastPublishedAtMsRef.current) return;
       const wasLogged = workoutLoggedRef.current;

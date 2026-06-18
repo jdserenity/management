@@ -44,3 +44,7 @@ export const isRemoteActiveFlow = (doc: ActiveFlowDocument, localDeviceId: strin
 
 export const isSyncViewer = (leaderDeviceId: string | null | undefined, localDeviceId: string): boolean =>
   !!leaderDeviceId && leaderDeviceId !== localDeviceId;
+
+/** Leader id from the latest remote doc; null when the shared session is cleared. */
+export const syncLeaderDeviceIdFromDoc = (doc: ActiveFlowDocument | null): string | null =>
+  doc?.leaderDeviceId ?? null;

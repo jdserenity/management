@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createActiveFlowDocument } from '@mgmt/sync';
 import type { PersistedFlowState } from '@mgmt/core';
-import { applyRemoteActiveFlow, isRemoteActiveFlow, isSyncViewer } from './sessionSync';
+import { applyRemoteActiveFlow, isRemoteActiveFlow, isSyncViewer, syncLeaderDeviceIdFromDoc } from './sessionSync';
 
 const flow = (): PersistedFlowState => ({
   version: 1,
@@ -41,5 +41,12 @@ describe('sessionSync', () => {
   it('flags sync viewer when another device leads', () => {
     expect(isSyncViewer('phone', 'desktop')).toBe(true);
     expect(isSyncViewer('desktop', 'desktop')).toBe(false);
+  });
+
+  it('clears leader when remote active flow is cleared', () => {
+    const doc = createActiveFlowDocument(flow(), 'phone', Date.now() + 60_000);
+    expect(syncLeaderDeviceIdFromDoc(doc)).toBe('phone');
+    expect(syncLeaderDeviceIdFromDoc(null)).toBeNull();
+    expect(isSyncViewer(syncLeaderDeviceIdFromDoc(null), 'desktop')).toBe(false);
   });
 });
