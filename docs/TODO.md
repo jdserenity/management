@@ -1,7 +1,7 @@
 # TODO
 
-- [ ] Companion-led exercise breaks: phone claims leadership during break, desktop viewer mode, Complete Workout on companion.
-- [ ] Verify end-to-end sync locally (sync-api + `.env` + desktop session visible on companion).
+- [x] Companion-led exercise breaks: phone claims leadership during break, desktop viewer mode, Complete Workout on companion (Composer, 2026-06-18).
+- [x] Verify end-to-end sync locally (sync-api + `.env` + desktop session visible on companion) (Composer, 2026-06-18).
 - [ ] Stats sync to Turso (`focus_log`, `workout_log`) so both devices share history.
 - [ ] Companion: start standalone exercise break without desktop.
 - [ ] Deploy `apps/sync-api` to hosted Turso (production `LIBSQL_URL` + token).
