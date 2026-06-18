@@ -25,6 +25,10 @@ import {
   saveSessionAlertsPref,
   type SessionAlertsPrefs,
 } from '@/lib/sessionAlertsPref';
+import {
+  loadStreakHeatmapColorPref,
+  saveStreakHeatmapColorPref,
+} from '@/lib/streakHeatmapPref';
 
 const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
 const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
@@ -471,7 +475,7 @@ const StatsDaySettings = () => {
                     <div className="space-y-1">
                         <span className="font-medium">{t('settings.statsDayRollover', 'Day starts at')}</span>
                         <p className="text-sm text-muted-foreground">
-                            {t('settings.statsDayRolloverDesc', 'Today’s work and movement totals reset at this time (default 4:00 AM).')}
+                            {t('settings.statsDayRolloverDesc', 'Today’s work, movement, nutrition, and habits reset at this time (default 4:00 AM).')}
                         </p>
                     </div>
                     <Select value={String(dayRolloverHour)} onValueChange={(v) => setDayRolloverHour(Number(v))}>
@@ -482,6 +486,62 @@ const StatsDaySettings = () => {
                             ))}
                         </SelectContent>
                     </Select>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+const HabitsSettings = () => {
+    const { t } = useTranslation();
+    const [heatmapColor, setHeatmapColor] = useState('');
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        loadStreakHeatmapColorPref()
+            .then((color) => {
+                setHeatmapColor(color ?? '#22c55e');
+                setLoaded(true);
+            })
+            .catch(console.error);
+    }, []);
+
+    const persistColor = useCallback((hex: string) => {
+        const normalized = hex.trim();
+        setHeatmapColor(normalized);
+        void saveStreakHeatmapColorPref(normalized || null).catch(console.error);
+    }, []);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{t('settings.habitsTitle', 'Habits')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.habitsHeatmapColor', 'Daily heatmap color')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t('settings.habitsHeatmapColorDesc', 'Custom color for the yearly habits heatmap. Weekly heatmap stays red.')}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="color"
+                            className="h-10 w-14 cursor-pointer rounded border border-border bg-background p-1"
+                            value={loaded ? heatmapColor : '#22c55e'}
+                            disabled={!loaded}
+                            onChange={(e) => persistColor(e.target.value)}
+                        />
+                        <input
+                            type="text"
+                            className="w-28 rounded-md border border-border bg-background px-2 py-1 text-sm"
+                            value={heatmapColor}
+                            disabled={!loaded}
+                            onChange={(e) => setHeatmapColor(e.target.value)}
+                            onBlur={() => persistColor(heatmapColor)}
+                        />
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -712,6 +772,7 @@ const SettingsPage = () => {
             <SessionAlertSettings />
             <ThemeSettings />
             <StatsDaySettings />
+            <HabitsSettings />
             <DetectionSettings />
             <CameraSettings />
             <NotificationSettings />
