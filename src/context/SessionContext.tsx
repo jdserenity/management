@@ -71,6 +71,7 @@ import {
   createDesktopSyncClient,
   isRemoteActiveFlow,
   isSyncViewer,
+  shouldFollowRemoteFlowClear,
   syncLeaderDeviceIdFromDoc
 } from '@/lib/sessionSync';
 import type { SyncClient } from '@mgmt/sync';
@@ -454,6 +455,14 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     }
     // Stopping during a break does not log a workout (no scaled partial credit).
     resetToIdle();
+    const client = syncClientRef.current;
+    if (client) {
+      syncLeaderDeviceIdRef.current = null;
+      lastPublishedAtMsRef.current = Date.now();
+      void client.publishActiveFlow(null).catch((error) => {
+        console.error('Failed to clear remote active flow on stop:', error);
+      });
+    }
   }, [recordFocusSession, resetToIdle]);
 
   useEffect(() => {
@@ -511,8 +520,13 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     const client = createDesktopSyncClient();
     syncClientRef.current = client;
     return client.subscribeActiveFlow((doc) => {
+      if (!doc) {
+        const wasViewer = shouldFollowRemoteFlowClear(syncLeaderDeviceIdRef.current, client.deviceId, phaseRef.current);
+        syncLeaderDeviceIdRef.current = null;
+        if (wasViewer) resetToIdle();
+        return;
+      }
       syncLeaderDeviceIdRef.current = syncLeaderDeviceIdFromDoc(doc);
-      if (!doc) return;
       if (!isRemoteActiveFlow(doc, client.deviceId)) return;
       if (doc.updatedAtMs <= lastPublishedAtMsRef.current) return;
       const wasLogged = workoutLoggedRef.current;
@@ -521,7 +535,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       applyPersistedFlow(applied.flow);
       if (applied.flow.workoutLogged && !wasLogged) logActiveWorkoutIfNeeded(1);
     });
-  }, [applyPersistedFlow, logActiveWorkoutIfNeeded]);
+  }, [applyPersistedFlow, logActiveWorkoutIfNeeded, resetToIdle]);
 
   useEffect(() => {
     const client = syncClientRef.current;

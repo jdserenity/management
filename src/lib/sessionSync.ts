@@ -48,3 +48,10 @@ export const isSyncViewer = (leaderDeviceId: string | null | undefined, localDev
 /** Leader id from the latest remote doc; null when the shared session is cleared. */
 export const syncLeaderDeviceIdFromDoc = (doc: ActiveFlowDocument | null): string | null =>
   doc?.leaderDeviceId ?? null;
+
+/** Desktop was following a remote leader and should drop local flow when remote clears. */
+export const shouldFollowRemoteFlowClear = (
+  leaderDeviceId: string | null,
+  localDeviceId: string,
+  localPhase: PersistedFlowState['phase']
+): boolean => isSyncViewer(leaderDeviceId, localDeviceId) && localPhase !== 'idle';

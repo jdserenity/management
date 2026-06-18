@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  advanceBreakWhenTimerEnds,
-  isActiveExerciseBreak,
-  markWorkoutCompletedInFlow,
-  updateBreakExerciseAmountInFlow
-} from '@mgmt/core';
+  resolveBreakTimerEnd,
+  shouldAttemptBreakAdvance,
+  shouldSkipBreakAdvanceForDoc
+} from '../lib/breakSync';
+import { isActiveExerciseBreak, markWorkoutCompletedInFlow, updateBreakExerciseAmountInFlow } from '@mgmt/core';
 import { createActiveFlowDocument, liveRemainingSeconds, type ActiveFlowDocument, type SyncClient } from '@mgmt/sync';
 
 export interface CompanionSessionValue {
@@ -38,7 +38,7 @@ export const CompanionSessionProvider = ({
   const phaseEndsAtMsRef = useRef(0);
   const publishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPublishedAtMsRef = useRef(0);
-  const prevRemainingRef = useRef<number | null>(null);
+  const lastBreakAdvancedAtMsRef = useRef(0);
 
   activeFlowRef.current = activeFlow;
 
@@ -56,10 +56,25 @@ export const CompanionSessionProvider = ({
       } else {
         setActiveFlow(null);
         setIsLeader(false);
+        lastBreakAdvancedAtMsRef.current = 0;
       }
     },
     [client]
   );
+
+  const tryAdvanceBreakAtZero = useCallback(() => {
+    const doc = activeFlowRef.current;
+    if (!doc || doc.flow.phase !== 'break') return;
+    if (liveRemainingSeconds(doc) > 0) return;
+    if (shouldSkipBreakAdvanceForDoc(doc.updatedAtMs, lastBreakAdvancedAtMsRef.current)) return;
+    lastBreakAdvancedAtMsRef.current = doc.updatedAtMs;
+    const action = resolveBreakTimerEnd(doc.flow);
+    if (action.kind === 'clear') {
+      publishFlow(null, 0);
+      return;
+    }
+    publishFlow(action.flow, action.phaseEndsAtMs);
+  }, [publishFlow]);
 
   const schedulePublish = useCallback(
     (flow: ActiveFlowDocument['flow'], phaseEndsAtMs: number) => {
@@ -108,20 +123,9 @@ export const CompanionSessionProvider = ({
   }, [activeFlow]);
 
   useEffect(() => {
-    if (!isLeader || !activeFlow || activeFlow.flow.phase !== 'break') {
-      prevRemainingRef.current = remainingSeconds;
-      return;
-    }
-    const prev = prevRemainingRef.current;
-    prevRemainingRef.current = remainingSeconds;
-    if (remainingSeconds !== 0 || prev === 0) return;
-    const advanced = advanceBreakWhenTimerEnds(activeFlow.flow);
-    if (advanced.kind === 'finish') {
-      publishFlow(null, 0);
-      return;
-    }
-    publishFlow(advanced.flow, advanced.phaseEndsAtMs);
-  }, [remainingSeconds, isLeader, activeFlow, publishFlow]);
+    if (!shouldAttemptBreakAdvance(isLeader, activeFlow?.flow.phase ?? 'idle', remainingSeconds)) return;
+    tryAdvanceBreakAtZero();
+  }, [isLeader, activeFlow, remainingSeconds, tryAdvanceBreakAtZero]);
 
   const completeWorkout = useCallback(() => {
     const doc = activeFlowRef.current;
