@@ -1,4 +1,5 @@
 import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary';
+import type { ExerciseRunAgg } from '@mgmt/core';
 import {
   applyExerciseOverride,
   defaultWorkoutCustomizePrefs,
@@ -623,12 +624,7 @@ export const formatExerciseAmount = (exercise: StoredExercise): string => {
   return '';
 };
 
-export interface ExerciseRunAgg {
-  id: string;
-  label: string;
-  reps: number;
-  timedSeconds: number;
-}
+export type { ExerciseRunAgg } from '@mgmt/core';
 
 export const summarizeTodayExerciseTotals = (
   logs: WorkoutLogEntry[],

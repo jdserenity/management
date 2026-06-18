@@ -11,6 +11,8 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@mgmt/core": path.resolve(__dirname, "./packages/core/src/index.ts"),
+      "@mgmt/sync": path.resolve(__dirname, "./packages/sync/src/index.ts"),
     },
   },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

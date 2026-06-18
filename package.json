@@ -3,9 +3,16 @@
   "private": true,
   "version": "1.5.1",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "vite",
+    "dev:companion": "npm run dev -w @mgmt/companion",
+    "dev:sync-api": "npm run dev -w @mgmt/sync-api",
     "build": "tsc && vite build",
+    "build:companion": "npm run build -w @mgmt/companion",
     "test": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -13,6 +20,8 @@
     "app:deploy": "node scripts/install-app.mjs"
   },
   "dependencies": {
+    "@mgmt/core": "0.0.1",
+    "@mgmt/sync": "0.0.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-select": "^2.2.6",

@@ -22,7 +22,9 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@mgmt/core": ["./packages/core/src/index.ts"],
+      "@mgmt/sync": ["./packages/sync/src/index.ts"]
     }
   },
   "include": ["src"],
