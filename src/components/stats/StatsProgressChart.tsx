@@ -46,7 +46,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
       </div>
       <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
             <defs>
               <radialGradient id="statsDotGlow" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="#ef4444" stopOpacity={0.85} />
@@ -54,8 +54,8 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               </radialGradient>
             </defs>
             <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <YAxis yAxisId="focus" orientation="left" tick={{ fill: '#60a5fa', fontSize: 10 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
-            <YAxis yAxisId="move" orientation="left" tick={{ fill: '#fdba74', fontSize: 10 }} axisLine={false} tickLine={false} width={28} dx={-32} allowDecimals={false} />
+            <YAxis yAxisId="focus" orientation="left" tick={{ fill: '#60a5fa', fontSize: 10 }} axisLine={false} tickLine={false} width={28} dx={-32} allowDecimals={false} />
+            <YAxis yAxisId="move" orientation="left" tick={{ fill: '#fdba74', fontSize: 10 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#f8fafc' }}
               labelStyle={{ color: '#cbd5e1', marginBottom: 4 }}
