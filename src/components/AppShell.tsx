@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import Dashboard from '@/components/Dashboard';
 import DailyPage from '@/components/DailyPage';
 import PosturePage from '@/components/PosturePage';
-import CustomizeWorkoutPage from '@/components/CustomizeWorkoutPage';
+import CustomizePage from '@/components/CustomizePage';
 import StatsPage from '@/components/StatsPage';
 import SettingsPage from '@/components/SettingsPage';
 import FlowHeaderControl from '@/components/FlowHeaderControl';
@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
   { id: 'daily', label: 'Daily', icon: Sun, component: DailyPage },
   { id: 'work', label: 'Work', icon: LayoutDashboard, component: Dashboard },
   { id: 'posture', label: 'Posture', icon: Camera, component: PosturePage },
-  { id: 'customize', label: 'Customize workouts', icon: SlidersHorizontal, component: CustomizeWorkoutPage },
+  { id: 'customize', label: 'Customize', icon: SlidersHorizontal, component: CustomizePage },
   { id: 'stats', label: 'Stats', icon: BarChart3, component: StatsPage },
   { id: 'settings', label: 'Settings', icon: Settings, component: SettingsPage },
 ];

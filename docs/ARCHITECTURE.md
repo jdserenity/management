@@ -2,7 +2,8 @@
 
 ## Product Intent
 - The app is being repurposed from posture tracking into a personal background manager for focus and movement.
-- **Daily tab** (`DailyPage.tsx`) is the default landing tab: **nutrition** (TDEE targets, today’s food log, staples/regulars) and **habits** (streak tracker heatmaps, daily/weekly activities, pause/reset/archive). Ported from Obsidian plugins; data lives in SQLite (`src/lib/tdeeDb.ts`, `src/lib/streakDb.ts`). Day boundary uses the same `stats_day_rollover_hour_v1` as work/movement stats. Nutrition regulars are edited in the Daily tab add panel (+); staples and TDEE/protein targets are still vault-import or DB-only until Settings UI lands.
+- **Daily tab** (`DailyPage.tsx`) is the default landing tab: **nutrition** (TDEE targets, today’s food log, staples/regulars) and **habits** (streak tracker heatmaps, daily/weekly activities, pause/reset/archive). Ported from Obsidian plugins; data lives in SQLite (`src/lib/tdeeDb.ts`, `src/lib/streakDb.ts`). Day boundary uses the same `stats_day_rollover_hour_v1` as work/movement stats.
+- **Customize tab** (`CustomizePage.tsx`) has three subtabs — **Exercises** (break workout toggles, amounts, stretches, custom moves), **Habits** (add/edit/archive streak activities), **Food** (TDEE/protein targets, staples, regulars). Daily tab + menu is log-only for food and habits.
 - **Work tab** (`Dashboard.tsx`, nav label “Work”) is the session-driven focus flow below.
 - Pomodoro sessions are 25 minutes of focus followed by a 5 minute break.
 - Deep Work sessions are 90 minutes of focus followed by a long break: 5 minutes of guided exercise then 10 minutes of relax (`SESSION_DURATIONS_MINUTES` in `src/lib/workoutPlanner.ts`, driven by `src/context/SessionContext.tsx`).
@@ -74,7 +75,7 @@ flowchart TB
     Daily["DailyPage.tsx nutrition TdeeSection habits StreakSection"]
     D["Dashboard.tsx Work tab timer chain today totals"]
     PPg["PosturePage.tsx live score charts history export"]
-    CW["CustomizeWorkoutPage.tsx move toggles editable amounts stretches custom exercises"]
+    CW["CustomizePage.tsx exercises habits food subtabs"]
     ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]
     SE["SettingsPage.tsx camera monitoring battery habits heatmap restart"]
   end

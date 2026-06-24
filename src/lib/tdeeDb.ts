@@ -206,6 +206,23 @@ export const removeTdeeRegular = async (file: TdeeFile, id: string): Promise<Tde
   return loadTdeeFile();
 };
 
+export const upsertTdeeStaple = async (file: TdeeFile, meal: TdeeMealDef, isNew: boolean): Promise<TdeeFile> => {
+  const staples = upsertMeal(file.staples, meal, isNew);
+  await saveTdeeFile({ ...file, staples });
+  return loadTdeeFile();
+};
+
+export const removeTdeeStaple = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
+  const staples = removeMeal(file.staples, id);
+  await saveTdeeFile({ ...file, staples });
+  return loadTdeeFile();
+};
+
+export const updateTdeeTargets = async (file: TdeeFile, tdee: number, protein: number): Promise<TdeeFile> => {
+  await saveTdeeFile({ ...file, tdee: Math.max(0, Math.round(tdee)), protein: Math.max(0, Math.round(protein)) });
+  return loadTdeeFile();
+};
+
 export const addCustomEntry = async (
   file: TdeeFile,
   label: string,
@@ -215,7 +232,7 @@ export const addCustomEntry = async (
 ): Promise<TdeeFile> => {
   const entry = makeEntry({
     kind: 'custom',
-    label: label.trim() || 'Custom',
+    label: label.trim() || 'One-Off',
     calories,
     protein,
     count
