@@ -41,12 +41,12 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
     <div className="flex h-full min-h-[220px] flex-col rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 p-4 shadow-inner">
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold uppercase tracking-widest text-slate-400">
         <span>📈 Over time</span>
-        <span className="normal-case tracking-normal text-blue-400">⏳ Focus — left axis</span>
-        <span className="normal-case tracking-normal text-orange-400">💪 Move — right axis</span>
+        <span className="normal-case tracking-normal text-blue-400">⏳ Focus</span>
+        <span className="normal-case tracking-normal text-orange-400">💪 Move</span>
       </div>
       <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 12, right: 4, left: 0, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 0 }}>
             <defs>
               <radialGradient id="statsDotGlow" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="#ef4444" stopOpacity={0.85} />
@@ -54,8 +54,8 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               </radialGradient>
             </defs>
             <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <YAxis yAxisId="focus" orientation="left" tick={{ fill: '#60a5fa', fontSize: 11 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} />
-            <YAxis yAxisId="move" orientation="right" tick={{ fill: '#fdba74', fontSize: 11 }} axisLine={false} tickLine={false} width={32} allowDecimals={false} />
+            <YAxis yAxisId="focus" orientation="left" tick={{ fill: '#60a5fa', fontSize: 10 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+            <YAxis yAxisId="move" orientation="left" tick={{ fill: '#fdba74', fontSize: 10 }} axisLine={false} tickLine={false} width={28} dx={-32} allowDecimals={false} />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#f8fafc' }}
               labelStyle={{ color: '#cbd5e1', marginBottom: 4 }}
