@@ -3,6 +3,7 @@ import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { getCurrentLogDay } from '@/lib/tdee/dates';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/defaults';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
+import { removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile } from '@/lib/tdee/normalize';
 import type { TdeeFile, TdeeLogEntry, TdeeMealDef, TdeeStoredEntry } from '@/lib/tdee/types';
 
@@ -191,6 +192,18 @@ export const addRegularEntry = async (
     count
   });
   return addTdeeEntry(file, entry);
+};
+
+export const upsertTdeeRegular = async (file: TdeeFile, meal: TdeeMealDef, isNew: boolean): Promise<TdeeFile> => {
+  const regulars = upsertMeal(file.regulars, meal, isNew);
+  await saveTdeeFile({ ...file, regulars });
+  return loadTdeeFile();
+};
+
+export const removeTdeeRegular = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
+  const regulars = removeMeal(file.regulars, id);
+  await saveTdeeFile({ ...file, regulars });
+  return loadTdeeFile();
 };
 
 export const addCustomEntry = async (

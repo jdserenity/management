@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
 import { activeEntries, isStapleLogged, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
+import { mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile } from '@/lib/tdee/normalize';
 import {
   entryCalories,
@@ -114,6 +115,30 @@ describe('tdee dates', () => {
 
   it('formatLogDay pads month and day', () => {
     expect(formatLogDay(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+});
+
+describe('tdee meals', () => {
+  it('mealIdFromName slugifies and avoids collisions', () => {
+    const existing = [{ id: 'yogurt', name: 'Yogurt', calories: 400, protein: 10 }];
+    expect(mealIdFromName('Yogurt w/ Granola', existing)).toBe('yogurt-w-granola');
+    expect(mealIdFromName('Yogurt', existing)).toBe('yogurt-2');
+  });
+
+  it('upsertMeal appends or replaces by id', () => {
+    const meals = [{ id: 'a', name: 'A', calories: 100, protein: 5 }];
+    const added = upsertMeal(meals, { id: 'b', name: 'B', calories: 200, protein: 10 }, true);
+    expect(added.map((m) => m.id)).toEqual(['a', 'b']);
+    const updated = upsertMeal(added, { id: 'a', name: 'A2', calories: 150, protein: 8 }, false);
+    expect(updated[0]).toEqual({ id: 'a', name: 'A2', calories: 150, protein: 8 });
+  });
+
+  it('removeMeal drops matching id', () => {
+    const meals = [
+      { id: 'a', name: 'A', calories: 100, protein: 5 },
+      { id: 'b', name: 'B', calories: 200, protein: 10 }
+    ];
+    expect(removeMeal(meals, 'a').map((m) => m.id)).toEqual(['b']);
   });
 });
 

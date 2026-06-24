@@ -220,6 +220,85 @@
   font-weight: 500;
 }
 
+.tdee-regular-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tdee-regular-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tdee-regular-action-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.tdee-regular-action-btn:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.tdee-regular-action-btn-danger:hover {
+  color: rgb(239, 68, 68);
+}
+
+.tdee-regular-editor {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-bottom: 12px;
+}
+
+.tdee-regular-editor-title {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  margin-bottom: 8px;
+}
+
+.tdee-regular-editor-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tdee-regular-editor-fields .tdee-meal-title-input {
+  flex: 1 1 140px;
+  min-width: 120px;
+}
+
+.tdee-regular-cancel-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+}
+
+.tdee-regular-cancel-btn:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
 .tdee-regular-ingredients {
   margin-top: 2px;
   font-size: 0.72em;
