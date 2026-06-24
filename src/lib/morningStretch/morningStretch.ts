@@ -1,4 +1,5 @@
 import { isTimestampInStatsDay } from '@/lib/dayBoundary';
+import { scaleExercisesByRatio } from '@/lib/sessionProgress';
 import {
   applyExerciseOverride,
   resolveAllowedStretchPickKeys,
@@ -14,6 +15,10 @@ import {
   type ExerciseDefinition,
   type WorkoutLogEntry
 } from '@/lib/workoutPlanner';
+import {
+  DEFAULT_MORNING_STRETCH_HIDE_AFTER_HOUR,
+  type MorningStretchPrefs
+} from '@/lib/morningStretch/morningStretchPref';
 
 export const MORNING_STRETCH_WORKOUT_ID = 'morning-stretch';
 export const MORNING_STRETCH_WORKOUT_NAME = '🌅 Morning stretch';
@@ -109,20 +114,62 @@ export const isMorningStretchCompletedToday = (
       isTimestampInStatsDay(log.completedAt, nowTimestamp, rolloverHour)
   );
 
+export const morningStretchHideCutoffMs = (nowTimestamp: number, hideAfterHour: number): number => {
+  const d = new Date(nowTimestamp);
+  d.setHours(hideAfterHour, 0, 0, 0);
+  return d.getTime();
+};
+
+export const isBeforeMorningStretchHideCutoff = (
+  nowTimestamp: number = Date.now(),
+  hideAfterHour: number = DEFAULT_MORNING_STRETCH_HIDE_AFTER_HOUR
+): boolean => nowTimestamp < morningStretchHideCutoffMs(nowTimestamp, hideAfterHour);
+
+export type MorningStretchVisibilityInput = {
+  prefs: Pick<MorningStretchPrefs, 'enabled' | 'hideAfterHour'>;
+  completedToday: boolean;
+  nowTimestamp?: number;
+  /** Keep visible while a timed block is running. */
+  activeRun?: boolean;
+};
+
+export const shouldShowMorningStretchSection = ({
+  prefs,
+  completedToday,
+  nowTimestamp = Date.now(),
+  activeRun = false
+}: MorningStretchVisibilityInput): boolean => {
+  if (activeRun) return true;
+  if (!prefs.enabled) return false;
+  if (completedToday) return false;
+  return isBeforeMorningStretchHideCutoff(nowTimestamp, prefs.hideAfterHour);
+};
+
+export const morningStretchCompletionRatio = (
+  elapsedSeconds: number,
+  durationMinutes: number
+): number => {
+  const total = Math.max(1, durationMinutes * 60);
+  return Math.min(1, Math.max(0, elapsedSeconds / total));
+};
+
 export const buildMorningStretchLogEntry = (
   exercises: ExerciseDefinition[],
   id: string,
-  completedAt: number = Date.now()
+  completedAt: number = Date.now(),
+  completionRatio: number = 1
 ): WorkoutLogEntry => {
-  const vol = sumExerciseVolume(exercises);
+  const ratio = Math.min(1, Math.max(0, completionRatio));
+  const scaled = scaleExercisesByRatio(exercises, ratio);
+  const vol = sumExerciseVolume(scaled);
   return {
     id,
     workoutId: MORNING_STRETCH_WORKOUT_ID,
     workoutName: MORNING_STRETCH_WORKOUT_NAME,
     completedAt,
-    exercises,
+    exercises: scaled,
     totalReps: vol.reps,
     totalTimedSeconds: vol.timedSeconds,
-    completionRatio: 1
+    completionRatio: ratio
   };
 };

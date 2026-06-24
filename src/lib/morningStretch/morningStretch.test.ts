@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { defaultWorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 import {
   buildMorningStretchLogEntry,
+  isBeforeMorningStretchHideCutoff,
   isMorningStretchCompletedToday,
   listMorningStretchCatalog,
+  morningStretchCompletionRatio,
   MORNING_STRETCH_WORKOUT_ID,
   normalizeMorningStretchRoutine,
-  resolveMorningStretchExercises
+  resolveMorningStretchExercises,
+  shouldShowMorningStretchSection
 } from '@/lib/morningStretch/morningStretch';
+import { defaultMorningStretchPrefs } from '@/lib/morningStretch/morningStretchPref';
 
 describe('listMorningStretchCatalog', () => {
   it('includes enabled predefined moves, stretch picks, and custom exercises', () => {
@@ -83,5 +87,52 @@ describe('isMorningStretchCompletedToday', () => {
 
   it('uses workout_id morning-stretch only', () => {
     expect(MORNING_STRETCH_WORKOUT_ID).toBe('morning-stretch');
+  });
+});
+
+describe('shouldShowMorningStretchSection', () => {
+  const prefs = defaultMorningStretchPrefs();
+
+  it('hides when disabled, completed, or after hide cutoff', () => {
+    const morning = new Date('2026-06-24T08:00:00').getTime();
+    const afternoon = new Date('2026-06-24T13:00:00').getTime();
+    expect(shouldShowMorningStretchSection({ prefs, completedToday: false, nowTimestamp: morning })).toBe(true);
+    expect(shouldShowMorningStretchSection({ prefs, completedToday: true, nowTimestamp: morning })).toBe(false);
+    expect(shouldShowMorningStretchSection({ prefs: { ...prefs, enabled: false }, completedToday: false, nowTimestamp: morning })).toBe(false);
+    expect(shouldShowMorningStretchSection({ prefs, completedToday: false, nowTimestamp: afternoon })).toBe(false);
+  });
+
+  it('stays visible during an active run even after cutoff', () => {
+    const afternoon = new Date('2026-06-24T13:00:00').getTime();
+    expect(shouldShowMorningStretchSection({ prefs, completedToday: false, nowTimestamp: afternoon, activeRun: true })).toBe(true);
+  });
+});
+
+describe('isBeforeMorningStretchHideCutoff', () => {
+  it('uses local 11am default cutoff', () => {
+    const before = new Date('2026-06-24T10:30:00').getTime();
+    const after = new Date('2026-06-24T11:30:00').getTime();
+    expect(isBeforeMorningStretchHideCutoff(before, 11)).toBe(true);
+    expect(isBeforeMorningStretchHideCutoff(after, 11)).toBe(false);
+  });
+});
+
+describe('morningStretchCompletionRatio', () => {
+  it('scales partial block time', () => {
+    expect(morningStretchCompletionRatio(150, 5)).toBe(0.5);
+    expect(morningStretchCompletionRatio(300, 5)).toBe(1);
+  });
+});
+
+describe('buildMorningStretchLogEntry', () => {
+  it('applies completion ratio to logged exercises', () => {
+    const entry = buildMorningStretchLogEntry(
+      [{ id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' }],
+      'ms-1',
+      Date.now(),
+      0.5
+    );
+    expect(entry.exercises[0]).toMatchObject({ amount: 5, unit: 'reps' });
+    expect(entry.completionRatio).toBe(0.5);
   });
 });

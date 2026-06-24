@@ -124,7 +124,7 @@ interface SessionContextValue {
   finishFlow: () => void;
   handleWorkoutCompletion: () => void;
   addManualExercise: (exercise: ExerciseDefinition) => void;
-  logMorningStretchCompletion: (exercises: ExerciseDefinition[]) => void;
+  logMorningStretchCompletion: (exercises: ExerciseDefinition[], completionRatio?: number) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
   updateExerciseOverride: (exerciseId: string, amount: number, unit: ExerciseUnit) => void;
@@ -732,9 +732,9 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     [applyExerciseTotals]
   );
 
-  const logMorningStretchCompletion = useCallback((exercises: ExerciseDefinition[]) => {
+  const logMorningStretchCompletion = useCallback((exercises: ExerciseDefinition[], completionRatio: number = 1) => {
     if (exercises.length === 0) return;
-    const entry = buildMorningStretchLogEntry(exercises, createId('workout'));
+    const entry = buildMorningStretchLogEntry(exercises, createId('workout'), Date.now(), completionRatio);
     setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
     void persistWorkoutLog(entry).catch((error) => {
       console.error('Failed to persist morning stretch log:', error);
