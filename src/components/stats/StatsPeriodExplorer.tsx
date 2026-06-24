@@ -75,28 +75,30 @@ const StatsPeriodExplorer = ({ series, periodTitle, chartLabel, exercisesForBuck
           </Button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2 overflow-hidden">
-          <div>
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-300">🧠 Focus</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              <StatTile emoji="🍅" value={String(selected.pomodoros)} label="Pomodoros" tone="bg-rose-100 text-rose-950 dark:bg-rose-950/50 dark:text-rose-100" />
-              <StatTile emoji="🎯" value={String(selected.deepWork)} label="Deep work" tone="bg-violet-100 text-violet-950 dark:bg-violet-950/50 dark:text-violet-100" />
-              <StatTile emoji="⏳" value={focusMinutesLabel(selected.focusMinutes)} label="Focus time" tone="col-span-2 bg-sky-100 text-sky-950 dark:bg-sky-950/50 dark:text-sky-100" />
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+          <div className="shrink-0 space-y-2">
+            <div>
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-300">🧠 Focus</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <StatTile emoji="🍅" value={String(selected.pomodoros)} label="Pomodoros" tone="bg-rose-100 text-rose-950 dark:bg-rose-950/50 dark:text-rose-100" />
+                <StatTile emoji="🎯" value={String(selected.deepWork)} label="Deep work" tone="bg-violet-100 text-violet-950 dark:bg-violet-950/50 dark:text-violet-100" />
+                <StatTile emoji="⏳" value={focusMinutesLabel(selected.focusMinutes)} label="Focus time" tone="col-span-2 bg-sky-100 text-sky-950 dark:bg-sky-950/50 dark:text-sky-100" />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-300">💪 Movement</p>
-            <div className="grid grid-cols-2 gap-1.5">
-              <StatTile emoji="⏱️" value={formatTimedMovementHeadline(selected.timedSeconds)} label="Move time" tone="bg-emerald-100 text-emerald-950 dark:bg-emerald-950/50 dark:text-emerald-100" />
-              <StatTile emoji="🏋️" value={String(selected.workouts)} label="Workouts" tone="bg-amber-100 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100" />
+            <div>
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-300">💪 Movement</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <StatTile emoji="⏱️" value={formatTimedMovementHeadline(selected.timedSeconds)} label="Move time" tone="bg-emerald-100 text-emerald-950 dark:bg-emerald-950/50 dark:text-emerald-100" />
+                <StatTile emoji="🏋️" value={String(selected.workouts)} label="Workouts" tone="bg-amber-100 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100" />
+              </div>
             </div>
           </div>
 
           {exercises.length > 0 && (
-            <div className="min-h-0 overflow-hidden">
-              <p className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">📝 By exercise</p>
-              <div className="space-y-1">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <p className="mb-1 shrink-0 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">📝 By exercise</p>
+              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
                 {exercises.map((agg) => (
                   <div key={agg.id} className="flex items-center gap-2 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs font-medium shadow-sm dark:bg-slate-800/80">
                     <span className="text-lg leading-none">{exerciseEmoji(agg.id)}</span>
