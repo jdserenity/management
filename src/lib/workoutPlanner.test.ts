@@ -8,7 +8,20 @@ import {
   STRETCH_DEFAULT_SECONDS,
   countTodayDeepWorkSessions,
   countTodayPomodoroSessions,
+  focusEntryCountsAsSession,
+  formatMonthBucketLabel,
+  formatMonthChartLabel,
+  formatTimedMovementHeadline,
+  formatWeekBucketLabel,
+  formatWeekChartLabel,
+  fillPeriodSeries,
+  listNonZeroExerciseTotals,
   mergePeriodStats,
+  periodMoveMinutes,
+  recentWeekBucketKeys,
+  SESSION_COUNT_MIN_RATIO,
+  summarizeExerciseTotalsAllTime,
+  summarizeExerciseTotalsForWeekBucket,
   summarizeFocusLogs,
   summarizeFocusToday,
   estimateExerciseLoadSeconds,
@@ -331,6 +344,16 @@ describe('summarizeFocusLogs', () => {
     expect(totals.weekly.length).toBeGreaterThanOrEqual(1);
     expect(totals.monthly.map((point) => point.bucket)).toEqual(['2026-05']);
   });
+
+  it('does not count partial sessions below 75% toward session totals', () => {
+    const logs: FocusLogEntry[] = [
+      { id: 'f1', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 8, 0, 0).getTime(), durationMinutes: 12, plannedDurationMinutes: 25, completionRatio: 0.5 },
+      { id: 'f2', type: 'pomodoro', completedAt: new Date(2026, 4, 14, 9, 0, 0).getTime(), durationMinutes: 20, plannedDurationMinutes: 25, completionRatio: 0.8 }
+    ];
+    const totals = summarizeFocusLogs(logs);
+    expect(totals.totalPomodoros).toBe(1);
+    expect(totals.totalFocusMinutes).toBe(32);
+  });
 });
 
 describe('summarizeFocusToday', () => {
@@ -366,6 +389,83 @@ describe('mergePeriodStats', () => {
     expect(merged[0]?.reps).toBe(10);
     expect(merged[0]?.pomodoros).toBe(2);
     expect(merged[0]?.focusMinutes).toBe(50);
+  });
+});
+
+describe('focusEntryCountsAsSession', () => {
+  it('requires completion at or above SESSION_COUNT_MIN_RATIO', () => {
+    expect(SESSION_COUNT_MIN_RATIO).toBe(0.75);
+    expect(focusEntryCountsAsSession({ id: 'a', type: 'pomodoro', completedAt: 0, durationMinutes: 1, plannedDurationMinutes: 25, completionRatio: 0.74 })).toBe(false);
+    expect(focusEntryCountsAsSession({ id: 'b', type: 'pomodoro', completedAt: 0, durationMinutes: 19, plannedDurationMinutes: 25, completionRatio: 0.75 })).toBe(true);
+  });
+});
+
+describe('per-exercise period totals', () => {
+  const logs: WorkoutLogEntry[] = [
+    {
+      id: 'w1',
+      workoutId: 'push-ups',
+      workoutName: 'Push-ups',
+      completedAt: new Date(2026, 4, 14, 9, 0, 0).getTime(),
+      exercises: [{ id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' }],
+      totalReps: 10,
+      totalTimedSeconds: 0
+    },
+    {
+      id: 'w2',
+      workoutId: 'manual',
+      workoutName: 'Manual',
+      completedAt: new Date(2026, 4, 10, 9, 0, 0).getTime(),
+      exercises: [{ id: 'jacks', name: 'Jumping jacks', amount: 20, unit: 'reps' }],
+      totalReps: 20,
+      totalTimedSeconds: 0
+    }
+  ];
+
+  it('aggregates exercises for a week bucket and omits zero rows', () => {
+    const weekBucket = '2026-05-11';
+    const totals = summarizeExerciseTotalsForWeekBucket(logs, weekBucket);
+    expect(totals.pushups?.reps).toBe(10);
+    expect(totals.jacks).toBeUndefined();
+    expect(listNonZeroExerciseTotals(totals).map((row) => row.id)).toEqual(['pushups']);
+  });
+
+  it('aggregates all-time exercise totals', () => {
+    const totals = summarizeExerciseTotalsAllTime(logs);
+    expect(listNonZeroExerciseTotals(totals).map((row) => row.id).sort()).toEqual(['jacks', 'pushups']);
+  });
+});
+
+describe('bucket labels', () => {
+  it('formats week and month buckets for display', () => {
+    expect(formatWeekBucketLabel('2026-05-12')).toContain('May');
+    expect(formatWeekBucketLabel('2026-05-12')).toContain('2026');
+    expect(formatMonthBucketLabel('2026-05')).toBe('May 2026');
+    expect(formatWeekChartLabel('2026-05-12')).toContain('May');
+    expect(formatMonthChartLabel('2026-05')).toBe('May');
+  });
+});
+
+describe('period series helpers', () => {
+  const now = new Date(2026, 4, 14, 12, 0, 0).getTime();
+
+  it('fills recent week buckets with zero points when missing', () => {
+    const keys = recentWeekBucketKeys(now, 3);
+    expect(keys).toHaveLength(3);
+    const filled = fillPeriodSeries(keys, [{ bucket: keys[2]!, pomodoros: 2, deepWork: 0, focusMinutes: 50, reps: 0, timedSeconds: 0, workouts: 1 }]);
+    expect(filled[0]?.pomodoros).toBe(0);
+    expect(filled[2]?.pomodoros).toBe(2);
+  });
+
+  it('formats timed movement as hours and minutes', () => {
+    expect(formatTimedMovementHeadline(0)).toBe('0m');
+    expect(formatTimedMovementHeadline(2505)).toBe('42m');
+    expect(formatTimedMovementHeadline(8100)).toBe('2h 15m');
+  });
+
+  it('derives movement minutes for chart values', () => {
+    expect(periodMoveMinutes({ bucket: 'x', pomodoros: 0, deepWork: 0, focusMinutes: 0, reps: 0, timedSeconds: 120, workouts: 0 })).toBe(2);
+    expect(periodMoveMinutes({ bucket: 'x', pomodoros: 0, deepWork: 0, focusMinutes: 0, reps: 0, timedSeconds: 2505, workouts: 0 })).toBe(42);
   });
 });
 
