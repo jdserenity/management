@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { periodMoveMinutes, type PeriodStatsPoint } from '@/lib/workoutPlanner';
 
@@ -13,9 +13,13 @@ type StatsProgressChartProps = {
   data: StatsChartRow[];
   selectedIndex: number;
 };
+type DotCoord = { x: number; focusY?: number; moveY?: number };
 
 const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) => {
+  const coordsRef = useRef<Record<number, DotCoord>>({});
+  const chartAreaRef = useRef<HTMLDivElement | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | undefined>(undefined);
 
   if (data.length === 0) {
     return (
@@ -25,10 +29,12 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
     );
   }
 
-  const renderDot = (color: string) =>
+  const renderDot = (color: string, key: 'focusY' | 'moveY') =>
     (props: { cx?: number; cy?: number; index?: number }) => {
       const { cx, cy, index } = props;
       if (cx == null || cy == null || index == null) return <g />;
+      const cur = coordsRef.current[index] ?? { x: cx };
+      cur.x = cx; cur[key] = cy; coordsRef.current[index] = cur;
       const selected = index === selectedIndex;
       const hovered = index === hoverIndex;
       if (selected) {
@@ -51,7 +57,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
         <span className="normal-case tracking-normal text-blue-400">⏳ Focus</span>
         <span className="normal-case tracking-normal text-orange-400">💪 Move</span>
       </div>
-      <div className="relative min-h-0 flex-1 overflow-visible">
+      <div ref={chartAreaRef} className="relative min-h-0 flex-1 overflow-visible">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
@@ -59,9 +65,27 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
             style={{ overflow: 'visible' }}
             onMouseMove={(state) => {
               const idx = Number((state as { activeTooltipIndex?: unknown } | undefined)?.activeTooltipIndex);
-              setHoverIndex(Number.isInteger(idx) ? idx : null);
+              if (!Number.isInteger(idx)) {
+                setHoverIndex(null); setTooltipPosition(undefined); return;
+              }
+              setHoverIndex(idx);
+              const chart = chartAreaRef.current;
+              const point = coordsRef.current[idx];
+              if (!chart || !point) return;
+              const chartW = chart.clientWidth;
+              const chartH = chart.clientHeight;
+              const x = Math.max(4, Math.min(point.x - TOOLTIP_WIDTH / 2, chartW - TOOLTIP_WIDTH - 4));
+              const anchorY = Math.min(point.focusY ?? Infinity, point.moveY ?? Infinity);
+              const aboveY = anchorY - TOOLTIP_HEIGHT - 10;
+              const belowY = anchorY + 10;
+              const preferredY = aboveY >= 4 ? aboveY : belowY;
+              const y = Math.max(4, Math.min(preferredY, chartH - TOOLTIP_HEIGHT - 4));
+              setTooltipPosition({ x, y });
             }}
-            onMouseLeave={() => setHoverIndex(null)}
+            onMouseLeave={() => {
+              setHoverIndex(null);
+              setTooltipPosition(undefined);
+            }}
           >
             <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis yAxisId="focus" orientation="left" width={34} tick={{ fill: '#60a5fa', fontSize: 10 }} axisLine={false} tickLine={false} tickMargin={4} allowDecimals={false} />
@@ -70,6 +94,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               cursor={false}
               isAnimationActive={false}
               offset={12}
+              position={tooltipPosition}
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#f8fafc', width: TOOLTIP_WIDTH, minHeight: TOOLTIP_HEIGHT }}
               labelStyle={{ color: '#cbd5e1', marginBottom: 4 }}
               formatter={(value, name) => {
@@ -85,7 +110,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               dataKey="focusMinutes"
               stroke={FOCUS_COLOR}
               strokeWidth={2.5}
-              dot={renderDot(FOCUS_COLOR)}
+              dot={renderDot(FOCUS_COLOR, 'focusY')}
               activeDot={false}
               isAnimationActive={false}
             />
@@ -95,7 +120,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               dataKey="moveMinutes"
               stroke={MOVE_COLOR}
               strokeWidth={2.5}
-              dot={renderDot(MOVE_COLOR)}
+              dot={renderDot(MOVE_COLOR, 'moveY')}
               activeDot={false}
               isAnimationActive={false}
             />
