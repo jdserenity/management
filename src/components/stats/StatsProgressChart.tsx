@@ -5,7 +5,6 @@ export type StatsChartRow = PeriodStatsPoint & { label: string; moveMinutes: num
 
 const FOCUS_COLOR = '#3b82f6';
 const MOVE_COLOR = '#fb923c';
-const SELECTED_COLOR = '#ef4444';
 
 type StatsProgressChartProps = {
   data: StatsChartRow[];
@@ -19,12 +18,18 @@ const ChartDot = (props: { cx?: number; cy?: number; index?: number; selectedInd
   if (selected) {
     return (
       <g>
-        <circle cx={cx} cy={cy} r={7} fill={SELECTED_COLOR} opacity={0.22} />
-        <circle cx={cx} cy={cy} r={4.5} fill={SELECTED_COLOR} />
+        <circle cx={cx} cy={cy} r={9} fill="#ffffff" opacity={0.25} />
+        <circle cx={cx} cy={cy} r={4.5} fill="#ffffff" />
       </g>
     );
   }
   return <circle cx={cx} cy={cy} r={3} fill={color} />;
+};
+
+const ChartActiveDot = (props: { cx?: number; cy?: number; fill?: string }) => {
+  const { cx, cy, fill } = props;
+  if (cx == null || cy == null) return null;
+  return <circle cx={cx} cy={cy} r={6} fill={fill ?? '#ffffff'} stroke="#0f172a" strokeWidth={1.5} />;
 };
 
 const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) => {
@@ -52,7 +57,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
             <Tooltip
               cursor={false}
               isAnimationActive={false}
-              position={{ y: 4 }}
+              offset={12}
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#f8fafc' }}
               labelStyle={{ color: '#cbd5e1', marginBottom: 4 }}
               formatter={(value, name) => {
@@ -70,7 +75,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               stroke={FOCUS_COLOR}
               strokeWidth={2.5}
               dot={(dotProps) => <ChartDot {...dotProps} selectedIndex={selectedIndex} color={FOCUS_COLOR} />}
-              activeDot={false}
+              activeDot={(dotProps) => <ChartActiveDot {...dotProps} fill={FOCUS_COLOR} />}
               isAnimationActive={false}
             />
             <Line
@@ -81,7 +86,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               stroke={MOVE_COLOR}
               strokeWidth={2.5}
               dot={(dotProps) => <ChartDot {...dotProps} selectedIndex={selectedIndex} color={MOVE_COLOR} />}
-              activeDot={false}
+              activeDot={(dotProps) => <ChartActiveDot {...dotProps} fill={MOVE_COLOR} />}
               isAnimationActive={false}
             />
           </LineChart>
