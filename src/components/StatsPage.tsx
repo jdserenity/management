@@ -1,7 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StatsPeriodExplorer from '@/components/stats/StatsPeriodExplorer';
 import { useSession } from '@/context/SessionContext';
+import { cn } from '@/lib/utils';
 import {
   fillPeriodSeries,
   formatExerciseRunAggLine,
@@ -116,16 +117,18 @@ const StatsPage = () => {
     workouts: workoutStats.totalWorkouts
   };
   const allTimeExercises = useMemo(() => listNonZeroExerciseTotals(summarizeExerciseTotalsAllTime(workoutLogs)), [workoutLogs]);
+  const [tab, setTab] = useState('all');
+  const periodTab = tab === 'weekly' || tab === 'monthly';
 
   return (
-    <div className="space-y-4 rounded-3xl bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 sm:p-5">
-      <div className="flex items-center gap-3">
+    <div className={cn('space-y-4 rounded-3xl bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 sm:p-5', periodTab && 'flex h-[calc(100dvh-7.25rem)] flex-col overflow-hidden')}>
+      <div className="flex shrink-0 items-center gap-3">
         <span className="text-3xl">📊</span>
         <h2 className="bg-gradient-to-r from-violet-700 to-indigo-600 bg-clip-text text-2xl font-black tracking-tight text-transparent dark:from-violet-300 dark:to-indigo-300">Stats</h2>
       </div>
 
-      <Tabs defaultValue="all" className="gap-4">
-        <TabsList className="grid h-12 w-full grid-cols-3 rounded-2xl bg-white/70 p-1 shadow-sm dark:bg-slate-800/70">
+      <Tabs value={tab} onValueChange={setTab} className={cn('gap-4', periodTab && 'flex min-h-0 flex-1 flex-col overflow-hidden')}>
+        <TabsList className="grid h-12 w-full shrink-0 grid-cols-3 rounded-2xl bg-white/70 p-1 shadow-sm dark:bg-slate-800/70">
           <TabsTrigger value="all" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">♾️ All time</TabsTrigger>
           <TabsTrigger value="monthly" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">🗓️ Monthly</TabsTrigger>
           <TabsTrigger value="weekly" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">📅 Weekly</TabsTrigger>
@@ -135,11 +138,11 @@ const StatsPage = () => {
           <AllTimeView point={allTime} exercises={allTimeExercises} />
         </TabsContent>
 
-        <TabsContent value="monthly" className="mt-0">
+        <TabsContent value="monthly" className="mt-0 min-h-0 flex-1 overflow-hidden">
           <StatsPeriodExplorer series={monthlySeries} periodTitle={formatMonthBucketLabel} chartLabel={formatMonthChartLabel} exercisesForBucket={monthlyExercises} />
         </TabsContent>
 
-        <TabsContent value="weekly" className="mt-0">
+        <TabsContent value="weekly" className="mt-0 min-h-0 flex-1 overflow-hidden">
           <StatsPeriodExplorer series={weeklySeries} periodTitle={formatWeekBucketLabel} chartLabel={formatWeekChartLabel} exercisesForBucket={weeklyExercises} />
         </TabsContent>
       </Tabs>

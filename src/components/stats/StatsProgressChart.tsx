@@ -6,6 +6,25 @@ export type StatsChartRow = PeriodStatsPoint & { label: string; moveMinutes: num
 const FOCUS_COLOR = '#3b82f6';
 const MOVE_COLOR = '#fb923c';
 
+type AxisTickProps = { x?: number | string; y?: number | string; payload?: { value: string | number } };
+
+const axisCoord = (v?: number | string): number | null => {
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const FocusAxisTick = (props: AxisTickProps) => {
+  const x = axisCoord(props.x); const y = axisCoord(props.y); const { payload } = props;
+  if (x == null || y == null || payload == null) return null;
+  return <text x={x - 42} y={y} dy={4} fill="#60a5fa" fontSize={10} textAnchor="end">{payload.value}</text>;
+};
+
+const MoveAxisTick = (props: AxisTickProps) => {
+  const x = axisCoord(props.x); const y = axisCoord(props.y); const { payload } = props;
+  if (x == null || y == null || payload == null) return null;
+  return <text x={x - 10} y={y} dy={4} fill="#fdba74" fontSize={10} textAnchor="end">{payload.value}</text>;
+};
+
 type StatsProgressChartProps = {
   data: StatsChartRow[];
   selectedIndex: number;
@@ -15,17 +34,15 @@ const ChartDot = (props: { cx?: number; cy?: number; index?: number; selectedInd
   const { cx, cy, index, selectedIndex, color } = props;
   if (cx == null || cy == null || index == null) return null;
   const selected = index === selectedIndex;
-  return (
-    <g>
-      {selected && (
-        <>
-          <circle cx={cx} cy={cy} r={18} fill="url(#statsDotGlow)" opacity={0.9} />
-          <circle cx={cx} cy={cy} r={11} fill="none" stroke="#f87171" strokeWidth={2} opacity={0.55} />
-        </>
-      )}
-      <circle cx={cx} cy={cy} r={selected ? 7 : 4} fill={selected ? '#ef4444' : color} stroke="#f8fafc" strokeWidth={selected ? 2.5 : 1.5} />
-    </g>
-  );
+  if (selected) {
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={16} fill="url(#statsDotGlow)" />
+        <circle cx={cx} cy={cy} r={5} fill="#ef4444" />
+      </g>
+    );
+  }
+  return <circle cx={cx} cy={cy} r={4} fill={color} />;
 };
 
 const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) => {
@@ -38,15 +55,15 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
   }
 
   return (
-    <div className="flex h-full min-h-[220px] flex-col rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 p-4 shadow-inner">
+    <div className="flex h-full min-h-0 flex-col overflow-visible rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 p-4 shadow-inner">
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold uppercase tracking-widest text-slate-400">
         <span>📈 Over time</span>
         <span className="normal-case tracking-normal text-blue-400">⏳ Focus</span>
         <span className="normal-case tracking-normal text-orange-400">💪 Move</span>
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-visible">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 12, right: 8, left: 8, bottom: 0 }}>
+          <LineChart data={data} margin={{ top: 16, right: 36, left: 8, bottom: 4 }} style={{ overflow: 'visible' }}>
             <defs>
               <radialGradient id="statsDotGlow" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="#ef4444" stopOpacity={0.85} />
@@ -54,8 +71,8 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               </radialGradient>
             </defs>
             <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-            <YAxis yAxisId="focus" orientation="left" tick={{ fill: '#60a5fa', fontSize: 10 }} axisLine={false} tickLine={false} width={28} dx={-32} allowDecimals={false} />
-            <YAxis yAxisId="move" orientation="left" tick={{ fill: '#fdba74', fontSize: 10 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+            <YAxis yAxisId="focus" orientation="left" width={48} tick={FocusAxisTick as never} axisLine={false} tickLine={false} allowDecimals={false} />
+            <YAxis yAxisId="move" orientation="left" width={48} tick={MoveAxisTick as never} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip
               contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#f8fafc' }}
               labelStyle={{ color: '#cbd5e1', marginBottom: 4 }}
