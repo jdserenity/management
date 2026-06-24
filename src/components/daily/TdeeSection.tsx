@@ -16,15 +16,12 @@ import {
   totalProtein
 } from '@/lib/tdee/totals';
 import type { TdeeFile, TdeeLogEntry, TdeeMealDef } from '@/lib/tdee/types';
-import { mealIdFromName } from '@/lib/tdee/meals';
 import {
   addCustomEntry,
   addRegularEntry,
   addStapleEntry,
   loadTdeeFile,
-  removeTdeeEntry,
-  removeTdeeRegular,
-  upsertTdeeRegular
+  removeTdeeEntry
 } from '@/lib/tdeeDb';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import { isTauri } from '@/lib/isTauri';
@@ -35,10 +32,11 @@ type PortionControlsProps = {
   defaultProtein?: number;
   placeholderCalories?: string;
   placeholderProtein?: string;
+  actionLabel?: string;
   onAdd: (calories: number, protein: number, count: number) => Promise<void>;
 };
 
-function PortionControls({ defaultCalories, defaultProtein, placeholderCalories, placeholderProtein, onAdd }: PortionControlsProps) {
+function PortionControls({ defaultCalories, defaultProtein, placeholderCalories, placeholderProtein, actionLabel = 'Eat', onAdd }: PortionControlsProps) {
   const [calories, setCalories] = useState(defaultCalories != null ? String(defaultCalories) : '');
   const [protein, setProtein] = useState(
     defaultProtein != null ? String(defaultProtein) : placeholderProtein ? '' : '0'
@@ -84,7 +82,7 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
           void onAdd(c, p, count);
         }}
       >
-        Add
+        {actionLabel}
       </button>
     </div>
   );
@@ -95,10 +93,6 @@ export default function TdeeSection() {
   const [addMode, setAddMode] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState('');
-  const [regularDraftName, setRegularDraftName] = useState('');
-  const [regularDraftCalories, setRegularDraftCalories] = useState('');
-  const [regularDraftProtein, setRegularDraftProtein] = useState('');
-  const [editingRegularId, setEditingRegularId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!isTauri()) { setLoadError(null); setFile(null); return; }
@@ -158,36 +152,6 @@ export default function TdeeSection() {
     setAddMode(false);
   };
 
-  const resetRegularDraft = () => {
-    setEditingRegularId(null);
-    setRegularDraftName('');
-    setRegularDraftCalories('');
-    setRegularDraftProtein('');
-  };
-
-  const startEditRegular = (regular: TdeeMealDef) => {
-    setEditingRegularId(regular.id);
-    setRegularDraftName(regular.name);
-    setRegularDraftCalories(String(regular.calories));
-    setRegularDraftProtein(String(regular.protein));
-  };
-
-  const handleSaveRegular = async () => {
-    const name = regularDraftName.trim();
-    const calories = Math.round(Number(regularDraftCalories));
-    const protein = Math.max(0, Math.round(Number(regularDraftProtein) || 0));
-    if (!name || !calories || calories <= 0) return;
-    const isNew = !editingRegularId;
-    const id = editingRegularId || mealIdFromName(name, file.regulars);
-    setFile(await upsertTdeeRegular(file, { id, name, calories, protein }, isNew));
-    resetRegularDraft();
-  };
-
-  const handleRemoveRegular = async (id: string) => {
-    setFile(await removeTdeeRegular(file, id));
-    if (editingRegularId === id) resetRegularDraft();
-  };
-
   const renderChip = (entry: TdeeLogEntry, withConnector: boolean) => {
     const amount = entryCalories(entry);
     const protein = entryProtein(entry);
@@ -218,7 +182,7 @@ export default function TdeeSection() {
     if (pendingStaples.length === 0 && logged.length === 0) {
       chainItems.push(
         <p key="empty" className="tdee-tracker-empty tdee-chain-empty">
-          No staples configured yet.
+          No staples configured yet. Add staples in Customize → Food.
         </p>
       );
     } else {
@@ -247,7 +211,7 @@ export default function TdeeSection() {
       key="plus"
       type="button"
       className={`tdee-chain-btn tdee-chain-plus${addMode ? ' tdee-chain-plus-disabled' : ''}`}
-      title={addMode ? 'Close add menu first' : 'Add regular or custom calories'}
+      title={addMode ? 'Close add menu first' : 'Log a regular or one-off meal'}
       disabled={addMode}
       onClick={() => setAddMode(true)}
     >
@@ -270,7 +234,7 @@ export default function TdeeSection() {
             </>
           ) : null}
         </div>
-        <div className={`tdee-remaining${kcalRemaining.extraClass}`}>{tdee > 0 ? kcalRemaining.text : 'Set TDEE and protein targets in Settings (coming soon)'}</div>
+        <div className={`tdee-remaining${kcalRemaining.extraClass}`}>{tdee > 0 ? kcalRemaining.text : 'Set TDEE and protein targets in Customize → Food'}</div>
         {tdee > 0 ? (
           <div className="tdee-progress">
             <div className="tdee-progress-fill" style={{ width: `${Math.round(ratio * 100)}%` }} />
@@ -286,7 +250,7 @@ export default function TdeeSection() {
           ) : null}
         </div>
         <div className={`tdee-remaining${proteinRemaining.extraClass}`}>
-          {proteinTarget > 0 ? proteinRemaining.text : 'Set protein target in Settings (coming soon)'}
+          {proteinTarget > 0 ? proteinRemaining.text : 'Set protein target in Customize → Food'}
         </div>
         {proteinTarget > 0 ? (
           <div className="tdee-progress">
@@ -298,25 +262,19 @@ export default function TdeeSection() {
       {addMode ? (
         <div className="tdee-add-panel">
           <div className="tdee-add-header">
-            <span className="tdee-add-title">Regulars &amp; custom</span>
-            <button type="button" className="tdee-add-close" title="Close" aria-label="Close" onClick={() => { setAddMode(false); resetRegularDraft(); }}>
+            <span className="tdee-add-title">Regulars &amp; one-off</span>
+            <button type="button" className="tdee-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
               ×
             </button>
           </div>
           <div className="tdee-regular-list">
             {file.regulars.length === 0 ? (
-              <p className="tdee-tracker-empty">No regulars yet. Add one below to reuse meals with default calories and protein.</p>
+              <p className="tdee-tracker-empty">No regulars configured yet. Add them in Customize → Food.</p>
             ) : (
               file.regulars.map((regular) => (
                 <div key={regular.id} className="tdee-regular-row">
                   <div className="tdee-regular-info">
-                    <div className="tdee-regular-name-row">
-                      <span className="tdee-regular-name">{regular.name}</span>
-                      <span className="tdee-regular-actions">
-                        <button type="button" className="tdee-regular-action-btn" title="Edit regular" onClick={() => startEditRegular(regular)}>✎</button>
-                        <button type="button" className="tdee-regular-action-btn tdee-regular-action-btn-danger" title="Remove regular" onClick={() => void handleRemoveRegular(regular.id)}>🗑</button>
-                      </span>
-                    </div>
+                    <span className="tdee-regular-name">{regular.name}</span>
                     {regular.ingredients?.length ? (
                       <div className="tdee-regular-ingredients">{formatIngredientsList(regular.ingredients)}</div>
                     ) : null}
@@ -330,48 +288,12 @@ export default function TdeeSection() {
               ))
             )}
           </div>
-          <div className="tdee-regular-editor">
-            <div className="tdee-regular-editor-title">{editingRegularId ? 'Edit regular' : 'Add regular'}</div>
-            <div className="tdee-regular-editor-fields">
-              <input
-                className="tdee-meal-title-input"
-                type="text"
-                placeholder="Name"
-                value={regularDraftName}
-                onChange={(e) => setRegularDraftName(e.target.value)}
-              />
-              <input
-                className="tdee-portion-input"
-                type="number"
-                min={1}
-                step={1}
-                placeholder="cals"
-                value={regularDraftCalories}
-                onChange={(e) => setRegularDraftCalories(e.target.value)}
-              />
-              <input
-                className="tdee-portion-input tdee-portion-protein"
-                type="number"
-                min={0}
-                step={1}
-                placeholder="protein"
-                value={regularDraftProtein}
-                onChange={(e) => setRegularDraftProtein(e.target.value)}
-              />
-              <button type="button" className="tdee-add-btn" onClick={() => void handleSaveRegular()}>
-                {editingRegularId ? 'Save' : 'Add'}
-              </button>
-              {editingRegularId ? (
-                <button type="button" className="tdee-regular-cancel-btn" onClick={resetRegularDraft}>Cancel</button>
-              ) : null}
-            </div>
-          </div>
           <div className="tdee-custom-row">
             <div className="tdee-regular-info">
               <input
                 className="tdee-meal-title-input"
                 type="text"
-                placeholder="Custom"
+                placeholder="One-Off"
                 value={customTitle}
                 onChange={(e) => setCustomTitle(e.target.value)}
               />

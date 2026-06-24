@@ -1,8 +1,6 @@
 // src/components/daily/StreakSection.tsx
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
 import StreakActivityRow from '@/components/daily/StreakActivityRow';
 import { StreakDailyHeatmap, StreakWeeklyHeatmap } from '@/components/daily/StreakHeatmaps';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
@@ -10,15 +8,14 @@ import { fireDayCompleteConfetti } from '@/lib/streak/confetti';
 import { isDayComplete } from '@/lib/streak/heatmapHelpers';
 import { isTauri } from '@/lib/isTauri';
 import { loadStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
-import type { StreakActivity, StreakLogState, StreakState } from '@/lib/streak/types';
+import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import {
   archiveStreakActivity,
   loadStreakState,
   resetStreakActivity,
   saveStreakLog,
   setActivityPaused,
-  updateStreakActivityDescription,
-  upsertStreakActivity
+  updateStreakActivityDescription
 } from '@/lib/streakDb';
 import './streak.css';
 
@@ -27,9 +24,6 @@ export default function StreakSection() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [heatmapColor, setHeatmapColor] = useState<string | null>(null);
   const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<StreakActivity | null>(null);
-  const [isNewActivity, setIsNewActivity] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!isTauri()) {
@@ -81,12 +75,8 @@ export default function StreakSection() {
 
   return (
     <section className="streak-tracker-container" aria-label="Habits">
-      <div className="mb-4 flex justify-end">
-        <Button size="sm" onClick={() => { setEditingActivity(null); setIsNewActivity(true); setEditorOpen(true); }}>Add activity</Button>
-      </div>
-
       {dailyActivities.length === 0 && weeklyActivities.length === 0 ? (
-        <p className="streak-tracker-empty mb-4">No habits yet. Add an activity to start tracking.</p>
+        <p className="streak-tracker-empty mb-4">No habits yet. Add activities in Customize → Habits.</p>
       ) : (
         <>
           <StreakDailyHeatmap state={state} year={heatmapYear} onYearChange={setHeatmapYear} heatmapColor={heatmapColor} />
@@ -121,14 +111,6 @@ export default function StreakSection() {
           </div>
         </>
       )}
-
-      <ActivityEditorDialog
-        open={editorOpen}
-        activity={editingActivity}
-        isNew={isNewActivity}
-        onClose={() => setEditorOpen(false)}
-        onSave={(activity, isNew) => void upsertStreakActivity(state, activity, isNew).then(setState)}
-      />
     </section>
   );
 }

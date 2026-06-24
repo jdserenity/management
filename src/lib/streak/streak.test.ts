@@ -11,6 +11,7 @@ import { normalizeConfig } from '@/lib/streak/normalize';
 import { pausedStateFromVault, mergePausedOnIncoming } from '@/lib/streak/pauseSync';
 import { calculateStats } from '@/lib/streak/stats';
 import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/streakDisplay';
+import { isElementTruncated } from '@/lib/streak/truncation';
 import type { StreakActivityStats, StreakConfig, StreakData } from '@/lib/streak/types';
 import configFixture from '@/lib/streak/fixtures/streak-config.json';
 
@@ -250,5 +251,17 @@ describe('normalize config fixture', () => {
 describe('dates iso week', () => {
   it('getISOWeekStart returns Monday', () => {
     expect(getISOWeekStart('2026-05-20')).toBe('2026-05-18');
+  });
+});
+
+describe('truncation', () => {
+  const el = (scrollWidth: number, clientWidth: number) => ({ scrollWidth, clientWidth }) as HTMLElement;
+
+  it('isElementTruncated is false when content fits', () => {
+    expect(isElementTruncated(el(100, 100))).toBe(false);
+  });
+
+  it('isElementTruncated is true when scroll width exceeds client width', () => {
+    expect(isElementTruncated(el(120, 80))).toBe(true);
   });
 });
