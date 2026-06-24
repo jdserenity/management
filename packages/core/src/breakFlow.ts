@@ -22,6 +22,10 @@ const nextPomodoroPosture = (current: DeskPosture, last: DeskPosture | null): De
   return last === 'sitting' ? 'standing' : 'sitting';
 };
 
+/** Same transition as break timer zero — used after Complete Workout during an exercise break. */
+export const advanceBreakAfterExerciseComplete = (flow: PersistedFlowState, nowMs: number = Date.now()): BreakAdvanceResult =>
+  advanceBreakWhenTimerEnds(flow, nowMs);
+
 export const advanceBreakWhenTimerEnds = (flow: PersistedFlowState, nowMs: number = Date.now()): BreakAdvanceResult => {
   const afterBreak = breakTimerEndAction(flow.breakVariant, flow.longBreakStage, flow.nextSessionType);
   if (afterBreak === 'long_relax') {

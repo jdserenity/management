@@ -130,9 +130,17 @@ export const CompanionSessionProvider = ({
   const completeWorkout = useCallback(() => {
     const doc = activeFlowRef.current;
     if (!doc || doc.flow.workoutLogged) return;
-    const nextFlow = markWorkoutCompletedInFlow(doc.flow);
-    schedulePublish(nextFlow, phaseEndsAtMsRef.current);
-  }, [schedulePublish]);
+    if (!isActiveExerciseBreak(doc.flow.phase, doc.flow.breakVariant, doc.flow.longBreakStage, doc.flow.activeWorkout)) return;
+    const logged = markWorkoutCompletedInFlow(doc.flow);
+    publishFlow(logged, phaseEndsAtMsRef.current);
+    const action = resolveBreakTimerEnd(logged);
+    lastBreakAdvancedAtMsRef.current = Date.now();
+    if (action.kind === 'clear') {
+      publishFlow(null, 0);
+      return;
+    }
+    publishFlow(action.flow, action.phaseEndsAtMs);
+  }, [publishFlow]);
 
   const updateExerciseAmount = useCallback(
     (index: number, amount: number) => {

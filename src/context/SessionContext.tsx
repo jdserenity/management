@@ -77,6 +77,7 @@ import {
   syncLeaderDeviceIdFromDoc
 } from '@/lib/sessionSync';
 import type { SyncClient } from '@mgmt/sync';
+import { isActiveExerciseBreak } from '@mgmt/core';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
@@ -489,6 +490,40 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [recordFocusSession, resetToIdle]);
 
+  const advanceCurrentBreak = useCallback(() => {
+    const afterBreak = breakTimerEndAction(breakVariantRef.current, longBreakStageRef.current, nextSessionTypeRef.current);
+    if (afterBreak === 'long_relax') {
+      setLongBreakStage('relax');
+      setActiveWorkout(null);
+      setWorkoutLogged(false);
+      workoutLoggedRef.current = false;
+      markPhaseStarted();
+      const secs = (SESSION_DURATIONS_MINUTES.longBreak - SESSION_DURATIONS_MINUTES.break) * 60;
+      setPhaseTimer(secs, secs);
+      return;
+    }
+    if (afterBreak === 'finish') {
+      finishFlow();
+      return;
+    }
+    const next = nextSessionTypeRef.current!;
+    setPhase('focus');
+    setBreakVariant(null);
+    setLongBreakStage(null);
+    setActiveSessionType(next);
+    markPhaseStarted();
+    const secs = SESSION_DURATIONS_MINUTES[next] * 60;
+    setPhaseTimer(secs, secs);
+    setNextSessionType(next === 'pomodoro' ? 'pomodoro' : null);
+    if (next === 'pomodoro') {
+      const prev = lastPomodoroPostureRef.current;
+      setPomodoroPosture(prev === null ? 'sitting' : prev === 'sitting' ? 'standing' : 'sitting');
+    }
+    setActiveWorkout(null);
+    setWorkoutLogged(false);
+    workoutLoggedRef.current = false;
+  }, [finishFlow, setPhaseTimer, markPhaseStarted]);
+
   useEffect(() => {
     let cancelled = false;
     void loadDayRolloverHourPref()
@@ -655,42 +690,11 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       if (phaseRef.current === 'break') {
-        const afterBreak = breakTimerEndAction(breakVariantRef.current, longBreakStageRef.current, nextSessionTypeRef.current);
-        if (afterBreak === 'long_relax') {
-          logActiveWorkoutIfNeeded(1);
-          setLongBreakStage('relax');
-          setActiveWorkout(null);
-          setWorkoutLogged(false);
-          workoutLoggedRef.current = false;
-          markPhaseStarted();
-          const secs = (SESSION_DURATIONS_MINUTES.longBreak - SESSION_DURATIONS_MINUTES.break) * 60;
-          setPhaseTimer(secs, secs);
-          return;
-        }
-        if (afterBreak === 'finish') {
-          finishFlow();
-          return;
-        }
         logActiveWorkoutIfNeeded(1);
-        const next = nextSessionTypeRef.current!;
-        setPhase('focus');
-        setBreakVariant(null);
-        setLongBreakStage(null);
-        setActiveSessionType(next);
-        markPhaseStarted();
-        const secs = SESSION_DURATIONS_MINUTES[next] * 60;
-        setPhaseTimer(secs, secs);
-        setNextSessionType(next === 'pomodoro' ? 'pomodoro' : null);
-        if (next === 'pomodoro') {
-          const prev = lastPomodoroPostureRef.current;
-          setPomodoroPosture(prev === null ? 'sitting' : prev === 'sitting' ? 'standing' : 'sitting');
-        }
-        setActiveWorkout(null);
-        setWorkoutLogged(false);
-        workoutLoggedRef.current = false;
+        advanceCurrentBreak();
       }
     };
-  }, [recordFocusSession, logActiveWorkoutIfNeeded, finishFlow, setPhaseTimer, markPhaseStarted]);
+  }, [recordFocusSession, logActiveWorkoutIfNeeded, advanceCurrentBreak, setPhaseTimer, markPhaseStarted]);
 
   useEffect(() => {
     if (!sessionStorageReady || phase === 'idle') {
@@ -705,8 +709,13 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [remainingSeconds, phase, sessionStorageReady]);
 
   const handleWorkoutCompletion = useCallback(() => {
+    const syncClient = syncClientRef.current;
+    if (isSyncViewer(syncLeaderDeviceIdRef.current, syncClient?.deviceId ?? '')) return;
+    if (!isActiveExerciseBreak(phaseRef.current, breakVariantRef.current, longBreakStageRef.current, activeWorkoutRef.current)) return;
     logActiveWorkoutIfNeeded(1);
-  }, [logActiveWorkoutIfNeeded]);
+    if (!workoutLoggedRef.current) return;
+    advanceCurrentBreak();
+  }, [logActiveWorkoutIfNeeded, advanceCurrentBreak]);
 
   const addManualExercise = useCallback(
     (exercise: ExerciseDefinition) => {

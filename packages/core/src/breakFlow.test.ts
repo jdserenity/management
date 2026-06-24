@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advanceBreakWhenTimerEnds, isActiveExerciseBreak } from './breakFlow';
+import { advanceBreakAfterExerciseComplete, advanceBreakWhenTimerEnds, isActiveExerciseBreak } from './breakFlow';
 import type { PersistedFlowState } from './flowState';
 
 const baseFlow = (): PersistedFlowState => ({
@@ -40,6 +40,21 @@ describe('breakFlow', () => {
 
   it('finishes standalone short break when no next session', () => {
     const result = advanceBreakWhenTimerEnds({ ...baseFlow(), nextSessionType: null }, 1000);
+    expect(result.kind).toBe('finish');
+  });
+
+  it('advances long break exercise to relax before next focus', () => {
+    const flow = { ...baseFlow(), breakVariant: 'long' as const, longBreakStage: 'exercise' as const, activeSessionType: 'deep' as const, nextSessionType: 'pomodoro' as const };
+    const result = advanceBreakWhenTimerEnds(flow, 1000);
+    expect(result.kind).toBe('long_relax');
+    if (result.kind === 'long_relax') {
+      expect(result.flow.longBreakStage).toBe('relax');
+      expect(result.flow.activeWorkout).toBeNull();
+    }
+  });
+
+  it('complete workout uses the same advance rules as timer end', () => {
+    const result = advanceBreakAfterExerciseComplete({ ...baseFlow(), nextSessionType: null }, 1000);
     expect(result.kind).toBe('finish');
   });
 });
