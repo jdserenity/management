@@ -15,6 +15,8 @@ import { useSession } from '@/context/SessionContext';
 import {
   applyExerciseOverride,
   FILLS_ENTIRE_BREAK_CONFIRM_MESSAGE,
+  maxStretchHoldSeconds,
+  stretchHoldSecondsForPickKey,
   timedExerciseNeedsFillBreakConfirm,
   resolveAllowedStretchPickKeys,
   resolveAllowedWorkoutIdsFromPrefs
@@ -78,13 +80,13 @@ const CustomizeWorkoutPage = () => {
   const tryOverride = useCallback(
     (exercise: ExerciseDefinition, amount: number, unit: ExerciseUnit) => {
       const draft = { ...exercise, amount, unit };
-      if (timedExerciseNeedsFillBreakConfirm(draft, workoutCustomizePrefs.stretchHoldSeconds)) {
+      if (timedExerciseNeedsFillBreakConfirm(draft, maxStretchHoldSeconds(workoutCustomizePrefs))) {
         setPendingConfirm({ kind: 'override', exerciseId: exercise.id, amount, unit });
         return;
       }
       commitOverride(exercise.id, amount, unit);
     },
-    [commitOverride, workoutCustomizePrefs.stretchHoldSeconds]
+    [commitOverride, workoutCustomizePrefs]
   );
 
   const predefinedRows = useMemo(
@@ -101,7 +103,7 @@ const CustomizeWorkoutPage = () => {
       amount: Math.max(0, Math.round(customAmount)),
       unit: customUnit
     };
-    if (timedExerciseNeedsFillBreakConfirm(exercise, workoutCustomizePrefs.stretchHoldSeconds)) {
+    if (timedExerciseNeedsFillBreakConfirm(exercise, maxStretchHoldSeconds(workoutCustomizePrefs))) {
       setPendingConfirm({ kind: 'newCustom', exercise });
       return;
     }
@@ -188,7 +190,7 @@ const CustomizeWorkoutPage = () => {
           <div className="space-y-3 rounded-md border px-3 py-3">
             <p className="text-lg font-semibold">🤸 Stretching / Mobility</p>
             <p className="text-xs text-muted-foreground">
-              Each enabled stretch uses the hold time below (left/right pairs always stay together in a break).
+              Standard stretches use the hold time below. Neck and hip rolls always use 30s (both directions).
             </p>
             <label className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-medium">Hold per stretch</span>
@@ -206,7 +208,7 @@ const CustomizeWorkoutPage = () => {
               {STRETCH_PICK_CATALOG.map((row) => {
                 const enabled = allowedStretchKeys.includes(row.key);
                 const isOnlyEnabledMove = enabled && enabledMoveCount === 1;
-                const hold = workoutCustomizePrefs.stretchHoldSeconds;
+                const hold = stretchHoldSecondsForPickKey(row.key, workoutCustomizePrefs);
                 const preview = { id: row.key, name: row.label, amount: hold, unit: 'seconds' as const };
                 return (
                   <li key={row.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/20 px-2 py-2">

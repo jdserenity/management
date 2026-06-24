@@ -685,11 +685,11 @@ const SessionAlertSettings = () => {
                 </div>
                 <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
-                        <span className="font-medium">{t('settings.sessionTrayTimer', 'Menu bar timer')}</span>
+                        <span className="font-medium">{t('settings.sessionTrayTimer', 'Show timer in menu bar')}</span>
                         <p className="text-sm text-muted-foreground">
                             {t(
                                 'settings.sessionTrayTimerDesc',
-                                'Keep the Dock icon and also show a menu bar icon with a live countdown (e.g. P 24:59). macOS only for the text timer.'
+                                'While a focus flow is running, show a menu bar icon with a live countdown (e.g. 🍅 24:59). macOS only.'
                             )}
                         </p>
                     </div>

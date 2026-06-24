@@ -5,6 +5,9 @@ import {
   fillsEntireExerciseBreak,
   formatTimedDuration,
   normalizeWorkoutCustomizePrefs,
+  stretchHoldSecondsForPickKey,
+  STRETCH_DEFAULT_SECONDS,
+  STRETCH_ROLL_HOLD_SECONDS,
   timedExerciseNeedsFillBreakConfirm
 } from '@/lib/workoutCustomize';
 
@@ -43,17 +46,29 @@ describe('timedExerciseNeedsFillBreakConfirm', () => {
   });
 });
 
+describe('stretchHoldSecondsForPickKey', () => {
+  it('uses 30s for neck and hip rolls and 20s for other stretches by default', () => {
+    const prefs = defaultWorkoutCustomizePrefs();
+    expect(STRETCH_DEFAULT_SECONDS).toBe(20);
+    expect(STRETCH_ROLL_HOLD_SECONDS).toBe(30);
+    expect(stretchHoldSecondsForPickKey('stretch-neck-roll', prefs)).toBe(30);
+    expect(stretchHoldSecondsForPickKey('stretch-hip-roll', prefs)).toBe(30);
+    expect(stretchHoldSecondsForPickKey('stretch-foot', prefs)).toBe(20);
+    expect(stretchHoldSecondsForPickKey('stretch-butterfly', prefs)).toBe(20);
+  });
+});
+
 describe('normalizeWorkoutCustomizePrefs', () => {
   it('maps legacy stretch-mobility to all stretch picks', () => {
     const prefs = normalizeWorkoutCustomizePrefs(null, ['stretch-mobility', 'push-ups']);
     expect(prefs.allowedWorkoutIds).toContain('push-ups');
-    expect(prefs.allowedStretchPickKeys.length).toBe(8);
+    expect(prefs.allowedStretchPickKeys.length).toBe(9);
   });
 
   it('defaults when empty', () => {
     const prefs = normalizeWorkoutCustomizePrefs(null, null);
     expect(prefs.allowedWorkoutIds.length).toBeGreaterThan(0);
-    expect(prefs.allowedStretchPickKeys.length).toBe(8);
+    expect(prefs.allowedStretchPickKeys.length).toBe(9);
     expect(prefs).toEqual(defaultWorkoutCustomizePrefs());
   });
 });

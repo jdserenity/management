@@ -18,6 +18,7 @@ import {
   type SessionType
 } from '@/lib/workoutPlanner';
 import { canConvertFocusSession, showSessionChainControls } from '@/lib/sessionProgress';
+import { shouldScheduleExerciseOnPomodoroBreak } from '@/lib/exerciseBreak';
 
 const Dashboard = () => {
   const {
@@ -43,7 +44,10 @@ const Dashboard = () => {
     updateBreakExerciseAmount,
     focusDeskPosture,
     nextDeskPostureIfPomodoro,
-    togglePomodoroDeskPosture
+    togglePomodoroDeskPosture,
+    runPomodoros,
+    cantExerciseMode,
+    setCantExerciseMode
   } = useSession();
 
   const formatDesk = (p: DeskPosture) => (p === 'sitting' ? 'Sitting' : 'Standing');
@@ -97,9 +101,12 @@ const Dashboard = () => {
   const breakPreview = useMemo(() => {
     if (phase === 'idle' || isStandaloneExerciseBreak) return null;
     if (phase === 'focus' && activeSessionType === 'pomodoro') {
+      const willExercise = shouldScheduleExerciseOnPomodoroBreak(runPomodoros + 1);
       return {
-        title: '🏃 Exercise break',
-        detail: `${SESSION_DURATIONS_MINUTES.break} min before next focus`
+        title: willExercise ? '🏃 Exercise break' : '☕ Short break',
+        detail: willExercise
+          ? `${SESSION_DURATIONS_MINUTES.break} min before next focus`
+          : `${SESSION_DURATIONS_MINUTES.break} min · sit/stand reminder`
       } as const;
     }
     if (phase === 'focus' && activeSessionType === 'deep') {
@@ -110,7 +117,7 @@ const Dashboard = () => {
     }
     if (phase === 'break' && breakVariant === 'short') {
       return {
-        title: '🏃 Exercise break',
+        title: activeWorkout ? '🏃 Exercise break' : '☕ Short break',
         detail: `${SESSION_DURATIONS_MINUTES.break} min`
       } as const;
     }
@@ -133,7 +140,7 @@ const Dashboard = () => {
       } as const;
     }
     return null;
-  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak]);
+  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak, runPomodoros, activeWorkout]);
 
   const unitShort = (unit: ExerciseUnit) => (unit === 'reps' ? 'reps' : unit === 'seconds' ? 'sec' : 'min');
 
@@ -321,7 +328,7 @@ const Dashboard = () => {
                   </li>
                 ))}
               </ul>
-              <Button size="sm" onClick={handleWorkoutCompletion} disabled={workoutLogged}>
+              <Button size="sm" onClick={handleWorkoutCompletion}>
                 {workoutLogged ? 'Workout Logged' : 'Complete Workout'}
               </Button>
             </div>
@@ -332,6 +339,18 @@ const Dashboard = () => {
               <span className="font-medium text-foreground">Relax</span> — no prescribed moves. When the timer ends, your scheduled next focus starts (unless you ended the flow).
             </div>
           )}
+
+          <div className="flex justify-end pt-1">
+            <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Switch
+                checked={cantExerciseMode}
+                onCheckedChange={setCantExerciseMode}
+                className="scale-75"
+                aria-label="Can't exercise right now"
+              />
+              <span>Can&apos;t exercise rn</span>
+            </label>
+          </div>
 
         </CardContent>
       </Card>

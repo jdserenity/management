@@ -30,7 +30,9 @@ const SessionAlerts = () => {
     longBreakStage,
     activeSessionType,
     remainingSeconds,
-    sessionStorageReady
+    activeWorkout,
+    sessionStorageReady,
+    takeBackgroundFlowStart
   } = useSession();
   const [prefs, setPrefs] = useState<SessionAlertsPrefs>(defaultSessionAlertsPrefs);
   const [prefsReady, setPrefsReady] = useState(false);
@@ -62,15 +64,26 @@ const SessionAlerts = () => {
   useEffect(() => {
     if (!alertsActive) return;
     if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
+    if (!prefs.trayTimer) {
+      invoke('set_tray_session_label', { label: '' }).catch(console.error);
+      return;
+    }
     trayLabelTimerRef.current = setTimeout(() => {
-      const formatted = formatSessionTrayTitle(phase, remainingSeconds, activeSessionType, longBreakStage);
+      const formatted = formatSessionTrayTitle(
+        phase,
+        remainingSeconds,
+        activeSessionType,
+        breakVariant,
+        longBreakStage,
+        Boolean(activeWorkout)
+      );
       const label = traySessionLabelInvokeArg(phase, formatted);
       invoke('set_tray_session_label', { label }).catch(console.error);
     }, 200);
     return () => {
       if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
     };
-  }, [alertsActive, phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage]);
+  }, [alertsActive, prefs.trayTimer, phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage, activeWorkout]);
 
   useEffect(() => {
     cancelCountdownRef.current?.();
@@ -108,9 +121,10 @@ const SessionAlerts = () => {
     const leftActive = prev !== 'idle' && phase === 'idle';
 
     if (enteringActive) {
-      if (prefs.sound) playPhaseChangeChime();
-      if (prefs.focusWindow) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
-      if (prefs.notify) {
+      const background = takeBackgroundFlowStart();
+      if (prefs.sound && !background) playPhaseChangeChime();
+      if (prefs.focusWindow && !background) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+      if (prefs.notify && !background) {
         const copy = sessionPhaseNotifyCopy(phase, activeSessionType, breakVariant, longBreakStage);
         if (copy) invoke('notify_session_phase', { title: copy.title, body: copy.body }).catch(console.error);
       }
@@ -133,6 +147,7 @@ const SessionAlerts = () => {
     prefs.focusWindow,
     prefs.dockBounce,
     prefs.notify,
+    takeBackgroundFlowStart,
     phaseKey,
     phase,
     activeSessionType,
