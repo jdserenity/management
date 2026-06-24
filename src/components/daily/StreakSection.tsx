@@ -68,7 +68,6 @@ export default function StreakSection() {
   if (!isTauri()) {
     return (
       <section className="streak-tracker-container" aria-label="Habits">
-        <h2 className="mb-4 text-lg font-semibold">Habits</h2>
         <p className="streak-tracker-empty text-sm">Run <code className="text-foreground">npm run tauri dev</code> for SQLite and Tauri APIs. Plain <code className="text-foreground">npm run dev</code> is browser-only and cannot load habits data.</p>
       </section>
     );
@@ -82,8 +81,7 @@ export default function StreakSection() {
 
   return (
     <section className="streak-tracker-container" aria-label="Habits">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Habits</h2>
+      <div className="mb-4 flex justify-end">
         <Button size="sm" onClick={() => { setEditingActivity(null); setIsNewActivity(true); setEditorOpen(true); }}>Add activity</Button>
       </div>
 

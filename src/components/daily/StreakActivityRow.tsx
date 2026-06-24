@@ -160,9 +160,6 @@ export default function StreakActivityRow({ activity, state, onLog, onPause, onR
       <div className="streak-activity-header">
         <div className="streak-buttons">
           <button type="button" className={`streak-btn streak-btn-success streak-btn-primary${currentState === 'success' ? ' streak-btn-active' : ''}`} title="Mark as success" onClick={() => onLog(activity.id, currentState === 'success' ? null : 'success')}>✓</button>
-          {activity.canFail ? (
-            <button type="button" className={`streak-btn streak-btn-fail streak-btn-primary${currentState === 'failed' ? ' streak-btn-active' : ''}`} title="Mark as failed" onClick={() => onLog(activity.id, currentState === 'failed' ? null : 'failed')}>✗</button>
-          ) : null}
           {renderSecondary()}
         </div>
         <div className={`streak-activity-name${activity.description ? ' clickable' : ''}`} onClick={() => activity.description && setDescOpen((o) => !o)}>{activity.name || activity.id}</div>
