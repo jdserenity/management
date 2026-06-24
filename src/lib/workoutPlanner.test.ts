@@ -17,7 +17,7 @@ import {
   fillPeriodSeries,
   listNonZeroExerciseTotals,
   mergePeriodStats,
-  periodChartValue,
+  periodMoveMinutes,
   recentWeekBucketKeys,
   SESSION_COUNT_MIN_RATIO,
   summarizeExerciseTotalsAllTime,
@@ -458,8 +458,9 @@ describe('period series helpers', () => {
     expect(formatTimedMovementHeadline(8100)).toBe('2h 15m');
   });
 
-  it('combines focus and movement for chart values', () => {
-    expect(periodChartValue({ bucket: 'x', pomodoros: 1, deepWork: 0, focusMinutes: 25, reps: 0, timedSeconds: 120, workouts: 1 })).toBe(27);
+  it('derives movement minutes for chart values', () => {
+    expect(periodMoveMinutes({ bucket: 'x', pomodoros: 0, deepWork: 0, focusMinutes: 0, reps: 0, timedSeconds: 120, workouts: 0 })).toBe(2);
+    expect(periodMoveMinutes({ bucket: 'x', pomodoros: 0, deepWork: 0, focusMinutes: 0, reps: 0, timedSeconds: 2505, workouts: 0 })).toBe(42);
   });
 });
 

@@ -685,9 +685,8 @@ export const formatWeekChartLabel = (bucket: string): string =>
 export const formatMonthChartLabel = (bucket: string): string =>
   parseBucketDate(bucket).toLocaleDateString(undefined, { month: 'short' });
 
-/** Combined focus + movement minutes for period progress charts. */
-export const periodChartValue = (point: PeriodStatsPoint): number =>
-  point.focusMinutes + Math.round(point.timedSeconds / 60);
+/** Movement minutes (from timed seconds) for period progress charts. */
+export const periodMoveMinutes = (point: PeriodStatsPoint): number => Math.round(point.timedSeconds / 60);
 
 export const formatTimedMovementHeadline = (totalSeconds: number): string => {
   const sec = Math.max(0, Math.round(totalSeconds));
