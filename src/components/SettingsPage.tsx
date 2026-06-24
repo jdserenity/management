@@ -685,11 +685,11 @@ const SessionAlertSettings = () => {
                 </div>
                 <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
-                        <span className="font-medium">{t('settings.sessionTrayTimer', 'Menu bar timer')}</span>
+                        <span className="font-medium">{t('settings.sessionTrayTimer', 'Show timer in menu bar')}</span>
                         <p className="text-sm text-muted-foreground">
                             {t(
                                 'settings.sessionTrayTimerDesc',
-                                'Keep the Dock icon and also show a menu bar icon with a live countdown (e.g. P 24:59). macOS only for the text timer.'
+                                'While a focus flow is running, show a menu bar icon with a live countdown (e.g. 🍅 24:59). macOS only.'
                             )}
                         </p>
                     </div>
@@ -765,35 +765,11 @@ const NotificationSettings = () => {
     );
 };
 
-const WorkExerciseSettings = () => {
-    const { cantExerciseMode, setCantExerciseMode } = useSession();
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Exercise breaks</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                        <span className="font-medium">Can&apos;t exercise right now</span>
-                        <p className="text-sm text-muted-foreground">
-                            At a café or coworking? Breaks use walking, stretching, and standing-friendly moves instead of push-ups, jacks, squats, and shadowboxing.
-                        </p>
-                    </div>
-                    <Switch checked={cantExerciseMode} onCheckedChange={setCantExerciseMode} />
-                </div>
-            </CardContent>
-        </Card>
-    );
-};
-
 const SettingsPage = () => {
     return (
         <div className="space-y-6 p-4 md:p-6">
             <AppPresenceSettings />
             <SessionAlertSettings />
-            <WorkExerciseSettings />
             <ThemeSettings />
             <StatsDaySettings />
             <HabitsSettings />

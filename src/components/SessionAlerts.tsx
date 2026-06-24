@@ -30,6 +30,7 @@ const SessionAlerts = () => {
     longBreakStage,
     activeSessionType,
     remainingSeconds,
+    activeWorkout,
     sessionStorageReady
   } = useSession();
   const [prefs, setPrefs] = useState<SessionAlertsPrefs>(defaultSessionAlertsPrefs);
@@ -62,15 +63,26 @@ const SessionAlerts = () => {
   useEffect(() => {
     if (!alertsActive) return;
     if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
+    if (!prefs.trayTimer) {
+      invoke('set_tray_session_label', { label: '' }).catch(console.error);
+      return;
+    }
     trayLabelTimerRef.current = setTimeout(() => {
-      const formatted = formatSessionTrayTitle(phase, remainingSeconds, activeSessionType, longBreakStage);
+      const formatted = formatSessionTrayTitle(
+        phase,
+        remainingSeconds,
+        activeSessionType,
+        breakVariant,
+        longBreakStage,
+        Boolean(activeWorkout)
+      );
       const label = traySessionLabelInvokeArg(phase, formatted);
       invoke('set_tray_session_label', { label }).catch(console.error);
     }, 200);
     return () => {
       if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
     };
-  }, [alertsActive, phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage]);
+  }, [alertsActive, prefs.trayTimer, phase, remainingSeconds, activeSessionType, breakVariant, longBreakStage, activeWorkout]);
 
   useEffect(() => {
     cancelCountdownRef.current?.();

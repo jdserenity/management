@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  flowStatusLabel,
   formatSessionTrayTitle,
   formatTimerMmSs,
   sessionPhaseNotifyCopy,
@@ -14,11 +15,18 @@ describe('sessionAlertLabels', () => {
   });
 
   it('formats tray title for focus and break', () => {
-    expect(formatSessionTrayTitle('focus', 90, 'pomodoro', null)).toBe('🍅 1:30');
-    expect(formatSessionTrayTitle('focus', 60, 'deep', null)).toBe('🎯 1:00');
-    expect(formatSessionTrayTitle('break', 300, null, null)).toBe('🏃 5:00');
-    expect(formatSessionTrayTitle('break', 600, null, 'relax')).toBe('☕ 10:00');
-    expect(formatSessionTrayTitle('idle', 0, null, null)).toBeNull();
+    expect(formatSessionTrayTitle('focus', 90, 'pomodoro', null, null, false)).toBe('🍅 1:30');
+    expect(formatSessionTrayTitle('focus', 60, 'deep', null, null, false)).toBe('🎯 1:00');
+    expect(formatSessionTrayTitle('break', 300, null, 'short', null, true)).toBe('🏃 5:00');
+    expect(formatSessionTrayTitle('break', 300, 'pomodoro', 'short', null, false)).toBe('☕ 5:00');
+    expect(formatSessionTrayTitle('break', 600, null, 'long', 'relax', false)).toBe('☕ 10:00');
+    expect(formatSessionTrayTitle('idle', 0, null, null, null, false)).toBeNull();
+  });
+
+  it('flow status label omits timer and reflects short breaks without exercise', () => {
+    expect(flowStatusLabel('focus', 'pomodoro', null, null, false)).toBe('🍅 Pomodoro focus');
+    expect(flowStatusLabel('break', 'pomodoro', 'short', null, false)).toBe('☕ Short break');
+    expect(flowStatusLabel('break', 'pomodoro', 'short', null, true)).toBe('🏃 Exercise break');
   });
 
   it('countdown beeps only at 5..1', () => {

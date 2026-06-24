@@ -18,11 +18,30 @@ export const formatTimerMmSs = (totalSeconds: number): string => {
   return `${m}:${pad2(r)}`;
 };
 
+/** Flow label for header chip and tray status — no countdown. */
+export const flowStatusLabel = (
+  phase: FlowPhase,
+  activeSessionType: SessionType | null,
+  breakVariant: BreakVariant | null,
+  longBreakStage: LongBreakStage | null,
+  hasActiveWorkout: boolean
+): string => {
+  if (phase === 'focus') return activeSessionType === 'pomodoro' ? '🍅 Pomodoro focus' : '🎯 Deep work focus';
+  if (phase === 'break' && !activeSessionType) return '🏃 Exercise break';
+  if (phase === 'break' && breakVariant === 'short') return hasActiveWorkout ? '🏃 Exercise break' : '☕ Short break';
+  if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise') return '🏃 Exercise break';
+  if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'relax') return '☕ Long break · relax';
+  if (phase === 'break' && breakVariant === 'long') return '☕ Long break';
+  return '🏠 Idle';
+};
+
 export const formatSessionTrayTitle = (
   phase: FlowPhase,
   remainingSeconds: number,
   activeSessionType: SessionType | null,
-  longBreakStage: LongBreakStage | null
+  breakVariant: BreakVariant | null,
+  longBreakStage: LongBreakStage | null,
+  hasActiveWorkout: boolean
 ): string | null => {
   if (phase === 'idle') return null;
   const time = formatTimerMmSs(remainingSeconds);
@@ -31,6 +50,7 @@ export const formatSessionTrayTitle = (
     return `${emoji} ${time}`;
   }
   if (longBreakStage === 'relax') return `${SESSION_FLOW_EMOJI.relax} ${time}`;
+  if (breakVariant === 'short' && !hasActiveWorkout) return `${SESSION_FLOW_EMOJI.relax} ${time}`;
   return `${SESSION_FLOW_EMOJI.exerciseBreak} ${time}`;
 };
 

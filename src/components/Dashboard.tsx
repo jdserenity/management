@@ -45,7 +45,9 @@ const Dashboard = () => {
     focusDeskPosture,
     nextDeskPostureIfPomodoro,
     togglePomodoroDeskPosture,
-    runPomodoros
+    runPomodoros,
+    cantExerciseMode,
+    setCantExerciseMode
   } = useSession();
 
   const formatDesk = (p: DeskPosture) => (p === 'sitting' ? 'Sitting' : 'Standing');
@@ -167,6 +169,17 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Switch
+            checked={cantExerciseMode}
+            onCheckedChange={setCantExerciseMode}
+            className="scale-75"
+            aria-label="Can't exercise right now"
+          />
+          <span>Can&apos;t exercise rn</span>
+        </label>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

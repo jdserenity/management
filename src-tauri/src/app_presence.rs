@@ -62,11 +62,14 @@ pub fn set_tray_session_label(_app: &AppHandle, state: &AppState, label: Option<
 fn build_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
   let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
+  let start_flow = MenuItem::with_id(app, "start_focus_flow", "Start focus flow", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
   let stop_monitoring_item = MenuItem::with_id(app, "stop_monitoring", "Stop Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
   Menu::with_items(
     app,
     &[
+      &start_flow,
+      &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
       &start_monitoring_item,
       &stop_monitoring_item,
       &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
@@ -80,8 +83,12 @@ fn build_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
 fn build_timer_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
   let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
-  Menu::with_items(app, &[&show, &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?, &quit])
-    .map_err(|e| e.to_string())
+  let start_flow = MenuItem::with_id(app, "start_focus_flow", "Start focus flow", true, None::<&str>).map_err(|e| e.to_string())?;
+  Menu::with_items(
+    app,
+    &[&start_flow, &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?, &show, &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?, &quit],
+  )
+  .map_err(|e| e.to_string())
 }
 
 fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
@@ -89,6 +96,10 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
   match event_id {
     "quit" => app.exit(0),
     "show" => show_main_window(app),
+    "start_focus_flow" => {
+      show_main_window(app);
+      let _ = app.emit("tray-start-focus-flow", ());
+    }
     "start_monitoring" => {
       info!("'Start Monitoring' clicked");
       *lock_or_recover(&state.monitoring_active) = true;
