@@ -78,6 +78,7 @@ import {
 } from '@/lib/sessionSync';
 import type { SyncClient } from '@mgmt/sync';
 import { isActiveExerciseBreak } from '@mgmt/core';
+import { buildMorningStretchLogEntry } from '@/lib/morningStretch/morningStretch';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
@@ -123,6 +124,7 @@ interface SessionContextValue {
   finishFlow: () => void;
   handleWorkoutCompletion: () => void;
   addManualExercise: (exercise: ExerciseDefinition) => void;
+  logMorningStretchCompletion: (exercises: ExerciseDefinition[]) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
   updateExerciseOverride: (exerciseId: string, amount: number, unit: ExerciseUnit) => void;
@@ -730,6 +732,15 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     [applyExerciseTotals]
   );
 
+  const logMorningStretchCompletion = useCallback((exercises: ExerciseDefinition[]) => {
+    if (exercises.length === 0) return;
+    const entry = buildMorningStretchLogEntry(exercises, createId('workout'));
+    setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
+    void persistWorkoutLog(entry).catch((error) => {
+      console.error('Failed to persist morning stretch log:', error);
+    });
+  }, []);
+
   const setDayRolloverHour = useCallback((hour: number) => {
     void saveDayRolloverHourPref(hour)
       .then((saved) => {
@@ -892,6 +903,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       finishFlow,
       handleWorkoutCompletion,
       addManualExercise,
+      logMorningStretchCompletion,
       handleAllowedWorkoutToggle,
       handleStretchPickToggle,
       updateExerciseOverride,
@@ -936,6 +948,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       finishFlow,
       handleWorkoutCompletion,
       addManualExercise,
+      logMorningStretchCompletion,
       handleAllowedWorkoutToggle,
       handleStretchPickToggle,
       updateExerciseOverride,
