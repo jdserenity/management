@@ -1,4 +1,5 @@
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useRef, useState } from 'react';
+import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { periodMoveMinutes, type PeriodStatsPoint } from '@/lib/workoutPlanner';
 
 export type StatsChartRow = PeriodStatsPoint & { label: string; moveMinutes: number };
@@ -11,28 +12,12 @@ type StatsProgressChartProps = {
   selectedIndex: number;
 };
 
-const ChartDot = (props: { cx?: number; cy?: number; index?: number; selectedIndex: number; color: string }) => {
-  const { cx, cy, index, selectedIndex, color } = props;
-  if (cx == null || cy == null || index == null) return null;
-  const selected = index === selectedIndex;
-  if (selected) {
-    return (
-      <g>
-        <circle cx={cx} cy={cy} r={9} fill="#ffffff" opacity={0.25} />
-        <circle cx={cx} cy={cy} r={4.5} fill="#ffffff" />
-      </g>
-    );
-  }
-  return <circle cx={cx} cy={cy} r={3} fill={color} />;
-};
-
-const ChartActiveDot = (props: { cx?: number; cy?: number; fill?: string }) => {
-  const { cx, cy, fill } = props;
-  if (cx == null || cy == null) return null;
-  return <circle cx={cx} cy={cy} r={6} fill={fill ?? '#ffffff'} stroke="#0f172a" strokeWidth={1.5} />;
-};
+type DotCoord = { x: number; focusY?: number; moveY?: number };
 
 const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) => {
+  const coordsRef = useRef<Record<number, DotCoord>>({});
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
   if (data.length === 0) {
     return (
       <div className="flex h-full min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/40 px-4 text-sm text-slate-400">
@@ -41,6 +26,37 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
     );
   }
 
+  const recordCoord = (index: number, key: 'focusY' | 'moveY', x: number, y: number) => {
+    const cur = coordsRef.current[index] ?? { x };
+    cur.x = x; cur[key] = y; coordsRef.current[index] = cur;
+  };
+
+  const renderDot = (color: string, key: 'focusY' | 'moveY') =>
+    (props: { cx?: number; cy?: number; index?: number }) => {
+      const { cx, cy, index } = props;
+      if (cx == null || cy == null || index == null) return <g />;
+      recordCoord(index, key, cx, cy);
+      const selected = index === selectedIndex;
+      const hovered = index === hoverIndex;
+      if (selected) {
+        const r = hovered ? 7 : 6;
+        return (
+          <g>
+            <circle cx={cx} cy={cy} r={r + 6} fill="#ffffff" opacity={0.25} />
+            <circle cx={cx} cy={cy} r={r} fill="#ffffff" />
+          </g>
+        );
+      }
+      const r = hovered ? 6 : 3;
+      return <circle cx={cx} cy={cy} r={r} fill={color} />;
+    };
+
+  const hovered = hoverIndex != null ? data[hoverIndex] : null;
+  const hoveredCoord = hoverIndex != null ? coordsRef.current[hoverIndex] : null;
+  const tooltipX = hoveredCoord?.x ?? 0;
+  const tooltipY = Math.min(hoveredCoord?.focusY ?? Infinity, hoveredCoord?.moveY ?? Infinity);
+  const showTooltip = hovered != null && Number.isFinite(tooltipY);
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-visible rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 p-4 shadow-inner">
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold uppercase tracking-widest text-slate-400">
@@ -48,49 +64,54 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
         <span className="normal-case tracking-normal text-blue-400">⏳ Focus</span>
         <span className="normal-case tracking-normal text-orange-400">💪 Move</span>
       </div>
-      <div className="min-h-0 flex-1 overflow-visible">
+      <div className="relative min-h-0 flex-1 overflow-visible">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 16, right: 28, left: 0, bottom: 4 }} style={{ overflow: 'visible' }}>
+          <LineChart
+            data={data}
+            margin={{ top: 16, right: 28, left: 0, bottom: 4 }}
+            style={{ overflow: 'visible' }}
+            onMouseMove={(state) => {
+              const idx = Number((state as { activeTooltipIndex?: unknown } | undefined)?.activeTooltipIndex);
+              setHoverIndex(Number.isInteger(idx) ? idx : null);
+            }}
+            onMouseLeave={() => setHoverIndex(null)}
+          >
             <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
             <YAxis yAxisId="focus" orientation="left" width={34} tick={{ fill: '#60a5fa', fontSize: 10 }} axisLine={false} tickLine={false} tickMargin={4} allowDecimals={false} />
             <YAxis yAxisId="move" orientation="left" width={34} tick={{ fill: '#fdba74', fontSize: 10 }} axisLine={false} tickLine={false} tickMargin={4} allowDecimals={false} />
-            <Tooltip
-              cursor={false}
-              isAnimationActive={false}
-              offset={12}
-              contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 12, color: '#f8fafc' }}
-              labelStyle={{ color: '#cbd5e1', marginBottom: 4 }}
-              formatter={(value, name) => {
-                const mins = typeof value === 'number' ? value : Number(value);
-                if (name === 'focusMinutes') return [`${mins} min`, '⏳ Focus'];
-                if (name === 'moveMinutes') return [`${mins} min`, '💪 Move'];
-                return [value, name];
-              }}
-            />
             <Line
               yAxisId="focus"
               type="monotone"
               dataKey="focusMinutes"
-              name="focusMinutes"
               stroke={FOCUS_COLOR}
               strokeWidth={2.5}
-              dot={(dotProps) => <ChartDot {...dotProps} selectedIndex={selectedIndex} color={FOCUS_COLOR} />}
-              activeDot={(dotProps) => <ChartActiveDot {...dotProps} fill={FOCUS_COLOR} />}
+              dot={renderDot(FOCUS_COLOR, 'focusY')}
+              activeDot={false}
               isAnimationActive={false}
             />
             <Line
               yAxisId="move"
               type="monotone"
               dataKey="moveMinutes"
-              name="moveMinutes"
               stroke={MOVE_COLOR}
               strokeWidth={2.5}
-              dot={(dotProps) => <ChartDot {...dotProps} selectedIndex={selectedIndex} color={MOVE_COLOR} />}
-              activeDot={(dotProps) => <ChartActiveDot {...dotProps} fill={MOVE_COLOR} />}
+              dot={renderDot(MOVE_COLOR, 'moveY')}
+              activeDot={false}
               isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>
+
+        {showTooltip && hovered && (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-xl border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-lg"
+            style={{ left: tooltipX, top: tooltipY - 14 }}
+          >
+            <p className="mb-1 font-semibold text-slate-300">{hovered.label}</p>
+            <p className="text-blue-400">⏳ Focus: {hovered.focusMinutes} min</p>
+            <p className="text-orange-400">💪 Move: {hovered.moveMinutes} min</p>
+          </div>
+        )}
       </div>
     </div>
   );
