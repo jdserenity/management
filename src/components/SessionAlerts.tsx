@@ -31,7 +31,8 @@ const SessionAlerts = () => {
     activeSessionType,
     remainingSeconds,
     activeWorkout,
-    sessionStorageReady
+    sessionStorageReady,
+    takeBackgroundFlowStart
   } = useSession();
   const [prefs, setPrefs] = useState<SessionAlertsPrefs>(defaultSessionAlertsPrefs);
   const [prefsReady, setPrefsReady] = useState(false);
@@ -120,9 +121,10 @@ const SessionAlerts = () => {
     const leftActive = prev !== 'idle' && phase === 'idle';
 
     if (enteringActive) {
-      if (prefs.sound) playPhaseChangeChime();
-      if (prefs.focusWindow) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
-      if (prefs.notify) {
+      const background = takeBackgroundFlowStart();
+      if (prefs.sound && !background) playPhaseChangeChime();
+      if (prefs.focusWindow && !background) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+      if (prefs.notify && !background) {
         const copy = sessionPhaseNotifyCopy(phase, activeSessionType, breakVariant, longBreakStage);
         if (copy) invoke('notify_session_phase', { title: copy.title, body: copy.body }).catch(console.error);
       }
@@ -145,6 +147,7 @@ const SessionAlerts = () => {
     prefs.focusWindow,
     prefs.dockBounce,
     prefs.notify,
+    takeBackgroundFlowStart,
     phaseKey,
     phase,
     activeSessionType,

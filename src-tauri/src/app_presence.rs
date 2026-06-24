@@ -33,6 +33,12 @@ fn show_main_window(app: &AppHandle) {
   }
 }
 
+pub fn hide_main_window(app: &AppHandle) {
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.hide();
+  }
+}
+
 pub fn focus_main_window(app: &AppHandle, dock_bounce: bool) {
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.unminimize();
@@ -90,6 +96,14 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
     "show" => show_main_window(app),
     "start_focus_flow" => {
       let _ = app.emit("tray-start-focus-flow", ());
+      let app = app.clone();
+      let flow_state = state.inner().clone();
+      tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        if menu_bar_only_from_state(&flow_state) {
+          hide_main_window(&app);
+        }
+      });
     }
     "start_monitoring" => {
       info!("'Start Monitoring' clicked");

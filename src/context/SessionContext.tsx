@@ -81,6 +81,8 @@ import type { SyncClient } from '@mgmt/sync';
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
 
+export type StartFlowOptions = { background?: boolean };
+
 const createId = (prefix: string): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `${prefix}-${crypto.randomUUID()}`;
   return `${prefix}-${Date.now()}-${Math.round(Math.random() * 100000)}`;
@@ -112,7 +114,8 @@ interface SessionContextValue {
   setDayRolloverHour: (hour: number) => void;
   cantExerciseMode: boolean;
   setCantExerciseMode: (enabled: boolean) => void;
-  startFlow: (sessionType: SessionType) => void;
+  startFlow: (sessionType: SessionType, options?: StartFlowOptions) => void;
+  takeBackgroundFlowStart: () => boolean;
   convertFlowToDeepWork: () => void;
   convertFlowToPomodoro: () => void;
   startExerciseBreak: () => void;
@@ -191,6 +194,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   workoutCustomizePrefsRef.current = workoutCustomizePrefs;
   const cantExerciseModeRef = useRef(cantExerciseMode);
   cantExerciseModeRef.current = cantExerciseMode;
+  const backgroundFlowStartRef = useRef(false);
   const pomodoroPostureRef = useRef(pomodoroPosture);
   pomodoroPostureRef.current = pomodoroPosture;
   const runStartedAtRef = useRef(runStartedAt);
@@ -407,7 +411,8 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [applyExerciseTotals, markPhaseStarted, setPhaseTimer, schedulePersistFlow]);
 
   const startFlow = useCallback(
-    (sessionType: SessionType) => {
+    (sessionType: SessionType, options?: StartFlowOptions) => {
+      if (options?.background) backgroundFlowStartRef.current = true;
       const empty = emptyExerciseTotals();
       const startedAt = Date.now();
       setRunStartedAt(startedAt);
@@ -434,6 +439,12 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     },
     [applyExerciseTotals, markPhaseStarted, setPhaseTimer, schedulePersistFlow]
   );
+
+  const takeBackgroundFlowStart = useCallback((): boolean => {
+    if (!backgroundFlowStartRef.current) return false;
+    backgroundFlowStartRef.current = false;
+    return true;
+  }, []);
 
   const convertFocusSession = useCallback(
     (target: SessionType) => {
@@ -866,6 +877,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       cantExerciseMode,
       setCantExerciseMode,
       startFlow,
+      takeBackgroundFlowStart,
       convertFlowToDeepWork,
       convertFlowToPomodoro,
       startExerciseBreak,
@@ -909,6 +921,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       cantExerciseMode,
       setCantExerciseMode,
       startFlow,
+      takeBackgroundFlowStart,
       convertFlowToDeepWork,
       convertFlowToPomodoro,
       startExerciseBreak,

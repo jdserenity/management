@@ -30,7 +30,7 @@ const FlowHeaderControl = ({ onGoToWork }: FlowHeaderControlProps) => {
     let unlisten: (() => void) | undefined;
     void listen('tray-start-focus-flow', () => {
       if (cancelled) return;
-      if (phaseRef.current === 'idle') startFlowRef.current('pomodoro');
+      if (phaseRef.current === 'idle') startFlowRef.current('pomodoro', { background: true });
     }).then((fn) => {
       if (cancelled) fn();
       else unlisten = fn;
