@@ -6,6 +6,9 @@ export type StatsChartRow = PeriodStatsPoint & { label: string; moveMinutes: num
 
 const FOCUS_COLOR = '#3b82f6';
 const MOVE_COLOR = '#fb923c';
+const TOOLTIP_WIDTH = 176;
+const TOOLTIP_HEIGHT = 74;
+const TOOLTIP_MARGIN = 10;
 
 type StatsProgressChartProps = {
   data: StatsChartRow[];
@@ -16,6 +19,7 @@ type DotCoord = { x: number; focusY?: number; moveY?: number };
 
 const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) => {
   const coordsRef = useRef<Record<number, DotCoord>>({});
+  const chartAreaRef = useRef<HTMLDivElement | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   if (data.length === 0) {
@@ -56,6 +60,13 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
   const tooltipX = hoveredCoord?.x ?? 0;
   const tooltipY = Math.min(hoveredCoord?.focusY ?? Infinity, hoveredCoord?.moveY ?? Infinity);
   const showTooltip = hovered != null && Number.isFinite(tooltipY);
+  const chartHeight = chartAreaRef.current?.clientHeight ?? 0;
+  const preferAboveTop = tooltipY - TOOLTIP_MARGIN - TOOLTIP_HEIGHT;
+  const preferBelowTop = tooltipY + TOOLTIP_MARGIN;
+  const rawTooltipTop = preferAboveTop >= 4 ? preferAboveTop : preferBelowTop;
+  const tooltipTop = chartHeight > 0
+    ? Math.max(4, Math.min(rawTooltipTop, chartHeight - TOOLTIP_HEIGHT - 4))
+    : rawTooltipTop;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-visible rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 p-4 shadow-inner">
@@ -64,7 +75,7 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
         <span className="normal-case tracking-normal text-blue-400">⏳ Focus</span>
         <span className="normal-case tracking-normal text-orange-400">💪 Move</span>
       </div>
-      <div className="relative min-h-0 flex-1 overflow-visible">
+      <div ref={chartAreaRef} className="relative min-h-0 flex-1 overflow-visible">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
@@ -104,10 +115,10 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
 
         {showTooltip && hovered && (
           <div
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-xl border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-lg"
-            style={{ left: tooltipX, top: tooltipY - 14 }}
+            className="pointer-events-none absolute z-10 rounded-xl border border-slate-700 bg-slate-900/95 px-3 py-2 text-xs shadow-lg"
+            style={{ left: tooltipX - TOOLTIP_WIDTH / 2, top: tooltipTop, width: TOOLTIP_WIDTH, height: TOOLTIP_HEIGHT }}
           >
-            <p className="mb-1 font-semibold text-slate-300">{hovered.label}</p>
+            <p className="mb-1 truncate font-semibold text-slate-300">{hovered.label}</p>
             <p className="text-blue-400">⏳ Focus: {hovered.focusMinutes} min</p>
             <p className="text-orange-400">💪 Move: {hovered.moveMinutes} min</p>
           </div>
