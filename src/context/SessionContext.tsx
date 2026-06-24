@@ -713,7 +713,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     if (isSyncViewer(syncLeaderDeviceIdRef.current, syncClient?.deviceId ?? '')) return;
     if (!isActiveExerciseBreak(phaseRef.current, breakVariantRef.current, longBreakStageRef.current, activeWorkoutRef.current)) return;
     logActiveWorkoutIfNeeded(1);
-    if (!workoutLoggedRef.current) return;
     advanceCurrentBreak();
   }, [logActiveWorkoutIfNeeded, advanceCurrentBreak]);
 

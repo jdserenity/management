@@ -328,7 +328,7 @@ const Dashboard = () => {
                   </li>
                 ))}
               </ul>
-              <Button size="sm" onClick={handleWorkoutCompletion} disabled={workoutLogged}>
+              <Button size="sm" onClick={handleWorkoutCompletion}>
                 {workoutLogged ? 'Workout Logged' : 'Complete Workout'}
               </Button>
             </div>
