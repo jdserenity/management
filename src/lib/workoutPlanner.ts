@@ -644,6 +644,62 @@ export const mergePeriodStats = (workoutPoints: TimeSeriesPoint[], focusPoints: 
   return [...map.values()].sort((a, b) => a.bucket.localeCompare(b.bucket));
 };
 
+export const RECENT_WEEK_COUNT = 8;
+export const RECENT_MONTH_COUNT = 6;
+
+const emptyPeriodPoint = (bucket: string): PeriodStatsPoint => ({
+  bucket, pomodoros: 0, deepWork: 0, focusMinutes: 0, reps: 0, timedSeconds: 0, workouts: 0
+});
+
+export const recentWeekBucketKeys = (nowTimestamp: number = Date.now(), count: number = RECENT_WEEK_COUNT): string[] => {
+  const currentMonday = parseBucketDate(toWeekBucket(nowTimestamp));
+  const keys: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(currentMonday);
+    d.setDate(d.getDate() - i * 7);
+    keys.push(toDateBucket(d));
+  }
+  return keys;
+};
+
+export const recentMonthBucketKeys = (nowTimestamp: number = Date.now(), count: number = RECENT_MONTH_COUNT): string[] => {
+  const now = new Date(nowTimestamp);
+  const keys: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    keys.push(toMonthBucket(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  }
+  return keys;
+};
+
+export const fillPeriodSeries = (buckets: string[], points: PeriodStatsPoint[]): PeriodStatsPoint[] => {
+  const map = new Map(points.map((p) => [p.bucket, p]));
+  return buckets.map((bucket) => {
+    const existing = map.get(bucket);
+    return existing ? { ...existing } : emptyPeriodPoint(bucket);
+  });
+};
+
+export const formatWeekChartLabel = (bucket: string): string =>
+  parseBucketDate(bucket).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+export const formatMonthChartLabel = (bucket: string): string =>
+  parseBucketDate(bucket).toLocaleDateString(undefined, { month: 'short' });
+
+/** Combined focus + movement minutes for period progress charts. */
+export const periodChartValue = (point: PeriodStatsPoint): number =>
+  point.focusMinutes + Math.round(point.timedSeconds / 60);
+
+export const formatTimedMovementHeadline = (totalSeconds: number): string => {
+  const sec = Math.max(0, Math.round(totalSeconds));
+  if (sec === 0) return '0m';
+  const h = Math.floor(sec / 3600);
+  let m = Math.round((sec % 3600) / 60);
+  if (m === 60) { m = 0; }
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  return `${m}m`;
+};
+
 export const formatClock = (totalSeconds: number): string => {
   const safeSeconds = Math.max(totalSeconds, 0);
   const minutes = `${Math.floor(safeSeconds / 60)}`.padStart(2, '0');

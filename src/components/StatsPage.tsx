@@ -1,16 +1,19 @@
-import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Brain, Dumbbell } from 'lucide-react';
+import StatsPeriodExplorer from '@/components/stats/StatsPeriodExplorer';
 import { useSession } from '@/context/SessionContext';
 import {
-  SESSION_COUNT_MIN_RATIO,
+  fillPeriodSeries,
   formatExerciseRunAggLine,
   formatMonthBucketLabel,
-  formatTimedSecondsTotal,
+  formatMonthChartLabel,
+  formatTimedMovementHeadline,
   formatWeekBucketLabel,
+  formatWeekChartLabel,
   listNonZeroExerciseTotals,
   mergePeriodStats,
+  recentMonthBucketKeys,
+  recentWeekBucketKeys,
   summarizeExerciseTotalsAllTime,
   summarizeExerciseTotalsForMonthBucket,
   summarizeExerciseTotalsForWeekBucket,
@@ -26,74 +29,67 @@ const focusMinutesLabel = (minutes: number) => {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 };
 
-const StatHeadline = ({ value, label }: { value: string; label: string }) => (
-  <div className="rounded-xl border bg-muted/30 px-4 py-5 text-center">
-    <p className="text-3xl font-bold tabular-nums tracking-tight sm:text-4xl">{value}</p>
-    <p className="mt-1.5 text-sm font-medium text-muted-foreground">{label}</p>
+const exerciseEmoji = (id: string): string => {
+  if (id.startsWith('stretch-')) return '🧘';
+  if (id === 'pushups') return '💪';
+  if (id === 'jacks') return '🤸';
+  if (id === 'squats') return '🦵';
+  if (id === 'march') return '🚶‍♂️';
+  if (id === 'shadow') return '🥊';
+  return '🏋️';
+};
+
+const AllTimeStat = ({ emoji, value, label, className }: { emoji: string; value: string; label: string; className: string }) => (
+  <div className={`rounded-3xl px-5 py-6 text-center shadow-md ${className}`}>
+    <p className="text-4xl">{emoji}</p>
+    <p className="mt-3 text-4xl font-black tabular-nums tracking-tight sm:text-5xl">{value}</p>
+    <p className="mt-2 text-sm font-bold uppercase tracking-wider opacity-90">{label}</p>
   </div>
 );
 
-const FocusHeadlines = ({ point }: { point: PeriodStatsPoint }) => (
-  <div className="space-y-3">
-    <div className="flex items-center gap-2 text-sm font-semibold text-violet-700 dark:text-violet-400">
-      <Brain className="h-4 w-4" />
-      Focus
-    </div>
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <StatHeadline value={String(point.pomodoros)} label="Pomodoros completed" />
-      <StatHeadline value={String(point.deepWork)} label="Deep work sessions" />
-      <StatHeadline value={focusMinutesLabel(point.focusMinutes)} label="Focus time credited" />
-    </div>
-    <p className="text-xs text-muted-foreground">
-      Sessions count when {Math.round(SESSION_COUNT_MIN_RATIO * 100)}% or more complete. Focus time includes partial credit.
-    </p>
-  </div>
-);
+const AllTimeView = ({ point, exercises }: { point: PeriodStatsPoint; exercises: ReturnType<typeof listNonZeroExerciseTotals> }) => {
+  const empty = !point.pomodoros && !point.deepWork && !point.focusMinutes && !point.timedSeconds && !point.workouts && exercises.length === 0;
+  if (empty) {
+    return (
+      <p className="rounded-3xl border-2 border-dashed border-indigo-300/50 bg-white/60 px-6 py-16 text-center text-lg text-indigo-800/70 dark:border-indigo-500/40 dark:bg-slate-900/40 dark:text-indigo-200/80">
+        🌱 Your all-time stats will show up here once you log some work!
+      </p>
+    );
+  }
 
-const MovementHeadlines = ({ point, exercises }: { point: PeriodStatsPoint; exercises: ReturnType<typeof listNonZeroExerciseTotals> }) => (
-  <div className="space-y-3">
-    <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-      <Dumbbell className="h-4 w-4" />
-      Movement
-    </div>
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <StatHeadline value={String(point.reps)} label="Total reps" />
-      <StatHeadline value={formatTimedSecondsTotal(point.timedSeconds)} label="Timed movement" />
-      <StatHeadline value={String(point.workouts)} label="Workouts logged" />
-    </div>
-    {exercises.length > 0 && (
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">By exercise</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {exercises.map((agg) => (
-            <div key={agg.id} className="rounded-lg border px-4 py-3 text-base font-medium tabular-nums">
-              {formatExerciseRunAggLine(agg)}
-            </div>
-          ))}
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-violet-600 dark:text-violet-300">🧠 Focus — all time</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <AllTimeStat emoji="🍅" value={String(point.pomodoros)} label="Pomodoros" className="bg-gradient-to-br from-rose-400 to-orange-500 text-white" />
+          <AllTimeStat emoji="🎯" value={String(point.deepWork)} label="Deep work" className="bg-gradient-to-br from-violet-500 to-purple-600 text-white" />
+          <AllTimeStat emoji="⏳" value={focusMinutesLabel(point.focusMinutes)} label="Focus time" className="bg-gradient-to-br from-sky-400 to-blue-600 text-white" />
         </div>
       </div>
-    )}
-  </div>
-);
 
-const PeriodSection = ({
-  title,
-  point,
-  exercises
-}: {
-  title: string;
-  point: PeriodStatsPoint;
-  exercises: ReturnType<typeof listNonZeroExerciseTotals>;
-}) => {
-  const hasFocus = point.pomodoros > 0 || point.deepWork > 0 || point.focusMinutes > 0;
-  const hasMovement = point.reps > 0 || point.timedSeconds > 0 || point.workouts > 0 || exercises.length > 0;
-  if (!hasFocus && !hasMovement) return null;
-  return (
-    <section className="space-y-6">
-      <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-      {hasFocus && <FocusHeadlines point={point} />}
-      {hasMovement && <MovementHeadlines point={point} exercises={exercises} />}
-    </section>
+      <div>
+        <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">💪 Movement — all time</h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <AllTimeStat emoji="⏱️" value={formatTimedMovementHeadline(point.timedSeconds)} label="Move time" className="bg-gradient-to-br from-emerald-400 to-teal-600 text-white" />
+          <AllTimeStat emoji="🏋️" value={String(point.workouts)} label="Workouts logged" className="bg-gradient-to-br from-amber-400 to-orange-500 text-white" />
+        </div>
+      </div>
+
+      {exercises.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">📝 Every exercise you&apos;ve done</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {exercises.map((agg) => (
+              <div key={agg.id} className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 py-3 text-base font-semibold shadow-sm dark:bg-slate-800/90">
+                <span className="text-2xl">{exerciseEmoji(agg.id)}</span>
+                <span className="tabular-nums">{formatExerciseRunAggLine(agg)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -101,32 +97,14 @@ const StatsPage = () => {
   const { workoutLogs, focusLogs } = useSession();
   const workoutStats = useMemo(() => summarizeWorkoutLogs(workoutLogs), [workoutLogs]);
   const focusStats = useMemo(() => summarizeFocusLogs(focusLogs), [focusLogs]);
-  const weekly = useMemo(() => mergePeriodStats(workoutStats.weekly, focusStats.weekly), [workoutStats.weekly, focusStats.weekly]);
-  const monthly = useMemo(() => mergePeriodStats(workoutStats.monthly, focusStats.monthly), [workoutStats.monthly, focusStats.monthly]);
+  const weeklyMerged = useMemo(() => mergePeriodStats(workoutStats.weekly, focusStats.weekly), [workoutStats.weekly, focusStats.weekly]);
+  const monthlyMerged = useMemo(() => mergePeriodStats(workoutStats.monthly, focusStats.monthly), [workoutStats.monthly, focusStats.monthly]);
 
-  const weeklySections = useMemo(
-    () =>
-      [...weekly]
-        .reverse()
-        .map((point) => ({
-          point,
-          title: formatWeekBucketLabel(point.bucket),
-          exercises: listNonZeroExerciseTotals(summarizeExerciseTotalsForWeekBucket(workoutLogs, point.bucket))
-        })),
-    [weekly, workoutLogs]
-  );
+  const weeklySeries = useMemo(() => fillPeriodSeries(recentWeekBucketKeys(), weeklyMerged), [weeklyMerged]);
+  const monthlySeries = useMemo(() => fillPeriodSeries(recentMonthBucketKeys(), monthlyMerged), [monthlyMerged]);
 
-  const monthlySections = useMemo(
-    () =>
-      [...monthly]
-        .reverse()
-        .map((point) => ({
-          point,
-          title: formatMonthBucketLabel(point.bucket),
-          exercises: listNonZeroExerciseTotals(summarizeExerciseTotalsForMonthBucket(workoutLogs, point.bucket))
-        })),
-    [monthly, workoutLogs]
-  );
+  const weeklyExercises = useCallback((bucket: string) => listNonZeroExerciseTotals(summarizeExerciseTotalsForWeekBucket(workoutLogs, bucket)), [workoutLogs]);
+  const monthlyExercises = useCallback((bucket: string) => listNonZeroExerciseTotals(summarizeExerciseTotalsForMonthBucket(workoutLogs, bucket)), [workoutLogs]);
 
   const allTime: PeriodStatsPoint = {
     bucket: 'all',
@@ -139,58 +117,30 @@ const StatsPage = () => {
   };
   const allTimeExercises = useMemo(() => listNonZeroExerciseTotals(summarizeExerciseTotalsAllTime(workoutLogs)), [workoutLogs]);
 
-  const emptyState = (
-    <p className="rounded-xl border border-dashed px-4 py-10 text-center text-muted-foreground">
-      No activity recorded for this period yet.
-    </p>
-  );
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <BarChart3 className="h-6 w-6 text-indigo-600" />
-        <h2 className="text-xl font-semibold tracking-tight">Stats</h2>
+    <div className="space-y-4 rounded-3xl bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 sm:p-5">
+      <div className="flex items-center gap-3">
+        <span className="text-3xl">📊</span>
+        <h2 className="bg-gradient-to-r from-violet-700 to-indigo-600 bg-clip-text text-2xl font-black tracking-tight text-transparent dark:from-violet-300 dark:to-indigo-300">Stats</h2>
       </div>
 
-      <Tabs defaultValue="weekly" className="gap-4">
-        <TabsList className="grid h-11 w-full grid-cols-3">
-          <TabsTrigger value="weekly">Weekly</TabsTrigger>
-          <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          <TabsTrigger value="all">All time</TabsTrigger>
+      <Tabs defaultValue="all" className="gap-4">
+        <TabsList className="grid h-12 w-full grid-cols-3 rounded-2xl bg-white/70 p-1 shadow-sm dark:bg-slate-800/70">
+          <TabsTrigger value="all" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">♾️ All time</TabsTrigger>
+          <TabsTrigger value="monthly" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">🗓️ Monthly</TabsTrigger>
+          <TabsTrigger value="weekly" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">📅 Weekly</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="weekly" className="space-y-8">
-          {weeklySections.length === 0 && emptyState}
-          {weeklySections.map(({ title, point, exercises }) => (
-            <Card key={point.bucket}>
-              <CardContent className="pt-6">
-                <PeriodSection title={title} point={point} exercises={exercises} />
-              </CardContent>
-            </Card>
-          ))}
+        <TabsContent value="all" className="mt-0">
+          <AllTimeView point={allTime} exercises={allTimeExercises} />
         </TabsContent>
 
-        <TabsContent value="monthly" className="space-y-8">
-          {monthlySections.length === 0 && emptyState}
-          {monthlySections.map(({ title, point, exercises }) => (
-            <Card key={point.bucket}>
-              <CardContent className="pt-6">
-                <PeriodSection title={title} point={point} exercises={exercises} />
-              </CardContent>
-            </Card>
-          ))}
+        <TabsContent value="monthly" className="mt-0">
+          <StatsPeriodExplorer series={monthlySeries} periodTitle={formatMonthBucketLabel} chartLabel={formatMonthChartLabel} exercisesForBucket={monthlyExercises} />
         </TabsContent>
 
-        <TabsContent value="all">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Everything recorded</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              <PeriodSection title="All time" point={allTime} exercises={allTimeExercises} />
-              {!allTime.pomodoros && !allTime.deepWork && !allTime.focusMinutes && !allTime.reps && !allTime.timedSeconds && !allTime.workouts && allTimeExercises.length === 0 && emptyState}
-            </CardContent>
-          </Card>
+        <TabsContent value="weekly" className="mt-0">
+          <StatsPeriodExplorer series={weeklySeries} periodTitle={formatWeekBucketLabel} chartLabel={formatWeekChartLabel} exercisesForBucket={weeklyExercises} />
         </TabsContent>
       </Tabs>
     </div>

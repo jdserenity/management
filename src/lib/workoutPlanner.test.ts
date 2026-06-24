@@ -10,9 +10,15 @@ import {
   countTodayPomodoroSessions,
   focusEntryCountsAsSession,
   formatMonthBucketLabel,
+  formatMonthChartLabel,
+  formatTimedMovementHeadline,
   formatWeekBucketLabel,
+  formatWeekChartLabel,
+  fillPeriodSeries,
   listNonZeroExerciseTotals,
   mergePeriodStats,
+  periodChartValue,
+  recentWeekBucketKeys,
   SESSION_COUNT_MIN_RATIO,
   summarizeExerciseTotalsAllTime,
   summarizeExerciseTotalsForWeekBucket,
@@ -389,14 +395,6 @@ describe('focusEntryCountsAsSession', () => {
   });
 });
 
-describe('bucket labels', () => {
-  it('formats week and month buckets for display', () => {
-    expect(formatWeekBucketLabel('2026-05-12')).toContain('May');
-    expect(formatWeekBucketLabel('2026-05-12')).toContain('2026');
-    expect(formatMonthBucketLabel('2026-05')).toBe('May 2026');
-  });
-});
-
 describe('per-exercise period totals', () => {
   const logs: WorkoutLogEntry[] = [
     {
@@ -430,6 +428,38 @@ describe('per-exercise period totals', () => {
   it('aggregates all-time exercise totals', () => {
     const totals = summarizeExerciseTotalsAllTime(logs);
     expect(listNonZeroExerciseTotals(totals).map((row) => row.id).sort()).toEqual(['jacks', 'pushups']);
+  });
+});
+
+describe('bucket labels', () => {
+  it('formats week and month buckets for display', () => {
+    expect(formatWeekBucketLabel('2026-05-12')).toContain('May');
+    expect(formatWeekBucketLabel('2026-05-12')).toContain('2026');
+    expect(formatMonthBucketLabel('2026-05')).toBe('May 2026');
+    expect(formatWeekChartLabel('2026-05-12')).toContain('May');
+    expect(formatMonthChartLabel('2026-05')).toBe('May');
+  });
+});
+
+describe('period series helpers', () => {
+  const now = new Date(2026, 4, 14, 12, 0, 0).getTime();
+
+  it('fills recent week buckets with zero points when missing', () => {
+    const keys = recentWeekBucketKeys(now, 3);
+    expect(keys).toHaveLength(3);
+    const filled = fillPeriodSeries(keys, [{ bucket: keys[2]!, pomodoros: 2, deepWork: 0, focusMinutes: 50, reps: 0, timedSeconds: 0, workouts: 1 }]);
+    expect(filled[0]?.pomodoros).toBe(0);
+    expect(filled[2]?.pomodoros).toBe(2);
+  });
+
+  it('formats timed movement as hours and minutes', () => {
+    expect(formatTimedMovementHeadline(0)).toBe('0m');
+    expect(formatTimedMovementHeadline(2505)).toBe('42m');
+    expect(formatTimedMovementHeadline(8100)).toBe('2h 15m');
+  });
+
+  it('combines focus and movement for chart values', () => {
+    expect(periodChartValue({ bucket: 'x', pomodoros: 1, deepWork: 0, focusMinutes: 25, reps: 0, timedSeconds: 120, workouts: 1 })).toBe(27);
   });
 });
 
