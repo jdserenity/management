@@ -112,7 +112,7 @@ const StatsPeriodExplorer = ({ series, periodTitle, chartLabel, exercisesForBuck
       </div>
 
       <div className="min-h-0 overflow-visible lg:col-span-3">
-        <StatsProgressChart data={chartData} selectedIndex={selectedIndex} />
+        <StatsProgressChart data={chartData} selectedIndex={selectedIndex} onSelectIndex={(index) => setSelectedIndex(index)} />
       </div>
     </div>
   );

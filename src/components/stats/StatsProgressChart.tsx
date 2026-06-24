@@ -12,10 +12,11 @@ const TOOLTIP_HEIGHT = 74;
 type StatsProgressChartProps = {
   data: StatsChartRow[];
   selectedIndex: number;
+  onSelectIndex: (index: number) => void;
 };
 type DotCoord = { x: number; focusY?: number; moveY?: number };
 
-const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) => {
+const StatsProgressChart = ({ data, selectedIndex, onSelectIndex }: StatsProgressChartProps) => {
   const coordsRef = useRef<Record<number, DotCoord>>({});
   const chartAreaRef = useRef<HTMLDivElement | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -40,14 +41,14 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
       if (selected) {
         const r = hovered ? 7 : 6;
         return (
-          <g>
+          <g className="cursor-pointer" onClick={() => onSelectIndex(index)}>
             <circle cx={cx} cy={cy} r={r + 6} fill="#ffffff" opacity={0.25} />
             <circle cx={cx} cy={cy} r={r} fill="#ffffff" />
           </g>
         );
       }
       const r = hovered ? 6 : 3;
-      return <circle cx={cx} cy={cy} r={r} fill={color} />;
+      return <circle cx={cx} cy={cy} r={r} fill={color} className="cursor-pointer" onClick={() => onSelectIndex(index)} />;
     };
 
   return (
@@ -74,11 +75,18 @@ const StatsProgressChart = ({ data, selectedIndex }: StatsProgressChartProps) =>
               if (!chart || !point) return;
               const chartW = chart.clientWidth;
               const chartH = chart.clientHeight;
-              const x = Math.max(4, Math.min(point.x - TOOLTIP_WIDTH / 2, chartW - TOOLTIP_WIDTH - 4));
+              const spaceLeft = point.x - 4;
+              const spaceRight = chartW - point.x - 4;
               const anchorY = Math.min(point.focusY ?? Infinity, point.moveY ?? Infinity);
+              const placeRight = spaceRight >= TOOLTIP_WIDTH + 12 || spaceRight >= spaceLeft;
+              const rawX = placeRight ? point.x + 12 : point.x - TOOLTIP_WIDTH - 12;
+              const x = Math.max(4, Math.min(rawX, chartW - TOOLTIP_WIDTH - 4));
+              const spaceAbove = anchorY - 4;
+              const spaceBelow = chartH - anchorY - 4;
               const aboveY = anchorY - TOOLTIP_HEIGHT - 10;
               const belowY = anchorY + 10;
-              const preferredY = aboveY >= 4 ? aboveY : belowY;
+              const placeAbove = spaceAbove >= TOOLTIP_HEIGHT + 10 || spaceAbove >= spaceBelow;
+              const preferredY = placeAbove ? aboveY : belowY;
               const y = Math.max(4, Math.min(preferredY, chartH - TOOLTIP_HEIGHT - 4));
               setTooltipPosition({ x, y });
             }}
