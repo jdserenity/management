@@ -59,36 +59,28 @@ pub fn set_tray_session_label(_app: &AppHandle, state: &AppState, label: Option<
   }
 }
 
-fn build_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
+fn build_tray_menu(app: &AppHandle, flow_active: bool) -> Result<Menu<tauri::Wry>, String> {
   let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_flow = MenuItem::with_id(app, "start_focus_flow", "Start focus flow", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
   let stop_monitoring_item = MenuItem::with_id(app, "stop_monitoring", "Stop Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
-  Menu::with_items(
-    app,
-    &[
-      &start_flow,
-      &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
-      &start_monitoring_item,
-      &stop_monitoring_item,
-      &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
-      &show,
-      &quit,
-    ],
-  )
-  .map_err(|e| e.to_string())
+  let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+  if flow_active {
+    return Menu::with_items(app, &[&start_monitoring_item, &stop_monitoring_item, &sep, &show, &quit]).map_err(|e| e.to_string());
+  }
+  Menu::with_items(app, &[&start_flow, &sep, &start_monitoring_item, &stop_monitoring_item, &sep, &show, &quit]).map_err(|e| e.to_string())
 }
 
-fn build_timer_tray_menu(app: &AppHandle) -> Result<Menu<tauri::Wry>, String> {
+fn build_timer_tray_menu(app: &AppHandle, flow_active: bool) -> Result<Menu<tauri::Wry>, String> {
   let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_flow = MenuItem::with_id(app, "start_focus_flow", "Start focus flow", true, None::<&str>).map_err(|e| e.to_string())?;
-  Menu::with_items(
-    app,
-    &[&start_flow, &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?, &show, &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?, &quit],
-  )
-  .map_err(|e| e.to_string())
+  let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+  if flow_active {
+    return Menu::with_items(app, &[&show, &sep, &quit]).map_err(|e| e.to_string());
+  }
+  Menu::with_items(app, &[&start_flow, &sep, &show, &sep, &quit]).map_err(|e| e.to_string())
 }
 
 fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
@@ -97,7 +89,6 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
     "quit" => app.exit(0),
     "show" => show_main_window(app),
     "start_focus_flow" => {
-      show_main_window(app);
       let _ = app.emit("tray-start-focus-flow", ());
     }
     "start_monitoring" => {
@@ -145,13 +136,23 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
   }
 }
 
+pub fn flow_active_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.flow_active)
+}
+
+pub fn apply_tray_flow_active(app: &AppHandle, state: &AppState, active: bool) -> Result<(), String> {
+  *lock_or_recover(&state.flow_active) = active;
+  sync_tray_installation(app, state)
+}
+
 pub fn install_tray(app: &AppHandle, state: &AppState, timer_only: bool) -> Result<(), String> {
   remove_tray(app, state);
+  let flow_active = flow_active_from_state(state);
   let default_icon = app
     .default_window_icon()
     .cloned()
     .ok_or_else(|| "Default window icon not found".to_string())?;
-  let menu = if timer_only { build_timer_tray_menu(app)? } else { build_tray_menu(app)? };
+  let menu = if timer_only { build_timer_tray_menu(app, flow_active)? } else { build_tray_menu(app, flow_active)? };
   let tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
     .icon(default_icon)
     .tooltip("Management")

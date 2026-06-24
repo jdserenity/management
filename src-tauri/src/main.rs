@@ -117,6 +117,7 @@ pub(crate) struct AppState {
     battery_saving_mode: Arc<Mutex<bool>>,
     menu_bar_only: Arc<Mutex<bool>>,
     session_tray_timer: Arc<Mutex<bool>>,
+    flow_active: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
 }
 
@@ -521,6 +522,11 @@ fn set_session_tray_timer_enabled(app: AppHandle, state: State<'_, AppState>, en
 }
 
 #[tauri::command]
+fn set_tray_flow_active(app: AppHandle, state: State<'_, AppState>, active: bool) -> Result<(), String> {
+    app_presence::apply_tray_flow_active(&app, &state, active)
+}
+
+#[tauri::command]
 fn notify_session_phase(app: AppHandle, title: String, body: String) -> Result<(), String> {
     if title.is_empty() && body.is_empty() {
         return Ok(());
@@ -803,6 +809,7 @@ pub fn run() {
                 battery_saving_mode: Arc::new(Mutex::new(false)),
                 menu_bar_only: Arc::new(Mutex::new(false)),
                 session_tray_timer: Arc::new(Mutex::new(false)),
+                flow_active: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
             };
             app.manage(app_state.clone());
@@ -862,6 +869,7 @@ pub fn run() {
             focus_main_window,
             set_tray_session_label,
             set_session_tray_timer_enabled,
+            set_tray_flow_active,
             notify_session_phase,
             restart_app
         ])

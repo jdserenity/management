@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/context/SessionContext';
@@ -12,6 +13,8 @@ const FlowHeaderControl = ({ onGoToWork }: FlowHeaderControlProps) => {
   const { phase, activeSessionType, breakVariant, longBreakStage, activeWorkout, startFlow } = useSession();
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+  const startFlowRef = useRef(startFlow);
+  startFlowRef.current = startFlow;
   const flowActive = phase !== 'idle';
   const hasActiveWorkout = Boolean(activeWorkout);
   const statusLabel = flowActive
@@ -19,12 +22,15 @@ const FlowHeaderControl = ({ onGoToWork }: FlowHeaderControlProps) => {
     : null;
 
   useEffect(() => {
+    invoke('set_tray_flow_active', { active: flowActive }).catch(console.error);
+  }, [flowActive]);
+
+  useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
     void listen('tray-start-focus-flow', () => {
       if (cancelled) return;
-      if (phaseRef.current === 'idle') startFlow('pomodoro');
-      onGoToWork();
+      if (phaseRef.current === 'idle') startFlowRef.current('pomodoro');
     }).then((fn) => {
       if (cancelled) fn();
       else unlisten = fn;
@@ -33,10 +39,13 @@ const FlowHeaderControl = ({ onGoToWork }: FlowHeaderControlProps) => {
       cancelled = true;
       unlisten?.();
     };
-  }, [startFlow, onGoToWork]);
+  }, []);
 
   const handleClick = () => {
-    if (!flowActive) startFlow('pomodoro');
+    if (!flowActive) {
+      startFlow('pomodoro');
+      return;
+    }
     onGoToWork();
   };
 
