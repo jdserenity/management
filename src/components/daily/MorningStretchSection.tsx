@@ -174,7 +174,7 @@ export default function MorningStretchSection() {
                 Add moves in Settings → Morning stretch.
               </p>
             ) : (
-              <p className="text-base leading-relaxed text-muted-foreground">
+              <p className="pl-3 text-sm leading-relaxed text-foreground/65">
                 Start your day off right with a preset routine of 6 stretches. (~5 min)
               </p>
             )}
