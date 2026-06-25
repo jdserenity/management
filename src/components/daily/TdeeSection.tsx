@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { activeEntries, isStapleLogged } from '@/lib/tdee/entries';
-import { formatIngredientsList } from '@/lib/tdee/ingredients';
+import { formatIngredientsList, normalizeMacro } from '@/lib/tdee/ingredients';
 import {
   entryCalories,
   entryProtein,
@@ -57,7 +57,7 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
         className="tdee-portion-input tdee-portion-protein"
         type="number"
         min={0}
-        step={1}
+        step={0.1}
         placeholder={placeholderProtein}
         value={protein}
         onChange={(e) => setProtein(e.target.value)}
@@ -76,7 +76,7 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
         className="tdee-add-btn"
         onClick={() => {
           const c = Math.round(Number(calories));
-          const p = Math.max(0, Math.round(Number(protein) || 0));
+          const p = normalizeMacro(Number(protein) || 0);
           const count = Math.max(1, Math.round(Number(qty) || 1));
           if (!c || c <= 0) return;
           void onAdd(c, p, count);

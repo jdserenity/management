@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
 import { activeEntries, isStapleLogged, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
+import { formatIngredientsList, mealTotalsFromIngredients, normalizeMacro } from '@/lib/tdee/ingredients';
 import { mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
-import { normalizeFile } from '@/lib/tdee/normalize';
+import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import {
   entryCalories,
   entryProtein,
@@ -115,6 +116,45 @@ describe('tdee dates', () => {
 
   it('formatLogDay pads month and day', () => {
     expect(formatLogDay(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+});
+
+describe('tdee ingredients', () => {
+  it('normalizeMealDef sums calories and protein from ingredients', () => {
+    const meal = normalizeMealDef({
+      id: 'yogurt',
+      name: 'Yogurt w/ Granola',
+      calories: 999,
+      protein: 99,
+      ingredients: [
+        { name: 'Yogurt', calories: 150, protein: 11 },
+        { name: 'Granola', calories: 150, protein: 4 },
+        { name: 'Small Banana', calories: 70, protein: 1 },
+        { name: 'Small Banana', calories: 70, protein: 1 }
+      ]
+    });
+    expect(meal.calories).toBe(440);
+    expect(meal.protein).toBe(17);
+    expect(meal.ingredients?.length).toBe(4);
+  });
+
+  it('normalizeMealDef keeps decimal protein on simple foods', () => {
+    const meal = normalizeMealDef({ id: 'oil', name: 'Olive Oil', calories: 400, protein: 0.5 });
+    expect(meal.protein).toBe(0.5);
+    expect(meal.ingredients).toBeUndefined();
+  });
+
+  it('mealTotalsFromIngredients preserves fractional protein', () => {
+    const totals = mealTotalsFromIngredients([
+      { name: 'A', calories: 100, protein: 2.25 },
+      { name: 'B', calories: 50, protein: 1.1 }
+    ]);
+    expect(totals.calories).toBe(150);
+    expect(totals.protein).toBe(3.35);
+  });
+
+  it('formatIngredientsList renders ingredient breakdown', () => {
+    expect(formatIngredientsList([{ name: 'Granola', calories: 150, protein: 4.5 }])).toBe('Granola: 150 / 4.5g');
   });
 });
 

@@ -3,8 +3,8 @@ import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { getCurrentLogDay } from '@/lib/tdee/dates';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/defaults';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
-import { removeMeal, upsertMeal } from '@/lib/tdee/meals';
-import { normalizeFile } from '@/lib/tdee/normalize';
+import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
+import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import type { TdeeFile, TdeeLogEntry, TdeeMealDef, TdeeStoredEntry } from '@/lib/tdee/types';
 
 type ConfigRow = { tdee: number; protein: number; log_day: string };
@@ -34,7 +34,7 @@ const mealFromRow = (row: MealRow): TdeeMealDef => {
       if (Array.isArray(parsed) && parsed.length) meal.ingredients = parsed;
     } catch { /* ignore */ }
   }
-  return meal;
+  return normalizeMealDef(meal);
 };
 
 const entryFromRow = (row: EntryRow): TdeeStoredEntry => {
@@ -219,7 +219,7 @@ export const removeTdeeStaple = async (file: TdeeFile, id: string): Promise<Tdee
 };
 
 export const updateTdeeTargets = async (file: TdeeFile, tdee: number, protein: number): Promise<TdeeFile> => {
-  await saveTdeeFile({ ...file, tdee: Math.max(0, Math.round(tdee)), protein: Math.max(0, Math.round(protein)) });
+  await saveTdeeFile({ ...file, tdee: normalizeCalories(tdee), protein: normalizeMacro(protein) });
   return loadTdeeFile();
 };
 

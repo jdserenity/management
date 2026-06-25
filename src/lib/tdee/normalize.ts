@@ -1,4 +1,4 @@
-import { normalizeIngredients } from '@/lib/tdee/ingredients';
+import { mealTotalsFromIngredients, normalizeCalories, normalizeIngredients, normalizeMacro } from '@/lib/tdee/ingredients';
 import type { TdeeFile, TdeeMealDef, TdeeStoredEntry } from '@/lib/tdee/types';
 
 const isMealDef = (item: unknown): item is TdeeMealDef =>
@@ -12,15 +12,17 @@ const isEntryKind = (kind: unknown): kind is 'staple' | 'regular' | 'custom' =>
   kind === 'staple' || kind === 'regular' || kind === 'custom';
 
 export const normalizeMealDef = (item: TdeeMealDef): TdeeMealDef => {
-  const meal: TdeeMealDef = {
+  const ingredients = normalizeIngredients(item.ingredients);
+  if (ingredients.length) {
+    const totals = mealTotalsFromIngredients(ingredients);
+    return { id: item.id, name: item.name, ...totals, ingredients };
+  }
+  return {
     id: item.id,
     name: item.name,
-    calories: Math.max(0, Math.round(item.calories)),
-    protein: Math.max(0, Math.round(typeof item.protein === 'number' ? item.protein : 0))
+    calories: normalizeCalories(item.calories),
+    protein: normalizeMacro(typeof item.protein === 'number' ? item.protein : 0)
   };
-  const ingredients = normalizeIngredients(item.ingredients);
-  if (ingredients.length) meal.ingredients = ingredients;
-  return meal;
 };
 
 const isLogEntry = (item: unknown): boolean =>
@@ -34,8 +36,8 @@ const normalizeEntry = (item: Record<string, unknown>): TdeeStoredEntry => {
     kind,
     refId: typeof item.refId === 'string' ? item.refId : null,
     label: typeof item.label === 'string' ? item.label : 'Custom',
-    calories: Math.max(0, Math.round(item.calories as number)),
-    protein: Math.max(0, Math.round(typeof item.protein === 'number' ? item.protein : 0)),
+    calories: normalizeCalories(item.calories as number),
+    protein: normalizeMacro(typeof item.protein === 'number' ? item.protein : 0),
     count,
     updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date(0).toISOString()
   };
