@@ -523,30 +523,52 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border-radius: 6px;
+  border-radius: 7px;
   border: none;
   cursor: pointer;
   font-size: 1em;
   font-weight: 600;
-  transition: all 0.15s ease;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .streak-btn-success {
-  background: color-mix(in oklch, var(--secondary) 80%, var(--foreground) 20%);
-  color: var(--muted-foreground);
+  background: linear-gradient(180deg, color-mix(in oklch, var(--secondary) 75%, white 25%), var(--secondary));
+  color: var(--foreground);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .streak-btn-success:hover {
-  background: rgba(34, 197, 94, 0.2);
-  color: rgb(34, 197, 94);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.35), rgba(34, 197, 94, 0.18));
+  color: rgb(74, 222, 128);
+}
+
+.streak-btn-success:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.4),
+    0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
 .streak-btn-success.streak-btn-active {
-  background: rgb(34, 197, 94);
+  background: linear-gradient(180deg, rgb(52, 211, 124), rgb(22, 163, 74));
   color: white;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 5px rgba(34, 197, 94, 0.4);
+}
+
+.streak-btn-success.streak-btn-active:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 1px 1px rgba(0, 0, 0, 0.2);
 }
 
 .streak-btn-locked {
