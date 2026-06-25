@@ -8,8 +8,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 describe('brandIcon', () => {
   it('uses the brand blue for the app icon fill', () => {
-    expect(BRAND_ICON_COLOR).toBe('#1434A4');
-    expect(brandAppIconSvg()).toContain('fill="#1434A4"');
+    expect(BRAND_ICON_COLOR).toBe('#0437F2');
+    expect(brandAppIconSvg()).toContain('fill="#0437F2"');
   });
 
   it('uses a white rounded square for the menu bar tray icon', () => {

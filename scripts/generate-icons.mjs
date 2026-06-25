@@ -10,15 +10,19 @@ const tauriIcons = path.join(root, 'src-tauri/icons');
 const companionPublic = path.join(root, 'apps/companion/public');
 const publicDir = path.join(root, 'public');
 
-const BRAND_COLOR = '#1434A4';
-const CORNER_RATIO = 0.2237;
-// ~10% inset on each side so the icon floats within the canvas like other macOS dock icons.
-const ICON_PADDING_RATIO = 0.10;
+const BRAND_COLOR = '#0437F2';
+// Apple spec: 824x824 squircle centered in 1024 canvas = 100px gutter; corner radius 185px on inner shape.
+const APPLE_CANVAS = 1024;
+const APPLE_INNER = 824;
+const APPLE_PAD = (APPLE_CANVAS - APPLE_INNER) / 2; // 100px
+const APPLE_RADIUS = 185;
+const CORNER_RATIO = APPLE_RADIUS / APPLE_INNER;
 
 function appIconSvg(size) {
-  const pad = Math.round(size * ICON_PADDING_RATIO);
+  const scale = size / APPLE_CANVAS;
+  const pad = Math.round(APPLE_PAD * scale);
   const inner = size - pad * 2;
-  const r = Math.round(inner * CORNER_RATIO);
+  const r = Math.round(APPLE_RADIUS * scale);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}"><rect x="${pad}" y="${pad}" width="${inner}" height="${inner}" rx="${r}" ry="${r}" fill="${BRAND_COLOR}"/></svg>`;
 }
 
