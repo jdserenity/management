@@ -26,7 +26,7 @@ const sampleFlow = (): PersistedFlowState => ({
 
 describe('server', () => {
   it('stores and returns active flow with bearer auth', async () => {
-    const app = createSyncApp(new MemoryActiveFlowStore(), 'test-token');
+    const app = createSyncApp(new MemoryActiveFlowStore(), null, 'test-token');
     const unauthorized = await app.request('/v1/active-flow');
     expect(unauthorized.status).toBe(401);
 
@@ -57,7 +57,7 @@ describe('server', () => {
   });
 
   it('allows CORS preflight without bearer token', async () => {
-    const app = createSyncApp(new MemoryActiveFlowStore(), 'test-token');
+    const app = createSyncApp(new MemoryActiveFlowStore(), null, 'test-token');
     const res = await app.request('/v1/active-flow', {
       method: 'OPTIONS',
       headers: {

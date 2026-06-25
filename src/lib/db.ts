@@ -1,6 +1,6 @@
 import Database from '@tauri-apps/plugin-sql';
 
-export const DB_ID = 'sqlite:mgmt.db';
+export const DB_ID = 'sqlite:local.db';
 
 let dbLoadPromise: Promise<Database> | null = null;
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const BUNDLE_ID = 'com.diamari.management';
-const DB_NAME = 'mgmt.db';
+const DB_NAME = 'local.db';
 
 /** @param {string} home @param {NodeJS.Platform} platform */
 export function appConfigDir(home, platform) {

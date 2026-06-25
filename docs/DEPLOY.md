@@ -5,8 +5,8 @@ Tauri wraps the React UI in a native **Management.app**. Stats live outside the 
 ## Data
 
 - Bundle id: `com.diamari.management` (do not change in `src-tauri/tauri.conf.json`).
-- SQLite: `~/Library/Application Support/com.diamari.management/mgmt.db`
-- Backups (via `npm run db:backup`): `.../com.diamari.management/backups/mgmt-<timestamp>.db`
+- SQLite: `~/Library/Application Support/com.diamari.management/local.db`
+- Backups (via `npm run db:backup`): `.../com.diamari.management/backups/local-<timestamp>.db`
 
 ## Install / update
 

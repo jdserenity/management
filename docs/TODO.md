@@ -1,5 +1,6 @@
 # TODO
 
+- [ ] Desktop write-sync: after every local.db write, push the changed row(s) to server via HTTP so new data appears on the companion immediately (replaces manual `npm run sync:to-server`).
 - [ ] Stats sync to server (`focus_log`, `workout_log`) so both devices share history.
 - [ ] Companion: start standalone exercise break without desktop.
 - [ ] Deploy `apps/server` to a VPS (production `DB_PATH`, `SERVER_TOKEN`, reverse-proxy setup).

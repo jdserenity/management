@@ -49,7 +49,7 @@ function main() {
   requireFile(streakDataPath);
 
   const configDir = appConfigDir(homedir(), process.platform);
-  const dbPath = join(configDir, 'mgmt.db');
+  const dbPath = join(configDir, 'local.db');
   if (!existsSync(dbPath)) {
     console.error(`No database at ${dbPath} — launch the app once (npm run tauri dev), then rerun.`);
     process.exit(1);

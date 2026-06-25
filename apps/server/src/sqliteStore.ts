@@ -1,22 +1,11 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import type { ActiveFlowDocument } from '@mgmt/sync';
 import { mergeActiveFlowDocument } from '@mgmt/sync';
 import type { ActiveFlowStore } from './store';
 import { parseActiveFlowDocument } from './store';
 
 export class SqliteActiveFlowStore implements ActiveFlowStore {
-  private readonly db: Database.Database;
-
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath);
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS active_flow_singleton (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        doc_json TEXT NOT NULL,
-        updated_at_ms INTEGER NOT NULL
-      )
-    `);
-  }
+  constructor(private readonly db: Database.Database) {}
 
   async get(): Promise<ActiveFlowDocument | null> {
     const row = this.db
@@ -47,5 +36,5 @@ export class SqliteActiveFlowStore implements ActiveFlowStore {
   }
 }
 
-export const createSqliteStore = (dbPath: string): SqliteActiveFlowStore =>
-  new SqliteActiveFlowStore(dbPath);
+export const createSqliteStore = (db: Database.Database): SqliteActiveFlowStore =>
+  new SqliteActiveFlowStore(db);

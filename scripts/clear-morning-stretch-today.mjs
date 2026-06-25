@@ -27,7 +27,7 @@ const getStatsDayWindow = (nowTimestamp = Date.now(), rolloverHour = DEFAULT_DAY
 };
 
 const configDir = appConfigDir(homedir(), process.platform);
-const dbPath = join(configDir, 'mgmt.db');
+const dbPath = join(configDir, 'local.db');
 if (!existsSync(dbPath)) {
   console.error(`No database at ${dbPath}`);
   process.exit(1);
