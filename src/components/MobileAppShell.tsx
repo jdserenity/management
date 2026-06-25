@@ -62,8 +62,8 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
 
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
-      <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/80 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <h1 className="text-sm font-semibold tracking-tight">
+      <header className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-border bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/80" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+        <h1 className="text-base font-bold tracking-tight">
           {navItems.find((item) => item.id === activeComponentId)?.label ?? 'Management'}
         </h1>
         <div className="flex items-center gap-2">
@@ -77,19 +77,21 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
         className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 pb-[env(safe-area-inset-bottom)]"
         aria-label="Main"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-5 gap-1 px-2 py-2">
+        <div className="mx-auto grid max-w-lg px-1 py-1" style={{ gridTemplateColumns: `repeat(${navItems.length}, 1fr)` }}>
           {navItems.map((item) => (
             <button
               key={item.id}
               type="button"
               className={cn(
-                'flex flex-col items-center gap-1 rounded-lg px-1 py-2 text-[10px] font-medium transition-colors',
-                activeComponentId === item.id ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
+                'flex flex-col items-center gap-0.5 rounded-xl px-1 py-2.5 text-[10px] font-semibold transition-colors',
+                activeComponentId === item.id
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground active:text-foreground'
               )}
               onClick={() => navigate(item.id)}
             >
-              <item.icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <item.icon className={cn('h-5 w-5 transition-transform', activeComponentId === item.id && 'scale-110')} />
+              <span className="truncate w-full text-center leading-tight">{item.label}</span>
             </button>
           ))}
         </div>

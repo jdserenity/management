@@ -63,8 +63,8 @@ const StatsPeriodExplorer = ({ series, periodTitle, chartLabel, exercisesForBuck
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-5">
-      <div className="flex min-h-0 flex-col gap-2 overflow-hidden lg:col-span-2">
+    <div className="grid grid-cols-1 gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden lg:grid-cols-5">
+      <div className="flex flex-col gap-2 lg:min-h-0 lg:overflow-hidden lg:col-span-2">
         <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 text-white shadow-lg shadow-violet-500/25">
           <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white hover:bg-white/20" disabled={!canGoOlder} onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))} aria-label="Previous period">
             <ChevronLeft className="h-5 w-5" />
@@ -96,9 +96,9 @@ const StatsPeriodExplorer = ({ series, periodTitle, chartLabel, exercisesForBuck
           </div>
 
           {exercises.length > 0 && (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1">
               <p className="mb-1 shrink-0 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">📝 By exercise</p>
-              <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+              <div className="space-y-1 overflow-y-auto pr-1 lg:min-h-0 lg:flex-1">
                 {exercises.map((agg) => (
                   <div key={agg.id} className="flex items-center gap-2 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs font-medium shadow-sm dark:bg-slate-800/80">
                     <span className="text-lg leading-none">{exerciseEmoji(agg.id)}</span>
@@ -111,7 +111,7 @@ const StatsPeriodExplorer = ({ series, periodTitle, chartLabel, exercisesForBuck
         </div>
       </div>
 
-      <div className="min-h-0 overflow-visible lg:col-span-3">
+      <div className="overflow-visible lg:min-h-0 lg:col-span-3">
         <StatsProgressChart data={chartData} selectedIndex={selectedIndex} onSelectIndex={(index) => setSelectedIndex(index)} />
       </div>
     </div>

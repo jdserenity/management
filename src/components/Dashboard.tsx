@@ -178,6 +178,7 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+            {/* Timer - always full width on mobile, flex-[7] on desktop */}
             <div className="min-w-0 flex-[7] rounded-xl border bg-muted/20 p-4 shadow-inner">
               <p className="text-xl font-semibold">{timerLabel}</p>
               <p className="text-4xl font-bold mt-2 tabular-nums tracking-tight">{formatClock(remainingSeconds)}</p>
@@ -204,87 +205,88 @@ const Dashboard = () => {
               )}
             </div>
 
+            {/* Arrow 1 – desktop only */}
             <div className="hidden shrink-0 items-center justify-center px-0.5 lg:flex" aria-hidden>
               <ArrowRight className="h-6 w-6 text-muted-foreground" />
             </div>
-            <div className="flex shrink-0 items-center justify-center lg:hidden" aria-hidden>
-              <ArrowRight className="h-6 w-6 rotate-90 text-muted-foreground" />
-            </div>
 
-            <div className="min-w-0 flex-[1.1] lg:max-w-[11rem] lg:flex-none lg:basis-[10%]">
-              {phase === 'idle' || isStandaloneExerciseBreak ? (
-                <div className="flex h-full min-h-[5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/25 bg-muted/10 px-2 py-2 text-center text-[10px] text-muted-foreground">
-                  <span>Break</span>
-                </div>
-              ) : breakPreview ? (
-                <div className="flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-1 rounded-xl border bg-teal-500/10 px-2 py-3 text-center shadow-inner ring-1 ring-border/60">
-                  <p className="text-[11px] font-semibold leading-tight sm:text-xs">{breakPreview.title}</p>
-                  <p className="text-[10px] text-muted-foreground leading-snug sm:text-[11px]">{breakPreview.detail}</p>
-                </div>
-              ) : null}
-            </div>
+            {/* Break + Next: 2-col grid on mobile; display:contents on desktop (children flow into parent flex) */}
+            <div className="grid grid-cols-2 gap-3 lg:contents">
+              {/* Break preview */}
+              <div className="min-w-0 lg:flex-[1.1] lg:max-w-[11rem] lg:flex-none lg:basis-[10%]">
+                {phase === 'idle' || isStandaloneExerciseBreak ? (
+                  <div className="flex h-full min-h-[5.5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/25 bg-muted/10 px-2 py-2 text-center text-[10px] text-muted-foreground">
+                    <span>Break</span>
+                  </div>
+                ) : breakPreview ? (
+                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col items-center justify-center gap-1 rounded-xl border bg-teal-500/10 px-2 py-3 text-center shadow-inner ring-1 ring-border/60">
+                    <p className="text-[11px] font-semibold leading-tight sm:text-xs">{breakPreview.title}</p>
+                    <p className="text-[10px] text-muted-foreground leading-snug sm:text-[11px]">{breakPreview.detail}</p>
+                  </div>
+                ) : null}
+              </div>
 
-            <div className="hidden shrink-0 items-center justify-center px-0.5 lg:flex" aria-hidden>
-              <ArrowRight className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <div className="flex shrink-0 items-center justify-center lg:hidden" aria-hidden>
-              <ArrowRight className="h-6 w-6 rotate-90 text-muted-foreground" />
-            </div>
+              {/* Arrow 2 – desktop only; hidden in mobile grid (display:none = no grid cell) */}
+              <div className="hidden shrink-0 items-center justify-center px-0.5 lg:flex" aria-hidden>
+                <ArrowRight className="h-6 w-6 text-muted-foreground" />
+              </div>
 
-            <div className="min-w-0 flex-[3]">
-              {!showChainControls && (
-                <div className="flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/15 px-2 py-3 text-center text-xs text-muted-foreground">
-                  <span className="text-2xl opacity-60">⏱️</span>
-                  <span className="font-medium">No next focus</span>
-                </div>
-              )}
-              {showChainControls && nextFocus && (
-                <div className="flex h-full min-h-[9.5rem] flex-col rounded-xl border bg-gradient-to-br from-violet-500/12 via-background to-amber-500/10 p-3 shadow-sm ring-1 ring-border/70">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-3xl leading-none">{nextEmoji(nextFocus.type)}</div>
-                      <p className="mt-1 text-sm font-semibold leading-tight">{nextTitle(nextFocus.type)}</p>
-                      <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
-                        <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.start)}</span>
-                        <span className="mx-1 text-muted-foreground">→</span>
-                        <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.end)}</span>
-                      </p>
-                      {nextFocus.type === 'pomodoro' && nextDeskPostureIfPomodoro && (
-                        <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
-                          <span className="font-medium text-foreground">{formatDesk(nextDeskPostureIfPomodoro)}</span>
+              {/* Next focus */}
+              <div className="min-w-0 lg:flex-[3]">
+                {!showChainControls && (
+                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/15 px-2 py-3 text-center text-xs text-muted-foreground">
+                    <span className="text-2xl opacity-60">⏱️</span>
+                    <span className="font-medium">No next focus</span>
+                  </div>
+                )}
+                {showChainControls && nextFocus && (
+                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col rounded-xl border bg-gradient-to-br from-violet-500/12 via-background to-amber-500/10 p-3 shadow-sm ring-1 ring-border/70">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-2xl leading-none">{nextEmoji(nextFocus.type)}</div>
+                        <p className="mt-1 text-xs font-semibold leading-tight">{nextTitle(nextFocus.type)}</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.start)}</span>
+                          <span className="mx-0.5 text-muted-foreground">→</span>
+                          <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.end)}</span>
                         </p>
-                      )}
-                      {nextFocus.type === 'deep' && (
-                        <p className="mt-1 text-[11px] text-muted-foreground sm:text-xs">
-                          <span className="font-medium text-foreground">Sitting</span>
-                          <span className="text-muted-foreground"> · deep work</span>
-                        </p>
-                      )}
+                        {nextFocus.type === 'pomodoro' && nextDeskPostureIfPomodoro && (
+                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                            <span className="font-medium text-foreground">{formatDesk(nextDeskPostureIfPomodoro)}</span>
+                          </p>
+                        )}
+                        {nextFocus.type === 'deep' && (
+                          <p className="mt-0.5 text-[10px] text-muted-foreground">
+                            <span className="font-medium text-foreground">Sitting</span>
+                            <span className="text-muted-foreground"> · deep</span>
+                          </p>
+                        )}
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setNextSessionType(null)} aria-label="Remove next focus session">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setNextSessionType(null)} aria-label="Remove next focus session">
-                      <X className="h-4 w-4" />
+                    <Separator className="my-1.5" />
+                    <div className="mt-auto flex items-center justify-between gap-2">
+                      <span className={`text-base ${nextFocus.type === 'pomodoro' ? 'opacity-100' : 'opacity-40'}`}>🍅</span>
+                      <Switch
+                        checked={nextFocus.type === 'deep'}
+                        onCheckedChange={(checked) => setNextSessionType(checked ? 'deep' : 'pomodoro')}
+                        aria-label="Toggle next focus between Pomodoro and Deep work"
+                      />
+                      <span className={`text-base ${nextFocus.type === 'deep' ? 'opacity-100' : 'opacity-40'}`}>🎯</span>
+                    </div>
+                  </div>
+                )}
+                {showChainControls && !nextFocus && (
+                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-muted-foreground/35 bg-muted/10 p-3">
+                    <p className="text-xs text-muted-foreground">Add next focus</p>
+                    <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-full" onClick={() => setNextSessionType('pomodoro')} aria-label="Schedule next Pomodoro">
+                      <Plus className="h-5 w-5" />
                     </Button>
                   </div>
-                  <Separator className="my-2" />
-                  <div className="mt-auto flex items-center justify-between gap-2">
-                    <span className={`text-lg ${nextFocus.type === 'pomodoro' ? 'opacity-100' : 'opacity-40'}`}>🍅</span>
-                    <Switch
-                      checked={nextFocus.type === 'deep'}
-                      onCheckedChange={(checked) => setNextSessionType(checked ? 'deep' : 'pomodoro')}
-                      aria-label="Toggle next focus between Pomodoro and Deep work"
-                    />
-                    <span className={`text-lg ${nextFocus.type === 'deep' ? 'opacity-100' : 'opacity-40'}`}>🎯</span>
-                  </div>
-                </div>
-              )}
-              {showChainControls && !nextFocus && (
-                <div className="flex h-full min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-muted-foreground/35 bg-muted/10 p-3">
-                  <p className="text-xs text-muted-foreground">Add next focus</p>
-                  <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={() => setNextSessionType('pomodoro')} aria-label="Schedule next Pomodoro">
-                    <Plus className="h-6 w-6" />
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
