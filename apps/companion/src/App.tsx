@@ -2,7 +2,7 @@ import { SessionProvider } from '@/context/SessionContext';
 import MobileAppShell from '@/components/MobileAppShell';
 import SessionAlerts from '@/components/SessionAlerts';
 import { createCompanionSyncClient } from './platform/sync';
-import '@/App.css';
+import './App.css';
 
 const syncClient = createCompanionSyncClient();
 
