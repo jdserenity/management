@@ -535,7 +535,7 @@
 }
 
 .streak-btn-success {
-  background: var(--background);
+  background: color-mix(in oklch, var(--secondary) 80%, var(--foreground) 20%);
   color: var(--muted-foreground);
 }
 
