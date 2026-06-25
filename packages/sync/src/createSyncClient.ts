@@ -24,7 +24,7 @@ export const createSyncClient = (options: CreateSyncClientOptions): SyncClient =
   }
   if (import.meta.env?.DEV) {
     console.warn(
-      '[sync] VITE_SYNC_API_URL or VITE_SYNC_API_TOKEN missing — using in-memory bus only (other apps will not see updates).'
+      '[sync] VITE_SERVER_URL or VITE_SERVER_TOKEN missing — using in-memory bus only (other apps will not see updates).'
     );
   }
   return new MemorySyncClient(options.memoryBusKey ?? 'default', {

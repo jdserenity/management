@@ -18,8 +18,8 @@ export const getOrCreateSyncDeviceId = (): string => {
 export const createDesktopSyncClient = (): SyncClient =>
   createSyncClient({
     role: 'viewer',
-    apiUrl: import.meta.env.VITE_SYNC_API_URL,
-    apiToken: import.meta.env.VITE_SYNC_API_TOKEN,
+    apiUrl: import.meta.env.VITE_SERVER_URL,
+    apiToken: import.meta.env.VITE_SERVER_TOKEN,
     deviceId: getOrCreateSyncDeviceId(),
     memoryBusKey: 'mgmt-desktop-local'
   });

@@ -17,8 +17,8 @@ export const getOrCreateCompanionDeviceId = (): string => {
 export const createCompanionSyncClient = (): SyncClient =>
   createSyncClient({
     role: 'leader',
-    apiUrl: import.meta.env.VITE_SYNC_API_URL,
-    apiToken: import.meta.env.VITE_SYNC_API_TOKEN,
+    apiUrl: import.meta.env.VITE_SERVER_URL,
+    apiToken: import.meta.env.VITE_SERVER_TOKEN,
     deviceId: getOrCreateCompanionDeviceId(),
     memoryBusKey: 'mgmt-companion-local'
   });
