@@ -535,7 +535,7 @@
 }
 
 .streak-btn-success {
-  background: var(--border);
+  background: var(--background);
   color: var(--muted-foreground);
 }
 
