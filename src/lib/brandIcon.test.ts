@@ -7,9 +7,9 @@ import { BRAND_ICON_COLOR, brandAppIconSvg, brandTrayIconSvg } from './brandIcon
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 describe('brandIcon', () => {
-  it('uses cobalt blue for the app icon fill', () => {
-    expect(BRAND_ICON_COLOR).toBe('#0047AB');
-    expect(brandAppIconSvg()).toContain('fill="#0047AB"');
+  it('uses the brand blue for the app icon fill', () => {
+    expect(BRAND_ICON_COLOR).toBe('#1434A4');
+    expect(brandAppIconSvg()).toContain('fill="#1434A4"');
   });
 
   it('uses a white rounded square for the menu bar tray icon', () => {
