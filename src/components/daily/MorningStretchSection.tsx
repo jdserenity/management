@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/context/SessionContext';
-import { isTauri } from '@/lib/isTauri';
+import { hasAppStorage } from '@/lib/appRuntime';
 import {
   isMorningStretchCompletedToday,
   morningStretchCompletionRatio,
@@ -56,7 +56,7 @@ export default function MorningStretchSection() {
     : false;
 
   const refresh = useCallback(async () => {
-    if (!isTauri()) {
+    if (!hasAppStorage()) {
       setLoadError(null);
       setRoutine(null);
       setStretchPrefs(null);
@@ -133,16 +133,14 @@ export default function MorningStretchSection() {
     setViewMode('summary');
   };
 
-  if (!isTauri()) {
+  if (!hasAppStorage()) {
     return (
       <section aria-label="Morning stretch">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Sunrise className="h-5 w-5 text-amber-500" />
           Morning stretch
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Run <code className="text-foreground">npm run tauri dev</code> for SQLite and Tauri APIs.
-        </p>
+        <p className="text-sm text-muted-foreground">Storage is not ready yet.</p>
       </section>
     );
   }

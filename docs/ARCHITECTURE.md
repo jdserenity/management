@@ -23,22 +23,28 @@
 ## Repository layout
 - `src/`: React UI, session engine, posture TypeScript (`src/posture/`), shared libs (`src/lib/`).
 - `packages/core/`: platform-agnostic session types, flow state, timer math, display helpers (`@mgmt/core`).
+- `packages/storage/`: shared SQLite schema migrations and web SQL backends (`@mgmt/storage`).
 - `packages/sync/`: sync client interface, HTTP client, in-memory bus (`@mgmt/sync`).
 - `apps/sync-api/`: Turso-backed HTTP API for active session sync (`@mgmt/sync-api`).
 - `apps/companion/`: Vite PWA mobile companion (`@mgmt/companion`); break/focus timer viewer; no posture.
 - `src-tauri/src/main.rs`: Tauri app entry, tray, background camera loop, SQL migrations, posture ingest command.
 - `src-tauri/src/posture_bridge.rs`: posture debouncer and ingest payload types used from `main.rs`.
 
-## Mobile companion (in progress)
-- PWA in `apps/companion` (`npm run dev:companion`, port 5173).
-- Remote sync uses Turso (libSQL) via `apps/sync-api` (`npm run dev:sync-api`, default `http://localhost:8787`). Clients authenticate with `SYNC_API_TOKEN` / `VITE_SYNC_API_TOKEN` (see `.env.example`).
-- Phone is the intended **leader** during exercise breaks; companion auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
-- Shared session logic lives in `@mgmt/core`; desktop `src/lib/flowState.ts` and `src/lib/sessionProgress.ts` re-export from there.
+## Mobile companion
+- PWA in `apps/companion` (`npm run dev:companion`, port 5173; `npm run build:companion` for installable build).
+- Reuses desktop React pages via Vite alias `@` → `src/`. Shared shell: `src/components/MobileAppShell.tsx` + `src/lib/navConfig.ts` (companion nav: Daily, Work, Stats, Customize, Settings — no Posture).
+- Companion settings: `src/components/CompanionSettingsPage.tsx` (stats day, alerts, habits heatmap, morning stretch). Desktop-only settings (camera, posture, app presence, updater) stay on `SettingsPage.tsx`.
+- Local data: `@mgmt/storage` (`packages/storage/`) provides `SqlDatabase` + schema migrations v1–v7 (same as `src-tauri` `sqlite:mgmt.db`). Companion defaults to **sql.js** in IndexedDB; optional `VITE_LIBSQL_URL` + `VITE_LIBSQL_AUTH_TOKEN` use remote libSQL/Turso when set. Desktop keeps Tauri SQL via `src/lib/db.ts` (`registerSqlBackend` / `getDb`).
+- `src/lib/appRuntime.ts`: `markCompanionApp()`, `hasAppStorage()` — components gate on storage readiness instead of `isTauri()` alone.
+- Active-session remote sync uses Turso (libSQL) via `apps/sync-api` (`npm run dev:sync-api`, default `http://localhost:8787`). Clients authenticate with `SYNC_API_TOKEN` / `VITE_SYNC_API_TOKEN` (see `.env.example`).
+- Phone is the intended **leader** during exercise breaks; `SessionProvider` with `syncMode="companion"` auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
+- Shared session logic lives in `@mgmt/core`; desktop `src/lib/flowState.ts` and `src/lib/sessionProgress.ts` re-export from there. Break timer advance helpers: `src/lib/breakSync.ts`.
 - `@mgmt/sync` defines `ActiveFlowDocument`, `HttpSyncClient`, and `createSyncClient`; `MemorySyncClient` remains for offline dev without the API.
-- Companion UI reuses desktop Tailwind tokens and shadcn `Card`/`Button` via Vite aliases; scope excludes posture, camera, and tray settings.
+- Historical stats (`focus_log`, `workout_log`) are **not** synced between devices yet (companion uses its own local DB until Turso stats sync lands).
 
 ## Frontend Runtime
 - The desktop app uses Tauri with a React + TypeScript frontend (`src/main.tsx` → `src/App.tsx`).
+- App icon: solid royal blue (`#4169E1`) rounded square for Dock, notifications, and favicon; macOS menu bar tray uses a white rounded square (`src-tauri/icons/tray.png`, dimmed `monitoring_off.png` when posture monitoring is off). Companion PWA uses the same royal blue icon (`apps/companion/public/`). Regenerate all sizes with `npm run icons:generate` (`scripts/generate-icons.mjs`, shared color in `src/lib/brandIcon.ts`).
 - Posture landmarks and scoring run in the webview using MediaPipe Tasks (`@mediapipe/tasks-vision`) with the weighted metric pipeline adapted from [BatesPosture](https://github.com/wtbates99/batesposture); Rust captures periodic camera frames for preview and receives scored results from the frontend for ingest, SQLite logging, and desktop notifications.
 - Navigation and provider wiring are summarized in the first system map below.
 

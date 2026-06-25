@@ -13,7 +13,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{
-  image::Image,
   path::{BaseDirectory, PathResolver},
   tray::TrayIcon,
   AppHandle,
@@ -258,15 +257,7 @@ async fn start_monitoring(app: AppHandle, state: State<'_, AppState>) -> Result<
     *lock_or_recover(&state.camera_yield_paused) = false;
     *lock_or_recover(&state.force_capture_now) = true;
 
-    if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
-        if let Some(default_icon) = app.default_window_icon() {
-            if let Err(e) = tray.set_icon(Some(default_icon.clone())) {
-                error!("Failed to update tray icon: {}", e);
-            }
-        } else {
-            warn!("Default window icon not found.");
-        }
-    }
+    app_presence::set_tray_icon_active(&app, &state);
     let _ = app.emit("monitoring-state-changed", &serde_json::json!({ "active": true }));
     info!("Real-time monitoring started");
     Ok(())
@@ -295,23 +286,7 @@ async fn stop_monitoring(app: AppHandle, state: State<'_, AppState>) -> Result<(
     *lock_or_recover(&state.camera_yield_paused) = false;
     release_camera(&state, "stop_monitoring command");
 
-    if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
-        if let Ok(monitoring_off_icon_path) = app.path().resolve("icons/monitoring_off.png", BaseDirectory::Resource) {
-            if let Ok(bytes) = fs::read(&monitoring_off_icon_path) {
-                if let Ok(monitoring_off_icon) = Image::from_bytes(&bytes) {
-                    if let Err(e) = tray.set_icon(Some(monitoring_off_icon)) {
-                error!("Failed to update tray icon: {}", e);
-                    }
-                } else {
-                    error!("Failed to create icon image");
-                }
-            } else {
-                error!("Failed to read icon file");
-            }
-        } else {
-            error!("Failed to resolve icon path");
-        }
-    }
+    app_presence::set_tray_icon_monitoring_off(&app, &state);
     let _ = app.emit("monitoring-state-changed", &serde_json::json!({ "active": false }));
     info!("Real-time monitoring stopped");
     Ok(())
@@ -586,7 +561,7 @@ async fn background_alert_task(app_handle: AppHandle, state: AppState) {
 
             let builder = app_handle.notification().builder();
             let result = builder
-                .title("🐢")
+                .title("Management")
                 .body(&message)
                 .icon("icons/icon.png".to_string())
                 .show();

@@ -4,12 +4,14 @@ import { listen } from '@tauri-apps/api/event';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/context/SessionContext';
 import { flowStatusLabel } from '@/lib/sessionAlertLabels';
+import { isTauri } from '@/lib/isTauri';
 
 type FlowHeaderControlProps = {
   onGoToWork: () => void;
+  compact?: boolean;
 };
 
-const FlowHeaderControl = ({ onGoToWork }: FlowHeaderControlProps) => {
+const FlowHeaderControl = ({ onGoToWork, compact }: FlowHeaderControlProps) => {
   const { phase, activeSessionType, breakVariant, longBreakStage, activeWorkout, startFlow } = useSession();
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -22,10 +24,12 @@ const FlowHeaderControl = ({ onGoToWork }: FlowHeaderControlProps) => {
     : null;
 
   useEffect(() => {
+    if (!isTauri()) return;
     invoke('set_tray_flow_active', { active: flowActive }).catch(console.error);
   }, [flowActive]);
 
   useEffect(() => {
+    if (!isTauri()) return;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
     void listen('tray-start-focus-flow', () => {
@@ -54,7 +58,7 @@ const FlowHeaderControl = ({ onGoToWork }: FlowHeaderControlProps) => {
       type="button"
       variant={flowActive ? 'secondary' : 'default'}
       size="sm"
-      className="ml-auto shrink-0 gap-1.5 text-xs sm:text-sm"
+      className={compact ? 'shrink-0 gap-1 text-xs px-2.5' : 'ml-auto shrink-0 gap-1.5 text-xs sm:text-sm'}
       onClick={handleClick}
       aria-label={flowActive ? `Open work tab — ${statusLabel}` : 'Start focus flow'}
     >

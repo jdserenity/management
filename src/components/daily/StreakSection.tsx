@@ -6,7 +6,7 @@ import { StreakDailyHeatmap, StreakWeeklyHeatmap } from '@/components/daily/Stre
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { fireDayCompleteConfetti } from '@/lib/streak/confetti';
 import { isDayComplete } from '@/lib/streak/heatmapHelpers';
-import { isTauri } from '@/lib/isTauri';
+import { hasAppStorage } from '@/lib/appRuntime';
 import { loadStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import {
@@ -23,7 +23,7 @@ export default function StreakSection() {
   const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
 
   const refresh = useCallback(async () => {
-    if (!isTauri()) {
+    if (!hasAppStorage()) {
       setLoadError(null);
       setState(null);
       return;
@@ -56,10 +56,10 @@ export default function StreakSection() {
     setState(next);
   };
 
-  if (!isTauri()) {
+  if (!hasAppStorage()) {
     return (
       <section className="streak-tracker-container" aria-label="Habits">
-        <p className="streak-tracker-empty text-sm">Run <code className="text-foreground">npm run tauri dev</code> for SQLite and Tauri APIs. Plain <code className="text-foreground">npm run dev</code> is browser-only and cannot load habits data.</p>
+        <p className="streak-tracker-empty text-sm">Storage is not ready yet.</p>
       </section>
     );
   }

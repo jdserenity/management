@@ -78,6 +78,7 @@ import {
   syncLeaderDeviceIdFromDoc
 } from '@/lib/sessionSync';
 import type { SyncClient } from '@mgmt/sync';
+import { createActiveFlowDocument } from '@mgmt/sync';
 import { isActiveExerciseBreak } from '@mgmt/core';
 import { buildMorningStretchLogEntry, MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch';
 
@@ -143,7 +144,14 @@ interface SessionContextValue {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-export const SessionProvider = ({ children }: { children: ReactNode }) => {
+export type SessionProviderProps = {
+  children: ReactNode;
+  syncClient?: SyncClient;
+  /** companion: phone may claim leadership during exercise breaks */
+  syncMode?: 'desktop' | 'companion';
+};
+
+export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode = 'desktop' }: SessionProviderProps) => {
   const [phase, setPhase] = useState<Phase>('idle');
   const [breakVariant, setBreakVariant] = useState<BreakVariant | null>(null);
   const [longBreakStage, setLongBreakStage] = useState<LongBreakStage | null>(null);
@@ -587,7 +595,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [applyPersistedFlow]);
 
   useEffect(() => {
-    const client = createDesktopSyncClient();
+    const client = syncClientProp ?? createDesktopSyncClient();
     syncClientRef.current = client;
     return client.subscribeActiveFlow((doc) => {
       if (!doc) {
@@ -597,6 +605,18 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       syncLeaderDeviceIdRef.current = syncLeaderDeviceIdFromDoc(doc);
+      const f = doc.flow;
+      if (
+        syncMode === 'companion' &&
+        f.phase === 'break' &&
+        isActiveExerciseBreak(f.phase, f.breakVariant, f.longBreakStage, f.activeWorkout) &&
+        doc.leaderDeviceId !== client.deviceId
+      ) {
+        const claimed = createActiveFlowDocument(f, client.deviceId, doc.phaseEndsAtMs);
+        lastPublishedAtMsRef.current = Date.now();
+        syncLeaderDeviceIdRef.current = client.deviceId;
+        void client.publishActiveFlow(claimed);
+      }
       if (!isRemoteActiveFlow(doc, client.deviceId)) return;
       if (doc.updatedAtMs <= lastPublishedAtMsRef.current) return;
       const wasLogged = workoutLoggedRef.current;
@@ -605,7 +625,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       applyPersistedFlow(applied.flow);
       if (applied.flow.workoutLogged && !wasLogged) logActiveWorkoutIfNeeded(1);
     });
-  }, [applyPersistedFlow, logActiveWorkoutIfNeeded, resetToIdle]);
+  }, [applyPersistedFlow, logActiveWorkoutIfNeeded, resetToIdle, syncClientProp, syncMode]);
 
   useEffect(() => {
     const client = syncClientRef.current;

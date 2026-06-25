@@ -14,7 +14,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@mgmt/core': path.resolve(__dirname, './packages/core/src/index.ts'),
-      '@mgmt/sync': path.resolve(__dirname, './packages/sync/src/index.ts')
+      '@mgmt/sync': path.resolve(__dirname, './packages/sync/src/index.ts'),
+      '@mgmt/storage': path.resolve(__dirname, './packages/storage/src/index.ts')
     }
   }
 });

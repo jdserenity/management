@@ -24,7 +24,7 @@ import {
   removeTdeeEntry
 } from '@/lib/tdeeDb';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
-import { isTauri } from '@/lib/isTauri';
+import { hasAppStorage } from '@/lib/appRuntime';
 import './tdee.css';
 
 type PortionControlsProps = {
@@ -95,7 +95,7 @@ export default function TdeeSection() {
   const [customTitle, setCustomTitle] = useState('');
 
   const refresh = useCallback(async () => {
-    if (!isTauri()) { setLoadError(null); setFile(null); return; }
+    if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
     try {
       setLoadError(null);
       setFile(await loadTdeeFile());
@@ -111,10 +111,10 @@ export default function TdeeSection() {
     return () => window.clearInterval(id);
   }, [refresh]);
 
-  if (!isTauri()) {
+  if (!hasAppStorage()) {
     return (
       <section className="tdee-tracker-container" aria-label="Nutrition">
-        <p className="tdee-tracker-empty text-sm">Run <code className="text-foreground">npm run tauri dev</code> for SQLite. Browser-only <code className="text-foreground">npm run dev</code> cannot load nutrition data.</p>
+        <p className="tdee-tracker-empty text-sm">Storage is not ready yet.</p>
       </section>
     );
   }

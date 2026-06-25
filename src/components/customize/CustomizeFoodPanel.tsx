@@ -14,7 +14,7 @@ import {
   upsertTdeeRegular,
   upsertTdeeStaple
 } from '@/lib/tdeeDb';
-import { isTauri } from '@/lib/isTauri';
+import { hasAppStorage } from '@/lib/appRuntime';
 
 type IngredientDraft = { name: string; calories: string; protein: string };
 type MealDraft = { name: string; ingredients: IngredientDraft[]; simpleCalories: string; simpleProtein: string };
@@ -187,7 +187,7 @@ export default function CustomizeFoodPanel() {
   const [regularEditId, setRegularEditId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!isTauri()) { setLoadError(null); setFile(null); return; }
+    if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
     try {
       setLoadError(null);
       const next = await loadTdeeFile();
@@ -216,8 +216,8 @@ export default function CustomizeFoodPanel() {
     clear();
   };
 
-  if (!isTauri()) {
-    return <p className="text-sm text-muted-foreground">Run <code>npm run tauri dev</code> to edit food items.</p>;
+  if (!hasAppStorage()) {
+    return <p className="text-sm text-muted-foreground">Storage is not ready yet.</p>;
   }
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!file) return <p className="text-sm text-muted-foreground">Loading food…</p>;
