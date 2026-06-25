@@ -1,14 +1,15 @@
 import { activeEntries } from '@/lib/tdee/entries';
+import { formatIngredientProtein, normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
 import type { TdeeLogEntry, TdeeStoredEntry } from '@/lib/tdee/types';
 
 const entryCount = (entry: TdeeLogEntry): number =>
   typeof entry.count === 'number' && entry.count > 0 ? entry.count : 1;
 
 export const entryCalories = (entry: TdeeLogEntry): number =>
-  Math.max(0, Math.round(entry.calories)) * entryCount(entry);
+  normalizeCalories(entry.calories) * entryCount(entry);
 
 export const entryProtein = (entry: TdeeLogEntry): number =>
-  Math.max(0, Math.round(entry.protein || 0)) * entryCount(entry);
+  normalizeMacro(entry.protein || 0) * entryCount(entry);
 
 export const totalCalories = (entries: TdeeStoredEntry[]): number =>
   activeEntries(entries).reduce((sum, entry) => sum + entryCalories(entry), 0);
@@ -16,9 +17,12 @@ export const totalCalories = (entries: TdeeStoredEntry[]): number =>
 export const totalProtein = (entries: TdeeStoredEntry[]): number =>
   activeEntries(entries).reduce((sum, entry) => sum + entryProtein(entry), 0);
 
-export const formatCalories = (n: number): string => Math.max(0, Math.round(n)).toLocaleString();
+export const formatCalories = (n: number): string => normalizeCalories(n).toLocaleString();
 
-export const formatProtein = (n: number): string => Math.max(0, Math.round(n)).toLocaleString();
+export const formatProtein = (n: number): string => {
+  const v = normalizeMacro(n);
+  return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(1).replace(/\.0$/, '');
+};
 
 export const progressRatio = (total: number, target: number): number => {
   if (!target || target <= 0) return 0;
@@ -38,4 +42,4 @@ export const proteinRemainingDisplay = (total: number, target: number): { text: 
 };
 
 export const formatChipMacros = (calories: number, protein: number): string =>
-  `${Math.max(0, Math.round(calories))} / ${Math.max(0, Math.round(protein))}g`;
+  `${normalizeCalories(calories)} / ${formatIngredientProtein(protein)}g`;

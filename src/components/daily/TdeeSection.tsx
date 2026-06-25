@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { activeEntries, isStapleLogged } from '@/lib/tdee/entries';
-import { formatIngredientsList } from '@/lib/tdee/ingredients';
+import { formatIngredientsList, normalizeMacro } from '@/lib/tdee/ingredients';
 import {
   entryCalories,
   entryProtein,
@@ -32,10 +32,11 @@ type PortionControlsProps = {
   defaultProtein?: number;
   placeholderCalories?: string;
   placeholderProtein?: string;
+  actionLabel?: string;
   onAdd: (calories: number, protein: number, count: number) => Promise<void>;
 };
 
-function PortionControls({ defaultCalories, defaultProtein, placeholderCalories, placeholderProtein, onAdd }: PortionControlsProps) {
+function PortionControls({ defaultCalories, defaultProtein, placeholderCalories, placeholderProtein, actionLabel = 'Eat', onAdd }: PortionControlsProps) {
   const [calories, setCalories] = useState(defaultCalories != null ? String(defaultCalories) : '');
   const [protein, setProtein] = useState(
     defaultProtein != null ? String(defaultProtein) : placeholderProtein ? '' : '0'
@@ -56,7 +57,7 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
         className="tdee-portion-input tdee-portion-protein"
         type="number"
         min={0}
-        step={1}
+        step={0.1}
         placeholder={placeholderProtein}
         value={protein}
         onChange={(e) => setProtein(e.target.value)}
@@ -75,13 +76,13 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
         className="tdee-add-btn"
         onClick={() => {
           const c = Math.round(Number(calories));
-          const p = Math.max(0, Math.round(Number(protein) || 0));
+          const p = normalizeMacro(Number(protein) || 0);
           const count = Math.max(1, Math.round(Number(qty) || 1));
           if (!c || c <= 0) return;
           void onAdd(c, p, count);
         }}
       >
-        Add
+        {actionLabel}
       </button>
     </div>
   );
@@ -113,7 +114,6 @@ export default function TdeeSection() {
   if (!isTauri()) {
     return (
       <section className="tdee-tracker-container" aria-label="Nutrition">
-        <h2 className="mb-4 text-lg font-semibold">Nutrition</h2>
         <p className="tdee-tracker-empty text-sm">Run <code className="text-foreground">npm run tauri dev</code> for SQLite. Browser-only <code className="text-foreground">npm run dev</code> cannot load nutrition data.</p>
       </section>
     );
@@ -182,7 +182,7 @@ export default function TdeeSection() {
     if (pendingStaples.length === 0 && logged.length === 0) {
       chainItems.push(
         <p key="empty" className="tdee-tracker-empty tdee-chain-empty">
-          No staples configured yet.
+          No staples configured yet. Add staples in Customize → Food.
         </p>
       );
     } else {
@@ -211,7 +211,7 @@ export default function TdeeSection() {
       key="plus"
       type="button"
       className={`tdee-chain-btn tdee-chain-plus${addMode ? ' tdee-chain-plus-disabled' : ''}`}
-      title={addMode ? 'Close add menu first' : 'Add regular or custom calories'}
+      title={addMode ? 'Close add menu first' : 'Log a regular or one-off meal'}
       disabled={addMode}
       onClick={() => setAddMode(true)}
     >
@@ -224,7 +224,6 @@ export default function TdeeSection() {
 
   return (
     <section className="tdee-tracker-container" aria-label="Nutrition">
-      <h2 className="mb-4 text-lg font-semibold">Nutrition</h2>
       <div className="tdee-summary">
         <div className="tdee-counts">
           <span className="tdee-today">{formatCalories(total)} kcal</span>
@@ -235,7 +234,7 @@ export default function TdeeSection() {
             </>
           ) : null}
         </div>
-        <div className={`tdee-remaining${kcalRemaining.extraClass}`}>{tdee > 0 ? kcalRemaining.text : 'Set TDEE and protein targets in Settings (coming soon)'}</div>
+        <div className={`tdee-remaining${kcalRemaining.extraClass}`}>{tdee > 0 ? kcalRemaining.text : 'Set TDEE and protein targets in Customize → Food'}</div>
         {tdee > 0 ? (
           <div className="tdee-progress">
             <div className="tdee-progress-fill" style={{ width: `${Math.round(ratio * 100)}%` }} />
@@ -251,7 +250,7 @@ export default function TdeeSection() {
           ) : null}
         </div>
         <div className={`tdee-remaining${proteinRemaining.extraClass}`}>
-          {proteinTarget > 0 ? proteinRemaining.text : 'Set protein target in Settings (coming soon)'}
+          {proteinTarget > 0 ? proteinRemaining.text : 'Set protein target in Customize → Food'}
         </div>
         {proteinTarget > 0 ? (
           <div className="tdee-progress">
@@ -263,14 +262,14 @@ export default function TdeeSection() {
       {addMode ? (
         <div className="tdee-add-panel">
           <div className="tdee-add-header">
-            <span className="tdee-add-title">Regulars &amp; custom</span>
+            <span className="tdee-add-title">Regulars &amp; one-off</span>
             <button type="button" className="tdee-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
               ×
             </button>
           </div>
           <div className="tdee-regular-list">
             {file.regulars.length === 0 ? (
-              <p className="tdee-tracker-empty">No regulars configured yet.</p>
+              <p className="tdee-tracker-empty">No regulars configured yet. Add them in Customize → Food.</p>
             ) : (
               file.regulars.map((regular) => (
                 <div key={regular.id} className="tdee-regular-row">
@@ -294,7 +293,7 @@ export default function TdeeSection() {
               <input
                 className="tdee-meal-title-input"
                 type="text"
-                placeholder="Custom"
+                placeholder="One-Off"
                 value={customTitle}
                 onChange={(e) => setCustomTitle(e.target.value)}
               />

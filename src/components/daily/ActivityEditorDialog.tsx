@@ -23,7 +23,6 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [weeklyTarget, setWeeklyTarget] = useState('1');
   const [scheduledDays, setScheduledDays] = useState('Sun');
-  const [canFail, setCanFail] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +32,6 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
     setFrequency(activity?.frequency === 'weekly' ? 'weekly' : 'daily');
     setWeeklyTarget(String(activity?.weeklyTarget ?? 1));
     setScheduledDays((activity?.scheduledDays || ['Sun']).join(', '));
-    setCanFail(activity?.canFail !== false);
   }, [open, activity]);
 
   const handleSave = () => {
@@ -43,7 +41,6 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
     const parsed: StreakActivity = {
       id: actId,
       name: trimmedName,
-      canFail,
       frequency,
       ...(description.trim() ? { description: description.trim() } : {}),
       ...(frequency === 'weekly' ? {
@@ -95,10 +92,6 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
               </label>
             </>
           ) : null}
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={canFail} onChange={(e) => setCanFail(e.target.checked)} />
-            <span>Allow fail (✗) button</span>
-          </label>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>

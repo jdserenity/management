@@ -1,10 +1,11 @@
 // src/components/daily/StreakActivityRow.tsx
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { parseScheduledDays } from '@/lib/streak/activityCatalog';
 import { getISOWeekStart, getWeekDays, parseDate } from '@/lib/streak/dates';
 import { getLogState } from '@/lib/streak/logs';
 import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/streakDisplay';
+import { isElementTruncated } from '@/lib/streak/truncation';
 import type { StreakActivity, StreakActivityStats, StreakLogState, StreakState } from '@/lib/streak/types';
 
 const DAY_ABBR = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -13,9 +14,6 @@ type Props = {
   activity: StreakActivity;
   state: StreakState;
   onLog: (activityId: string, newState: StreakLogState | null, day?: string) => void;
-  onPause: (activityId: string, paused: boolean) => void;
-  onReset: (activityId: string) => void;
-  onArchive: (activityId: string) => void;
   onEditDescription: (activityId: string, description: string) => void;
 };
 
@@ -62,29 +60,45 @@ const WeeklyStats = ({ stats, weekSessionCount, weeklyTarget }: { stats: StreakA
   );
 };
 
-export default function StreakActivityRow({ activity, state, onLog, onPause, onReset, onArchive, onEditDescription }: Props) {
+const ActivityName = ({
+  activity,
+  descOpen,
+  onToggleDescription
+}: {
+  activity: StreakActivity;
+  descOpen: boolean;
+  onToggleDescription: (opening: boolean) => void;
+}) => {
+  const nameRef = useRef<HTMLDivElement>(null);
+  const [nameWrap, setNameWrap] = useState(false);
+  const hasDescription = !!activity.description;
+
+  const handleClick = () => {
+    if (!hasDescription) return;
+    const opening = !descOpen;
+    if (opening && nameRef.current) setNameWrap(isElementTruncated(nameRef.current));
+    else setNameWrap(false);
+    onToggleDescription(opening);
+  };
+
+  return (
+    <div
+      ref={nameRef}
+      className={`streak-activity-name${hasDescription ? ' clickable' : ''}${nameWrap ? ' streak-activity-name-wrap' : ''}`}
+      onClick={handleClick}
+    >
+      {activity.name || activity.id}
+    </div>
+  );
+};
+
+export default function StreakActivityRow({ activity, state, onLog, onEditDescription }: Props) {
   const isPaused = !!state.data.pausedActivities[activity.id];
   const stats = state.data.stats[activity.id] || { currentStreak: 0, longestStreak: 0, totalSuccesses: 0, totalDays: 0 };
   const [descOpen, setDescOpen] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState(activity.description || '');
   const today = state.currentDay;
-  const resetCount = state.data.activityResetCounts[activity.id] || 0;
-
-  const renderSecondary = () => (
-    <>
-      <button type="button" className="streak-btn streak-btn-pause streak-btn-secondary" title={isPaused ? 'Resume activity' : 'Pause activity'} onMouseDown={(e) => { e.preventDefault(); onPause(activity.id, !isPaused); }}>
-        {isPaused ? '▶' : '⏸'}
-      </button>
-      <button type="button" className="streak-btn streak-btn-reset streak-btn-secondary" title="Reset stats" onMouseDown={(e) => { e.preventDefault(); onReset(activity.id); }}>
-        <span className="streak-reset-icon">↻</span>
-        <span className="streak-reset-count">{resetCount}</span>
-      </button>
-      <button type="button" className="streak-btn streak-btn-archive streak-btn-secondary" title="Archive activity" onMouseDown={(e) => { e.preventDefault(); onArchive(activity.id); }}>
-        🗃
-      </button>
-    </>
-  );
 
   if (activity.frequency === 'weekly') {
     const weeklyTarget = activity.weeklyTarget || 1;
@@ -134,9 +148,8 @@ export default function StreakActivityRow({ activity, state, onLog, onPause, onR
                 );
               });
             })()}
-            {renderSecondary()}
           </div>
-          <div className={`streak-activity-name${activity.description ? ' clickable' : ''}`} onClick={() => activity.description && setDescOpen((o) => !o)}>{activity.name || activity.id}</div>
+          <ActivityName activity={activity} descOpen={descOpen} onToggleDescription={setDescOpen} />
           <WeeklyStats stats={stats} weekSessionCount={sessionCount} weeklyTarget={weeklyTarget} />
         </div>
         {activity.description ? (
@@ -160,12 +173,8 @@ export default function StreakActivityRow({ activity, state, onLog, onPause, onR
       <div className="streak-activity-header">
         <div className="streak-buttons">
           <button type="button" className={`streak-btn streak-btn-success streak-btn-primary${currentState === 'success' ? ' streak-btn-active' : ''}`} title="Mark as success" onClick={() => onLog(activity.id, currentState === 'success' ? null : 'success')}>✓</button>
-          {activity.canFail ? (
-            <button type="button" className={`streak-btn streak-btn-fail streak-btn-primary${currentState === 'failed' ? ' streak-btn-active' : ''}`} title="Mark as failed" onClick={() => onLog(activity.id, currentState === 'failed' ? null : 'failed')}>✗</button>
-          ) : null}
-          {renderSecondary()}
         </div>
-        <div className={`streak-activity-name${activity.description ? ' clickable' : ''}`} onClick={() => activity.description && setDescOpen((o) => !o)}>{activity.name || activity.id}</div>
+        <ActivityName activity={activity} descOpen={descOpen} onToggleDescription={setDescOpen} />
         <DailyStats stats={stats} />
       </div>
       {activity.description ? (
