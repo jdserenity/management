@@ -14,9 +14,8 @@ import {
 } from '@/lib/morningStretch/morningStretch';
 import { loadMorningStretchRoutine } from '@/lib/morningStretch/morningStretchDb';
 import { loadMorningStretchPrefs, type MorningStretchPrefs } from '@/lib/morningStretch/morningStretchPref';
-import { isPhaseLongEnoughToLog } from '@/lib/sessionProgress';
 import { formatClock, formatExerciseAmount } from '@/lib/workoutPlanner';
-import { Play, Sunrise, X } from 'lucide-react';
+import { Play, Sunrise } from 'lucide-react';
 
 type ViewMode = 'summary' | 'run';
 
@@ -28,7 +27,6 @@ export default function MorningStretchSection() {
   const [viewMode, setViewMode] = useState<ViewMode>('summary');
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [runElapsedSeconds, setRunElapsedSeconds] = useState(0);
   const runStartedAtRef = useRef<number | null>(null);
 
   const resolvedExercises = useMemo(
@@ -83,11 +81,9 @@ export default function MorningStretchSection() {
     const startedAt = runStartedAtRef.current;
     if (!stretchPrefs || resolvedExercises.length === 0 || startedAt === null) return;
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-    if (!fromTimer && !isPhaseLongEnoughToLog(startedAt)) return;
     const ratio = fromTimer ? 1 : morningStretchCompletionRatio(elapsed, stretchPrefs.durationMinutes);
     logMorningStretchCompletion(resolvedExercises, ratio);
     runStartedAtRef.current = null;
-    setRunElapsedSeconds(0);
     setViewMode('summary');
     setRemainingSeconds(0);
   }, [stretchPrefs, resolvedExercises, logMorningStretchCompletion]);
@@ -99,7 +95,6 @@ export default function MorningStretchSection() {
       if (startedAt === null) return;
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       const total = stretchPrefs.durationMinutes * 60;
-      setRunElapsedSeconds(elapsed);
       const nextRemaining = Math.max(0, total - elapsed);
       setRemainingSeconds(nextRemaining);
       if (nextRemaining <= 0) finishRun(true);
@@ -112,14 +107,12 @@ export default function MorningStretchSection() {
   const startRun = () => {
     if (!stretchPrefs || resolvedExercises.length === 0) return;
     runStartedAtRef.current = Date.now();
-    setRunElapsedSeconds(0);
     setRemainingSeconds(stretchPrefs.durationMinutes * 60);
     setViewMode('run');
   };
 
   const cancelRun = () => {
     runStartedAtRef.current = null;
-    setRunElapsedSeconds(0);
     setRemainingSeconds(0);
     setViewMode('summary');
   };
@@ -142,8 +135,6 @@ export default function MorningStretchSection() {
   if (!routine || !stretchPrefs) return null;
   if (!visible) return null;
 
-  const canLogEarly = runElapsedSeconds >= 15;
-
   return (
     <section aria-label="Morning stretch">
       <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/16 via-background to-amber-400/14 p-4 shadow-sm ring-1 ring-orange-500/20">
@@ -156,11 +147,6 @@ export default function MorningStretchSection() {
             <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={startRun}>
               <Play className="h-4 w-4" />
               Start
-            </Button>
-          )}
-          {viewMode === 'run' && (
-            <Button size="sm" variant="ghost" onClick={cancelRun} aria-label="Cancel morning stretch">
-              <X className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -198,9 +184,7 @@ export default function MorningStretchSection() {
               ))}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => finishRun(false)} disabled={!canLogEarly}>
-                Complete block
-              </Button>
+              <Button onClick={() => finishRun(false)}>Complete block</Button>
               <Button variant="outline" onClick={cancelRun}>Cancel</Button>
             </div>
           </div>
