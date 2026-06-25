@@ -1,9 +1,4 @@
-import {
-  defaultWorkoutCustomizePrefs,
-  DEFAULT_STRETCH_PICK_KEYS,
-  resolveAllowedStretchPickKeys,
-  type WorkoutCustomizePrefs
-} from '@/lib/workoutCustomize';
+import { DEFAULT_STRETCH_PICK_KEYS, type WorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 
 export const POMODORO_EXERCISE_BREAK_INTERVAL = 2;
 

@@ -4,6 +4,7 @@ import { getCurrentLogDay } from '@/lib/tdee/dates';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/defaults';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
 import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
+import { removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import type { TdeeFile, TdeeLogEntry, TdeeMealDef, TdeeStoredEntry } from '@/lib/tdee/types';
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
 import { activeEntries, isStapleLogged, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
-import { formatIngredientsList, mealTotalsFromIngredients, normalizeMacro } from '@/lib/tdee/ingredients';
+import { formatIngredientsList, mealTotalsFromIngredients } from '@/lib/tdee/ingredients';
 import { mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import {

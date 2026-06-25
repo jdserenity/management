@@ -5,7 +5,6 @@ import {
   buildMixedBreakWorkout,
   buildStretchBreakExercises,
   DEFAULT_ALLOWED_WORKOUT_IDS,
-  STRETCH_DEFAULT_SECONDS,
   countTodayDeepWorkSessions,
   countTodayPomodoroSessions,
   focusEntryCountsAsSession,
