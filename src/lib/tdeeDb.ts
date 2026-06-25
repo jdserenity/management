@@ -3,7 +3,8 @@ import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { getCurrentLogDay } from '@/lib/tdee/dates';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/defaults';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
-import { normalizeFile } from '@/lib/tdee/normalize';
+import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
+import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import type { TdeeFile, TdeeLogEntry, TdeeMealDef, TdeeStoredEntry } from '@/lib/tdee/types';
 
 type ConfigRow = { tdee: number; protein: number; log_day: string };
@@ -33,7 +34,7 @@ const mealFromRow = (row: MealRow): TdeeMealDef => {
       if (Array.isArray(parsed) && parsed.length) meal.ingredients = parsed;
     } catch { /* ignore */ }
   }
-  return meal;
+  return normalizeMealDef(meal);
 };
 
 const entryFromRow = (row: EntryRow): TdeeStoredEntry => {
@@ -193,6 +194,35 @@ export const addRegularEntry = async (
   return addTdeeEntry(file, entry);
 };
 
+export const upsertTdeeRegular = async (file: TdeeFile, meal: TdeeMealDef, isNew: boolean): Promise<TdeeFile> => {
+  const regulars = upsertMeal(file.regulars, meal, isNew);
+  await saveTdeeFile({ ...file, regulars });
+  return loadTdeeFile();
+};
+
+export const removeTdeeRegular = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
+  const regulars = removeMeal(file.regulars, id);
+  await saveTdeeFile({ ...file, regulars });
+  return loadTdeeFile();
+};
+
+export const upsertTdeeStaple = async (file: TdeeFile, meal: TdeeMealDef, isNew: boolean): Promise<TdeeFile> => {
+  const staples = upsertMeal(file.staples, meal, isNew);
+  await saveTdeeFile({ ...file, staples });
+  return loadTdeeFile();
+};
+
+export const removeTdeeStaple = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
+  const staples = removeMeal(file.staples, id);
+  await saveTdeeFile({ ...file, staples });
+  return loadTdeeFile();
+};
+
+export const updateTdeeTargets = async (file: TdeeFile, tdee: number, protein: number): Promise<TdeeFile> => {
+  await saveTdeeFile({ ...file, tdee: normalizeCalories(tdee), protein: normalizeMacro(protein) });
+  return loadTdeeFile();
+};
+
 export const addCustomEntry = async (
   file: TdeeFile,
   label: string,
@@ -202,7 +232,7 @@ export const addCustomEntry = async (
 ): Promise<TdeeFile> => {
   const entry = makeEntry({
     kind: 'custom',
-    label: label.trim() || 'Custom',
+    label: label.trim() || 'One-Off',
     calories,
     protein,
     count

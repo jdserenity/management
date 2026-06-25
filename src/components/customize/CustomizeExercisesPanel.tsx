@@ -46,7 +46,7 @@ type PendingConfirm =
   | { kind: 'override'; exerciseId: string; amount: number; unit: ExerciseUnit }
   | { kind: 'newCustom'; exercise: ExerciseDefinition };
 
-const CustomizeWorkoutPage = () => {
+export default function CustomizeExercisesPanel() {
   const {
     workoutCustomizePrefs,
     handleAllowedWorkoutToggle,
@@ -132,7 +132,7 @@ const CustomizeWorkoutPage = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TimerReset className="h-5 w-5 text-violet-600" />
-            Customize workouts
+            Exercises
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             Exercise breaks build a random ~2–3 minute circuit from the moves you turn on below. The same move can show up again on a later break in the day, but never twice in one break.
@@ -331,6 +331,4 @@ const CustomizeWorkoutPage = () => {
       </Dialog>
     </>
   );
-};
-
-export default CustomizeWorkoutPage;
+}

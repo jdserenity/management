@@ -3,6 +3,7 @@
 ## Product Intent
 - The app is being repurposed from posture tracking into a personal background manager for focus and movement.
 - **Daily tab** (`DailyPage.tsx`) is the default landing tab: **morning stretch** (custom wake-up routine, top section), **nutrition** (TDEE targets, today’s food log, staples/regulars) and **habits** (streak tracker heatmaps, daily/weekly activities, pause/reset/archive). Ported from Obsidian plugins; data lives in SQLite (`src/lib/tdeeDb.ts`, `src/lib/streakDb.ts`, `src/lib/morningStretch/morningStretchDb.ts`). Day boundary uses the same `stats_day_rollover_hour_v1` as work/movement stats.
+- **Customize tab** (`CustomizePage.tsx`) has three subtabs — **Exercises**, **Habits**, **Food** — and sits between Stats and Settings in the nav. Habits: add/edit/pause/archive/reset streak activities. Food: TDEE/protein targets, staples, and regulars edited as ingredients (totals sum from ingredients) or as simple no-ingredient items. Daily tab is log-only (check off habits, log food).
 - **Work tab** (`Dashboard.tsx`, nav label “Work”) is the session-driven focus flow below.
 - Pomodoro sessions are 25 minutes of focus followed by a 5 minute break.
 - Deep Work sessions are 90 minutes of focus followed by a long break: 5 minutes of guided exercise then 10 minutes of relax (`SESSION_DURATIONS_MINUTES` in `src/lib/workoutPlanner.ts`, driven by `src/context/SessionContext.tsx`).
@@ -63,7 +64,7 @@ These diagrams stay aligned with `src/` and `src-tauri/` whenever navigation, se
 ```mermaid
 flowchart TB
   subgraph app["src/App.tsx"]
-    nav["Tab buttons: daily work posture customize stats settings"]
+    nav["Tab buttons: daily work posture stats customize settings"]
     boot["On mount: invoke Rust settings sync from MGMT_LS keys"]
   end
   subgraph providers["Providers always mounted"]
@@ -75,7 +76,7 @@ flowchart TB
     Daily["DailyPage.tsx morning stretch TdeeSection habits StreakSection"]
     D["Dashboard.tsx Work tab timer chain today totals"]
     PPg["PosturePage.tsx live score charts history export"]
-    CW["CustomizeWorkoutPage.tsx move toggles editable amounts stretches custom exercises"]
+    CW["CustomizePage.tsx exercises habits food subtabs"]
     ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]
     SE["SettingsPage.tsx camera monitoring battery habits heatmap restart"]
   end
