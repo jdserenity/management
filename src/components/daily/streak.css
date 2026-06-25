@@ -316,7 +316,6 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  overflow: hidden;
 }
 
 .streak-activity-name {
@@ -573,8 +572,10 @@
 
 .streak-btn-locked {
   pointer-events: none;
-  opacity: 0.35;
   cursor: default;
+  opacity: 0.5;
+  color: var(--muted-foreground);
+  filter: grayscale(0.4);
 }
 
 .streak-btn-fail {
