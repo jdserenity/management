@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
 import { isTauri } from '@/lib/isTauri';
 import type { StreakActivity, StreakState } from '@/lib/streak/types';
-import { archiveStreakActivity, loadStreakState, upsertStreakActivity } from '@/lib/streakDb';
+import { archiveStreakActivity, loadStreakState, resetStreakActivity, upsertStreakActivity } from '@/lib/streakDb';
 
 export default function CustomizeHabitsPanel() {
   const [state, setState] = useState<StreakState | null>(null);
@@ -46,21 +46,27 @@ export default function CustomizeHabitsPanel() {
             <p className="text-sm text-muted-foreground">No habits yet. Add an activity to show it on the Daily tab.</p>
           ) : (
             <ul className="space-y-2">
-              {activities.map((activity) => (
-                <li key={activity.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="font-medium">{activity.name || activity.id}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {activity.frequency === 'weekly' ? `Weekly · ${activity.weeklyTarget ?? 1}/wk` : 'Daily'}
-                      {activity.description ? ` · ${activity.description}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => { setEditingActivity(activity); setIsNewActivity(false); setEditorOpen(true); }}>Edit</Button>
-                    <Button size="sm" variant="ghost" onClick={() => void archiveStreakActivity(state, activity.id).then(setState)}>Archive</Button>
-                  </div>
-                </li>
-              ))}
+              {activities.map((activity) => {
+                const resetCount = state.data.activityResetCounts[activity.id] || 0;
+                return (
+                  <li key={activity.id} className="flex flex-col gap-2 rounded-md border px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="font-medium">{activity.name || activity.id}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.frequency === 'weekly' ? `Weekly · ${activity.weeklyTarget ?? 1}/wk` : 'Daily'}
+                        {activity.description ? ` · ${activity.description}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => { setEditingActivity(activity); setIsNewActivity(false); setEditorOpen(true); }}>Edit</Button>
+                      <Button size="sm" variant="ghost" title="Reset stats" onClick={() => void resetStreakActivity(state, activity.id).then(setState)}>
+                        <span className="inline-flex items-center gap-1"><span>↻</span><span>{resetCount}</span></span>
+                      </Button>
+                      <Button size="sm" variant="ghost" title="Archive activity" onClick={() => void archiveStreakActivity(state, activity.id).then(setState)}>🗃 Archive</Button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>

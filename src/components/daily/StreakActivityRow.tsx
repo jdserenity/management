@@ -15,8 +15,6 @@ type Props = {
   state: StreakState;
   onLog: (activityId: string, newState: StreakLogState | null, day?: string) => void;
   onPause: (activityId: string, paused: boolean) => void;
-  onReset: (activityId: string) => void;
-  onArchive: (activityId: string) => void;
   onEditDescription: (activityId: string, description: string) => void;
 };
 
@@ -95,28 +93,18 @@ const ActivityName = ({
   );
 };
 
-export default function StreakActivityRow({ activity, state, onLog, onPause, onReset, onArchive, onEditDescription }: Props) {
+export default function StreakActivityRow({ activity, state, onLog, onPause, onEditDescription }: Props) {
   const isPaused = !!state.data.pausedActivities[activity.id];
   const stats = state.data.stats[activity.id] || { currentStreak: 0, longestStreak: 0, totalSuccesses: 0, totalDays: 0 };
   const [descOpen, setDescOpen] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState(activity.description || '');
   const today = state.currentDay;
-  const resetCount = state.data.activityResetCounts[activity.id] || 0;
 
-  const renderSecondary = () => (
-    <>
-      <button type="button" className="streak-btn streak-btn-pause streak-btn-secondary" title={isPaused ? 'Resume activity' : 'Pause activity'} onMouseDown={(e) => { e.preventDefault(); onPause(activity.id, !isPaused); }}>
-        {isPaused ? '▶' : '⏸'}
-      </button>
-      <button type="button" className="streak-btn streak-btn-reset streak-btn-secondary" title="Reset stats" onMouseDown={(e) => { e.preventDefault(); onReset(activity.id); }}>
-        <span className="streak-reset-icon">↻</span>
-        <span className="streak-reset-count">{resetCount}</span>
-      </button>
-      <button type="button" className="streak-btn streak-btn-archive streak-btn-secondary" title="Archive activity" onMouseDown={(e) => { e.preventDefault(); onArchive(activity.id); }}>
-        🗃
-      </button>
-    </>
+  const renderPause = () => (
+    <button type="button" className="streak-btn streak-btn-pause streak-btn-secondary" title={isPaused ? 'Resume activity' : 'Pause activity'} onMouseDown={(e) => { e.preventDefault(); onPause(activity.id, !isPaused); }}>
+      {isPaused ? '▶' : '⏸'}
+    </button>
   );
 
   if (activity.frequency === 'weekly') {
@@ -167,7 +155,7 @@ export default function StreakActivityRow({ activity, state, onLog, onPause, onR
                 );
               });
             })()}
-            {renderSecondary()}
+            {renderPause()}
           </div>
           <ActivityName activity={activity} descOpen={descOpen} onToggleDescription={setDescOpen} />
           <WeeklyStats stats={stats} weekSessionCount={sessionCount} weeklyTarget={weeklyTarget} />
@@ -193,7 +181,7 @@ export default function StreakActivityRow({ activity, state, onLog, onPause, onR
       <div className="streak-activity-header">
         <div className="streak-buttons">
           <button type="button" className={`streak-btn streak-btn-success streak-btn-primary${currentState === 'success' ? ' streak-btn-active' : ''}`} title="Mark as success" onClick={() => onLog(activity.id, currentState === 'success' ? null : 'success')}>✓</button>
-          {renderSecondary()}
+          {renderPause()}
         </div>
         <ActivityName activity={activity} descOpen={descOpen} onToggleDescription={setDescOpen} />
         <DailyStats stats={stats} />

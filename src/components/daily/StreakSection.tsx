@@ -10,9 +10,7 @@ import { isTauri } from '@/lib/isTauri';
 import { loadStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import {
-  archiveStreakActivity,
   loadStreakState,
-  resetStreakActivity,
   saveStreakLog,
   setActivityPaused,
   updateStreakActivityDescription
@@ -90,8 +88,6 @@ export default function StreakSection() {
                 state={state}
                 onLog={(id, s, d) => void handleLog(id, s, d)}
                 onPause={(id, paused) => void setActivityPaused(state, id, paused).then(setState)}
-                onReset={(id) => void resetStreakActivity(state, id).then(setState)}
-                onArchive={(id) => void archiveStreakActivity(state, id).then(setState)}
                 onEditDescription={(id, desc) => void updateStreakActivityDescription(state, id, desc).then(setState)}
               />
             ))}
@@ -103,8 +99,6 @@ export default function StreakSection() {
                 state={state}
                 onLog={(id, s, d) => void handleLog(id, s, d)}
                 onPause={(id, paused) => void setActivityPaused(state, id, paused).then(setState)}
-                onReset={(id) => void resetStreakActivity(state, id).then(setState)}
-                onArchive={(id) => void archiveStreakActivity(state, id).then(setState)}
                 onEditDescription={(id, desc) => void updateStreakActivityDescription(state, id, desc).then(setState)}
               />
             ))}

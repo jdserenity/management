@@ -21,8 +21,8 @@ const navItems: NavItem[] = [
   { id: 'daily', label: 'Daily', icon: Sun, component: DailyPage },
   { id: 'work', label: 'Work', icon: LayoutDashboard, component: Dashboard },
   { id: 'posture', label: 'Posture', icon: Camera, component: PosturePage },
-  { id: 'customize', label: 'Customize', icon: SlidersHorizontal, component: CustomizePage },
   { id: 'stats', label: 'Stats', icon: BarChart3, component: StatsPage },
+  { id: 'customize', label: 'Customize', icon: SlidersHorizontal, component: CustomizePage },
   { id: 'settings', label: 'Settings', icon: Settings, component: SettingsPage },
 ];
 
