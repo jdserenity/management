@@ -17,12 +17,13 @@ import {
 import { defaultMorningStretchPrefs } from '@/lib/morningStretch/morningStretchPref';
 
 describe('defaultMorningStretchRoutine', () => {
-  it('starts with the five default stretch picks', () => {
+  it('starts with the default morning stretch sequence', () => {
     expect(defaultMorningStretchRoutine().exerciseRefs).toEqual(DEFAULT_MORNING_STRETCH_EXERCISE_REFS);
     expect(DEFAULT_MORNING_STRETCH_EXERCISE_REFS.map((ref) => ref.id)).toEqual([
-      'stretch-lateral-shoulder',
       'stretch-neck-roll',
+      'stretch-lateral-shoulder',
       'stretch-hip-roll',
+      'arm-rolls',
       'stretch-deep-squat',
       'stretch-forward-hang'
     ]);

@@ -55,9 +55,10 @@ export const labelForMorningStretchRef = (ref: MorningStretchRef): string => {
 };
 
 export const DEFAULT_MORNING_STRETCH_EXERCISE_REFS: MorningStretchRef[] = [
-  { kind: 'stretchPick', id: 'stretch-lateral-shoulder' },
   { kind: 'stretchPick', id: 'stretch-neck-roll' },
+  { kind: 'stretchPick', id: 'stretch-lateral-shoulder' },
   { kind: 'stretchPick', id: 'stretch-hip-roll' },
+  { kind: 'predefined', id: 'arm-rolls' },
   { kind: 'stretchPick', id: 'stretch-deep-squat' },
   { kind: 'stretchPick', id: 'stretch-forward-hang' }
 ];
