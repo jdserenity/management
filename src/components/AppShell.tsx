@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Button } from '@/components/ui/button';
 import Dashboard from '@/components/Dashboard';
 import DailyPage from '@/components/DailyPage';
@@ -30,7 +30,18 @@ const AppShell = () => {
   const { t } = useTranslation();
   const [activeComponentId, setActiveComponentId] = useState('daily');
   const ActiveComponent = navItems.find((item) => item.id === activeComponentId)?.component || DailyPage;
+  const mainRef = useRef<HTMLElement>(null);
+
   const goToWork = () => setActiveComponentId('work');
+
+  const navigate = (id: string) => {
+    setActiveComponentId(id);
+    mainRef.current?.scrollTo({ top: 0 });
+  };
+
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [activeComponentId]);
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
@@ -42,7 +53,7 @@ const AppShell = () => {
               variant={activeComponentId === item.id ? 'secondary' : 'ghost'}
               size="sm"
               className="gap-2"
-              onClick={() => setActiveComponentId(item.id)}
+              onClick={() => navigate(item.id)}
             >
               <item.icon className="h-4 w-4" />
               {t(`nav.${item.id}`, item.label)}
@@ -51,7 +62,7 @@ const AppShell = () => {
         </nav>
         <FlowHeaderControl onGoToWork={goToWork} />
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto p-6 md:p-8">
+      <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto p-6 md:p-8">
         <ActiveComponent />
       </main>
     </div>
