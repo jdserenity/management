@@ -2,14 +2,18 @@ import type { ExerciseDefinition, ExerciseUnit } from '@/lib/workoutPlanner';
 
 export const STRETCH_DEFAULT_SECONDS = 20;
 export const STRETCH_ROLL_HOLD_SECONDS = 30;
-export const STRETCH_ROLL_PICK_KEYS = new Set(['stretch-neck-roll', 'stretch-hip-roll']);
+export const STRETCH_ROLL_PICK_KEYS = new Set(['stretch-neck-roll', 'stretch-hip-roll', 'stretch-forward-hang']);
 
 const NON_STRETCH_WORKOUT_IDS = [
   'march-spot',
   'jumping-jacks',
   'push-ups',
   'air-squats',
-  'shadowboxing'
+  'shadowboxing',
+  'arm-rolls',
+  'reverse-lunges',
+  'reverse-crunches',
+  'plank'
 ] as const;
 
 const LEGACY_DEFAULT_ALLOWED = [
@@ -38,7 +42,8 @@ export const DEFAULT_STRETCH_PICK_KEYS = [
   'stretch-toe-both',
   'stretch-toe-one',
   'stretch-deep-squat',
-  'stretch-quad-standing'
+  'stretch-quad-standing',
+  'stretch-forward-hang'
 ] as const;
 
 export const stretchHoldSecondsForPickKey = (pickKey: string, prefs: WorkoutCustomizePrefs): number => {

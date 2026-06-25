@@ -26,9 +26,25 @@ import {
   type SessionAlertsPrefs,
 } from '@/lib/sessionAlertsPref';
 import {
-  loadStreakHeatmapColorPref,
-  saveStreakHeatmapColorPref,
+    loadStreakHeatmapColorPref,
+    saveStreakHeatmapColorPref,
 } from '@/lib/streakHeatmapPref';
+import MorningStretchRoutineEditor from '@/components/daily/MorningStretchRoutineEditor';
+import {
+    listMorningStretchCatalog,
+    labelForMorningStretchRef,
+    type MorningStretchRef,
+    type MorningStretchRoutine,
+} from '@/lib/morningStretch/morningStretch';
+import { loadMorningStretchRoutine, saveMorningStretchRoutine } from '@/lib/morningStretch/morningStretchDb';
+import {
+    formatMorningStretchHideAfterLabel,
+    loadMorningStretchPrefs,
+    saveMorningStretchDurationMinutes,
+    saveMorningStretchEnabled,
+    saveMorningStretchHideAfterHour,
+    type MorningStretchPrefs,
+} from '@/lib/morningStretch/morningStretchPref';
 
 const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
 const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
@@ -765,6 +781,132 @@ const NotificationSettings = () => {
     );
 };
 
+const MorningStretchSettings = () => {
+    const { workoutCustomizePrefs } = useSession();
+    const [prefs, setPrefs] = useState<MorningStretchPrefs | null>(null);
+    const [routine, setRoutine] = useState<MorningStretchRoutine | null>(null);
+    const [savingRoutine, setSavingRoutine] = useState(false);
+
+    useEffect(() => {
+        void Promise.all([loadMorningStretchPrefs(), loadMorningStretchRoutine(workoutCustomizePrefs)])
+            .then(([nextPrefs, nextRoutine]) => {
+                setPrefs(nextPrefs);
+                setRoutine(nextRoutine);
+            })
+            .catch(console.error);
+    }, [workoutCustomizePrefs]);
+
+    const catalog = listMorningStretchCatalog(workoutCustomizePrefs);
+    const refKey = (ref: MorningStretchRef) => `${ref.kind}:${ref.id}`;
+    const labelForRef = labelForMorningStretchRef;
+    const availableToAdd = routine
+        ? catalog.filter((row) => !routine.exerciseRefs.some((r) => refKey(r) === refKey(row.ref)))
+        : [];
+
+    const persistRoutine = async (next: MorningStretchRoutine) => {
+        setSavingRoutine(true);
+        try {
+            await saveMorningStretchRoutine(next);
+            setRoutine(next);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSavingRoutine(false);
+        }
+    };
+
+    const hourOptions = Array.from({ length: 24 }, (_, hour) => ({
+        value: String(hour),
+        label: formatMorningStretchHideAfterLabel(hour),
+    }));
+    const durationOptions = [3, 5, 7, 10, 15, 20, 30].map((m) => ({ value: String(m), label: `${m} min` }));
+
+    if (!prefs || !routine) return null;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Morning stretch</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                        <span className="font-medium">Show morning stretch on Daily tab</span>
+                        <p className="text-sm text-muted-foreground">When off, the section stays hidden until you turn it back on.</p>
+                    </div>
+                    <Switch
+                        checked={prefs.enabled}
+                        onCheckedChange={(checked) => {
+                            setPrefs({ ...prefs, enabled: checked });
+                            void saveMorningStretchEnabled(checked).catch(console.error);
+                        }}
+                    />
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <span className="font-medium">Block duration</span>
+                        <p className="text-sm text-muted-foreground">Timed stretch block length (default 5 minutes).</p>
+                    </div>
+                    <Select
+                        value={String(prefs.durationMinutes)}
+                        onValueChange={(v) => {
+                            void saveMorningStretchDurationMinutes(Number(v))
+                                .then((saved) => setPrefs({ ...prefs, durationMinutes: saved }))
+                                .catch(console.error);
+                        }}
+                    >
+                        <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {durationOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <span className="font-medium">Hide after</span>
+                        <p className="text-sm text-muted-foreground">If you have not finished by this time, the section disappears until the next stats day.</p>
+                    </div>
+                    <Select
+                        value={String(prefs.hideAfterHour)}
+                        onValueChange={(v) => {
+                            void saveMorningStretchHideAfterHour(Number(v))
+                                .then((saved) => setPrefs({ ...prefs, hideAfterHour: saved }))
+                                .catch(console.error);
+                        }}
+                    >
+                        <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {hourOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <MorningStretchRoutineEditor
+                    routine={routine}
+                    availableToAdd={availableToAdd}
+                    saving={savingRoutine}
+                    labelForRef={labelForRef}
+                    onAdd={(ref) => {
+                        if (routine.exerciseRefs.some((r) => refKey(r) === refKey(ref))) return;
+                        void persistRoutine({ exerciseRefs: [...routine.exerciseRefs, ref] });
+                    }}
+                    onRemove={(index) => void persistRoutine({ exerciseRefs: routine.exerciseRefs.filter((_, i) => i !== index) })}
+                    onMove={(index, dir) => {
+                        const next = [...routine.exerciseRefs];
+                        const target = index + dir;
+                        if (target < 0 || target >= next.length) return;
+                        [next[index], next[target]] = [next[target], next[index]];
+                        void persistRoutine({ exerciseRefs: next });
+                    }}
+                />
+            </CardContent>
+        </Card>
+    );
+};
+
 const SettingsPage = () => {
     return (
         <div className="space-y-6 p-4 md:p-6">
@@ -772,6 +914,7 @@ const SettingsPage = () => {
             <SessionAlertSettings />
             <ThemeSettings />
             <StatsDaySettings />
+            <MorningStretchSettings />
             <HabitsSettings />
             <DetectionSettings />
             <CameraSettings />
