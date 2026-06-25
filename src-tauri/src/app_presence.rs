@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{error, info};
 use tauri::{
   image::Image,
   menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -8,6 +8,33 @@ use tauri::{
 };
 
 use crate::{lock_or_recover, release_camera, AppState};
+
+fn load_resource_icon(app: &AppHandle, filename: &str) -> Result<Image<'static>, String> {
+  let icon_path = app.path().resolve(format!("icons/{filename}"), BaseDirectory::Resource).map_err(|e| e.to_string())?;
+  let bytes = std::fs::read(&icon_path).map_err(|e| format!("Failed to read icon file: {e}"))?;
+  Image::from_bytes(&bytes).map_err(|e| format!("Failed to create icon image: {e}"))
+}
+
+fn set_tray_icon(app: &AppHandle, state: &AppState, filename: &str) {
+  if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
+    match load_resource_icon(app, filename) {
+      Ok(icon) => {
+        if let Err(e) = tray.set_icon(Some(icon)) {
+          error!("Failed to update tray icon: {}", e);
+        }
+      }
+      Err(e) => error!("Failed to load tray icon {filename}: {e}"),
+    }
+  }
+}
+
+pub fn set_tray_icon_active(app: &AppHandle, state: &AppState) {
+  set_tray_icon(app, state, "tray.png");
+}
+
+pub fn set_tray_icon_monitoring_off(app: &AppHandle, state: &AppState) {
+  set_tray_icon(app, state, "monitoring_off.png");
+}
 
 pub const MODE_DOCK: &str = "dock";
 pub const MODE_MENU_BAR: &str = "menu_bar";
@@ -110,15 +137,7 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
       *lock_or_recover(&state.monitoring_active) = true;
       *lock_or_recover(&state.camera_yield_paused) = false;
       *lock_or_recover(&state.force_capture_now) = true;
-      if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
-        if let Some(default_icon) = app.default_window_icon() {
-          if let Err(e) = tray.set_icon(Some(default_icon.clone())) {
-            error!("Failed to update tray icon: {}", e);
-          }
-        } else {
-          warn!("Default window icon not found; skipping tray icon update.");
-        }
-      }
+      set_tray_icon_active(app, state.inner());
       let _ = app.emit("monitoring-state-changed", &serde_json::json!({ "active": true }));
     }
     "stop_monitoring" => {
@@ -127,23 +146,7 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
       *lock_or_recover(&state.force_capture_now) = false;
       *lock_or_recover(&state.camera_yield_paused) = false;
       release_camera(&state, "tray stop_monitoring action");
-      if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
-        if let Ok(monitoring_off_icon_path) = app.path().resolve("icons/monitoring_off.png", BaseDirectory::Resource) {
-          if let Ok(bytes) = std::fs::read(&monitoring_off_icon_path) {
-            if let Ok(monitoring_off_icon) = Image::from_bytes(&bytes) {
-              if let Err(e) = tray.set_icon(Some(monitoring_off_icon)) {
-                error!("Failed to update tray icon: {}", e);
-              }
-            } else {
-              error!("Failed to create icon image");
-            }
-          } else {
-            error!("Failed to read icon file");
-          }
-        } else {
-          error!("Failed to resolve icon path");
-        }
-      }
+      set_tray_icon_monitoring_off(app, state.inner());
       let _ = app.emit("monitoring-state-changed", &serde_json::json!({ "active": false }));
     }
     _ => {}
@@ -162,13 +165,10 @@ pub fn apply_tray_flow_active(app: &AppHandle, state: &AppState, active: bool) -
 pub fn install_tray(app: &AppHandle, state: &AppState, timer_only: bool) -> Result<(), String> {
   remove_tray(app, state);
   let flow_active = flow_active_from_state(state);
-  let default_icon = app
-    .default_window_icon()
-    .cloned()
-    .ok_or_else(|| "Default window icon not found".to_string())?;
+  let tray_icon = load_resource_icon(app, "tray.png")?;
   let menu = if timer_only { build_timer_tray_menu(app, flow_active)? } else { build_tray_menu(app, flow_active)? };
   let tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
-    .icon(default_icon)
+    .icon(tray_icon)
     .tooltip("Management")
     .menu(&menu)
     .on_menu_event(|app, event| handle_tray_menu_event(app, event.id.as_ref()))

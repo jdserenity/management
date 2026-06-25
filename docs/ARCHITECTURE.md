@@ -23,6 +23,7 @@
 ## Repository layout
 - `src/`: React UI, session engine, posture TypeScript (`src/posture/`), shared libs (`src/lib/`).
 - `packages/core/`: platform-agnostic session types, flow state, timer math, display helpers (`@mgmt/core`).
+- `packages/storage/`: shared SQLite schema migrations and web SQL backends (`@mgmt/storage`).
 - `packages/sync/`: sync client interface, HTTP client, in-memory bus (`@mgmt/sync`).
 - `apps/server/`: SQLite-backed HTTP server for active session sync and future shared data (`@mgmt/server`).
 - `apps/companion/`: Vite PWA mobile companion (`@mgmt/companion`); break/focus timer viewer; no posture.
@@ -45,6 +46,7 @@
 
 ## Frontend Runtime
 - The desktop app uses Tauri with a React + TypeScript frontend (`src/main.tsx` → `src/App.tsx`).
+- App icon: solid royal blue (`#4169E1`) rounded square for Dock, notifications, and favicon; macOS menu bar tray uses a white rounded square (`src-tauri/icons/tray.png`, dimmed `monitoring_off.png` when posture monitoring is off). Companion PWA uses the same royal blue icon (`apps/companion/public/`). Regenerate all sizes with `npm run icons:generate` (`scripts/generate-icons.mjs`, shared color in `src/lib/brandIcon.ts`).
 - Posture landmarks and scoring run in the webview using MediaPipe Tasks (`@mediapipe/tasks-vision`) with the weighted metric pipeline adapted from [BatesPosture](https://github.com/wtbates99/batesposture); Rust captures periodic camera frames for preview and receives scored results from the frontend for ingest, SQLite logging, and desktop notifications.
 - Navigation and provider wiring are summarized in the first system map below.
 
