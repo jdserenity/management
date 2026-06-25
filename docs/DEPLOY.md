@@ -15,15 +15,19 @@ npm install
 npm run tauri build
 ```
 
-`npm run app:install` copies the release bundle to `/Applications/Management.app` (replaces an existing install). After code changes, build again and run install again (do not delete Application Support).
+Release bundle: `src-tauri/target/release/bundle/macos/Management.app` (open from Finder or `open` that path).
+
+`npm run app:deploy` copies that bundle to `/Applications/Management.app` (replaces an existing install). After code changes, build again and run deploy again (do not delete Application Support).
 
 ## Commands
 
 | Command | Use |
 | --- | --- |
+| `npm run tauri build` | Package **Management.app** (runs `npm run build` first via Tauri) |
 | `npm run tauri dev` | Dev desktop app; **same** `mgmt.db` as the installed app |
 | `npm run dev` | Vite only (browser at localhost:1420); **no** Tauri/SQLite — not for real use |
-| `npm run db:backup` | Copy `mgmt.db` into the `backups/` folder |
-| `npm run app:install` | Copy release `Management.app` to `/Applications` (macOS; run `tauri build` first) |
+| `npm run build` | Frontend TypeScript + Vite only; not a macOS app bundle |
+| `npm run db:backup` | Copy `mgmt.db` into `~/Library/Application Support/com.diamari.management/backups/` |
+| `npm run app:deploy` | Copy release `Management.app` to `/Applications` (macOS; run `tauri build` first) |
 
 If macOS blocks an unsigned build: System Settings → Privacy & Security, or `xattr -cr /Applications/Management.app`.
