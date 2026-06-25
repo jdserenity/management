@@ -11,17 +11,22 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'Management Companion',
         short_name: 'Mgmt',
         description: 'Mobile companion for focus sessions and exercise breaks',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+        theme_color: '#4169E1',
+        background_color: '#4169E1',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
-        icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }]
+        icons: [
+          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' }
+        ]
       }
     })
   ],
