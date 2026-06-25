@@ -47,12 +47,13 @@ describe('timedExerciseNeedsFillBreakConfirm', () => {
 });
 
 describe('stretchHoldSecondsForPickKey', () => {
-  it('uses 30s for neck and hip rolls and 20s for other stretches by default', () => {
+  it('uses 30s for neck and hip rolls, forward hang, and 20s for other stretches by default', () => {
     const prefs = defaultWorkoutCustomizePrefs();
     expect(STRETCH_DEFAULT_SECONDS).toBe(20);
     expect(STRETCH_ROLL_HOLD_SECONDS).toBe(30);
     expect(stretchHoldSecondsForPickKey('stretch-neck-roll', prefs)).toBe(30);
     expect(stretchHoldSecondsForPickKey('stretch-hip-roll', prefs)).toBe(30);
+    expect(stretchHoldSecondsForPickKey('stretch-forward-hang', prefs)).toBe(30);
     expect(stretchHoldSecondsForPickKey('stretch-foot', prefs)).toBe(20);
     expect(stretchHoldSecondsForPickKey('stretch-butterfly', prefs)).toBe(20);
   });

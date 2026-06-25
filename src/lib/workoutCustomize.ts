@@ -2,7 +2,7 @@ import type { ExerciseDefinition, ExerciseUnit } from '@/lib/workoutPlanner';
 
 export const STRETCH_DEFAULT_SECONDS = 20;
 export const STRETCH_ROLL_HOLD_SECONDS = 30;
-export const STRETCH_ROLL_PICK_KEYS = new Set(['stretch-neck-roll', 'stretch-hip-roll']);
+export const STRETCH_ROLL_PICK_KEYS = new Set(['stretch-neck-roll', 'stretch-hip-roll', 'stretch-forward-hang']);
 
 const NON_STRETCH_WORKOUT_IDS = [
   'march-spot',

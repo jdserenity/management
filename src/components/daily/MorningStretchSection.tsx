@@ -6,7 +6,6 @@ import { useSession } from '@/context/SessionContext';
 import { isTauri } from '@/lib/isTauri';
 import {
   isMorningStretchCompletedToday,
-  labelForMorningStretchRef,
   morningStretchCompletionRatio,
   resolveMorningStretchExercises,
   shouldShowMorningStretchSection,
@@ -137,7 +136,7 @@ export default function MorningStretchSection() {
 
   return (
     <section aria-label="Morning stretch">
-      <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/16 via-background to-amber-400/14 p-4 shadow-sm ring-1 ring-orange-500/20">
+      <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/16 via-background to-amber-400/14 p-4 pb-6 shadow-sm ring-1 ring-orange-500/20">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Sunrise className="h-5 w-5 text-orange-500" />
@@ -152,21 +151,17 @@ export default function MorningStretchSection() {
         </div>
 
         {viewMode === 'summary' && (
-          <>
+          <div className="flex min-h-[7.5rem] flex-col justify-center py-2">
             {routine.exerciseRefs.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Add moves in Settings → Morning stretch.
               </p>
             ) : (
-              <ol className="space-y-2">
-                {routine.exerciseRefs.map((ref, index) => (
-                  <li key={`${ref.kind}:${ref.id}-${index}`} className="rounded-md border border-orange-500/15 bg-background/70 px-3 py-2 text-sm">
-                    <span className="font-medium">{labelForMorningStretchRef(ref)}</span>
-                  </li>
-                ))}
-              </ol>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Start your day off right with {routine.exerciseRefs.length} {routine.exerciseRefs.length === 1 ? 'stretch' : 'stretches'}. (~{stretchPrefs.durationMinutes} min)
+              </p>
             )}
-          </>
+          </div>
         )}
 
         {viewMode === 'run' && (
