@@ -32,6 +32,7 @@ import {
 import MorningStretchRoutineEditor from '@/components/daily/MorningStretchRoutineEditor';
 import {
     listMorningStretchCatalog,
+    labelForMorningStretchRef,
     type MorningStretchRef,
     type MorningStretchRoutine,
 } from '@/lib/morningStretch/morningStretch';
@@ -796,9 +797,8 @@ const MorningStretchSettings = () => {
     }, [workoutCustomizePrefs]);
 
     const catalog = listMorningStretchCatalog(workoutCustomizePrefs);
-    const catalogByKey = new Map(catalog.map((row) => [`${row.ref.kind}:${row.ref.id}`, row]));
     const refKey = (ref: MorningStretchRef) => `${ref.kind}:${ref.id}`;
-    const labelForRef = (ref: MorningStretchRef) => catalogByKey.get(refKey(ref))?.label ?? ref.id;
+    const labelForRef = labelForMorningStretchRef;
     const availableToAdd = routine
         ? catalog.filter((row) => !routine.exerciseRefs.some((r) => refKey(r) === refKey(row.ref)))
         : [];

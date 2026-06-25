@@ -42,6 +42,18 @@ export type MorningStretchCatalogEntry = {
 
 const refKey = (ref: MorningStretchRef): string => `${ref.kind}:${ref.id}`;
 
+export const labelForMorningStretchRef = (ref: MorningStretchRef): string => {
+  if (ref.kind === 'stretchPick') {
+    const row = STRETCH_PICK_CATALOG.find((r) => r.key === ref.id);
+    if (row) return row.label;
+  }
+  if (ref.kind === 'predefined') {
+    const workout = PREDEFINED_WORKOUTS.find((w) => w.id === ref.id);
+    if (workout) return workout.name;
+  }
+  return ref.id;
+};
+
 export const DEFAULT_MORNING_STRETCH_EXERCISE_REFS: MorningStretchRef[] = [
   { kind: 'stretchPick', id: 'stretch-lateral-shoulder' },
   { kind: 'stretchPick', id: 'stretch-neck-roll' },

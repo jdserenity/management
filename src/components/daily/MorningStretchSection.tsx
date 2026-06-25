@@ -3,26 +3,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/context/SessionContext';
-import MorningStretchRoutineEditor from '@/components/daily/MorningStretchRoutineEditor';
 import { isTauri } from '@/lib/isTauri';
 import {
   isMorningStretchCompletedToday,
-  listMorningStretchCatalog,
+  labelForMorningStretchRef,
   morningStretchCompletionRatio,
   resolveMorningStretchExercises,
   shouldShowMorningStretchSection,
-  type MorningStretchRef,
   type MorningStretchRoutine
 } from '@/lib/morningStretch/morningStretch';
-import { loadMorningStretchRoutine, saveMorningStretchRoutine } from '@/lib/morningStretch/morningStretchDb';
+import { loadMorningStretchRoutine } from '@/lib/morningStretch/morningStretchDb';
 import { loadMorningStretchPrefs, type MorningStretchPrefs } from '@/lib/morningStretch/morningStretchPref';
 import { isPhaseLongEnoughToLog } from '@/lib/sessionProgress';
 import { formatClock, formatExerciseAmount } from '@/lib/workoutPlanner';
-import { Pencil, Play, Sunrise, X } from 'lucide-react';
+import { Play, Sunrise, X } from 'lucide-react';
 
-type ViewMode = 'summary' | 'edit' | 'run';
-
-const refKey = (ref: MorningStretchRef): string => `${ref.kind}:${ref.id}`;
+type ViewMode = 'summary' | 'run';
 
 export default function MorningStretchSection() {
   const { workoutCustomizePrefs, workoutLogs, dayRolloverHour, logMorningStretchCompletion } = useSession();
@@ -30,14 +26,11 @@ export default function MorningStretchSection() {
   const [stretchPrefs, setStretchPrefs] = useState<MorningStretchPrefs | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('summary');
-  const [saving, setSaving] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [runElapsedSeconds, setRunElapsedSeconds] = useState(0);
   const runStartedAtRef = useRef<number | null>(null);
 
-  const catalog = useMemo(() => listMorningStretchCatalog(workoutCustomizePrefs), [workoutCustomizePrefs]);
-  const catalogByKey = useMemo(() => new Map(catalog.map((row) => [refKey(row.ref), row])), [catalog]);
   const resolvedExercises = useMemo(
     () => (routine ? resolveMorningStretchExercises(routine, workoutCustomizePrefs) : []),
     [routine, workoutCustomizePrefs]
@@ -85,40 +78,6 @@ export default function MorningStretchSection() {
     const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
-
-  const persistRoutine = async (next: MorningStretchRoutine) => {
-    setSaving(true);
-    try {
-      await saveMorningStretchRoutine(next);
-      setRoutine(next);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const addRef = (ref: MorningStretchRef) => {
-    if (!routine) return;
-    if (routine.exerciseRefs.some((r) => refKey(r) === refKey(ref))) return;
-    void persistRoutine({ exerciseRefs: [...routine.exerciseRefs, ref] });
-  };
-
-  const removeAt = (index: number) => {
-    if (!routine) return;
-    void persistRoutine({ exerciseRefs: routine.exerciseRefs.filter((_, i) => i !== index) });
-  };
-
-  const moveRef = (index: number, dir: -1 | 1) => {
-    if (!routine) return;
-    const next = [...routine.exerciseRefs];
-    const target = index + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    void persistRoutine({ exerciseRefs: next });
-  };
-
-  const labelForRef = (ref: MorningStretchRef): string => catalogByKey.get(refKey(ref))?.label ?? ref.id;
 
   const finishRun = useCallback((fromTimer = false) => {
     const startedAt = runStartedAtRef.current;
@@ -183,33 +142,24 @@ export default function MorningStretchSection() {
   if (!routine || !stretchPrefs) return null;
   if (!visible) return null;
 
-  const availableToAdd = catalog.filter((row) => !routine.exerciseRefs.some((r) => refKey(r) === refKey(row.ref)));
   const canLogEarly = runElapsedSeconds >= 15;
 
   return (
     <section aria-label="Morning stretch">
-      <div className="overflow-hidden rounded-xl border border-orange-200/80 bg-gradient-to-br from-orange-100 via-amber-50 to-orange-50 p-4 shadow-sm ring-1 ring-orange-200/50 dark:from-orange-100/95 dark:via-amber-50/90 dark:to-orange-100/95 dark:border-orange-200/60">
+      <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/16 via-amber-500/10 to-amber-400/14 p-4 shadow-sm ring-1 ring-border/70">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Sunrise className="h-5 w-5 text-orange-500" />
             Morning stretch
           </h2>
-          {viewMode === 'summary' && (
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" className="border-orange-200/80 bg-white/70 hover:bg-white/90" onClick={() => setViewMode('edit')} aria-label="Edit morning stretch routine">
-                <Pencil className="h-4 w-4" />
-                Edit
-              </Button>
-              {resolvedExercises.length > 0 && (
-                <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={startRun}>
-                  <Play className="h-4 w-4" />
-                  Start {stretchPrefs.durationMinutes} min
-                </Button>
-              )}
-            </div>
+          {viewMode === 'summary' && resolvedExercises.length > 0 && (
+            <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={startRun}>
+              <Play className="h-4 w-4" />
+              Start
+            </Button>
           )}
-          {viewMode !== 'summary' && (
-            <Button size="sm" variant="ghost" className="bg-white/60 hover:bg-white/80" onClick={() => (viewMode === 'run' ? cancelRun() : setViewMode('summary'))} aria-label="Close morning stretch">
+          {viewMode === 'run' && (
+            <Button size="sm" variant="ghost" onClick={cancelRun} aria-label="Cancel morning stretch">
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -219,13 +169,13 @@ export default function MorningStretchSection() {
           <>
             {routine.exerciseRefs.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Build a wake-up routine from your enabled exercises. Add moves in Customize workouts first if the pool is empty.
+                Add moves in Settings → Morning stretch.
               </p>
             ) : (
               <ol className="space-y-2">
                 {routine.exerciseRefs.map((ref, index) => (
-                  <li key={`${refKey(ref)}-${index}`} className="rounded-md border border-orange-200/70 bg-white/55 px-3 py-2 text-sm">
-                    <span className="font-medium">{labelForRef(ref)}</span>
+                  <li key={`${ref.kind}:${ref.id}-${index}`} className="rounded-md border border-orange-500/15 bg-background/70 px-3 py-2 text-sm">
+                    <span className="font-medium">{labelForMorningStretchRef(ref)}</span>
                   </li>
                 ))}
               </ol>
@@ -233,27 +183,15 @@ export default function MorningStretchSection() {
           </>
         )}
 
-        {viewMode === 'edit' && (
-          <MorningStretchRoutineEditor
-            routine={routine}
-            availableToAdd={availableToAdd}
-            saving={saving}
-            labelForRef={labelForRef}
-            onAdd={addRef}
-            onRemove={removeAt}
-            onMove={moveRef}
-          />
-        )}
-
         {viewMode === 'run' && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-orange-200/70 bg-white/60 p-4 shadow-inner">
+            <div className="rounded-xl border border-orange-500/20 bg-background/75 p-4 shadow-inner">
               <p className="text-sm font-medium text-muted-foreground">Morning stretch block</p>
               <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight">{formatClock(remainingSeconds)}</p>
             </div>
             <ul className="space-y-2">
               {resolvedExercises.map((ex, index) => (
-                <li key={`${ex.id}-${index}`} className="rounded-md border border-orange-200/70 bg-white/55 px-3 py-2">
+                <li key={`${ex.id}-${index}`} className="rounded-md border border-orange-500/15 bg-background/70 px-3 py-2">
                   <p className="text-sm font-medium">{ex.name}</p>
                   <p className="text-xs text-muted-foreground">{formatExerciseAmount(ex)}</p>
                 </li>
@@ -263,7 +201,7 @@ export default function MorningStretchSection() {
               <Button onClick={() => finishRun(false)} disabled={!canLogEarly}>
                 Complete block
               </Button>
-              <Button variant="outline" className="border-orange-200/80 bg-white/70 hover:bg-white/90" onClick={cancelRun}>Cancel</Button>
+              <Button variant="outline" onClick={cancelRun}>Cancel</Button>
             </div>
           </div>
         )}

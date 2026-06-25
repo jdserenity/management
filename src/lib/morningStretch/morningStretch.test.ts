@@ -5,6 +5,7 @@ import {
   DEFAULT_MORNING_STRETCH_EXERCISE_REFS,
   defaultMorningStretchRoutine,
   isBeforeMorningStretchHideCutoff,
+  labelForMorningStretchRef,
   isMorningStretchCompletedToday,
   listMorningStretchCatalog,
   morningStretchCompletionRatio,
@@ -25,6 +26,12 @@ describe('defaultMorningStretchRoutine', () => {
       'stretch-deep-squat',
       'stretch-forward-hang'
     ]);
+  });
+});
+
+describe('labelForMorningStretchRef', () => {
+  it('labels stretch picks from the catalog even when not in enabled pool', () => {
+    expect(labelForMorningStretchRef({ kind: 'stretchPick', id: 'stretch-forward-hang' })).toBe('Standing Forward Hang');
   });
 });
 
