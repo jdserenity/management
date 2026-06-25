@@ -3,7 +3,7 @@ import Database from '@tauri-apps/plugin-sql';
 
 export type { SqlDatabase };
 
-export const DB_ID = 'sqlite:mgmt.db';
+export const DB_ID = 'sqlite:local.db';
 
 let registeredBackend: SqlDatabase | null = null;
 let tauriLoadPromise: Promise<SqlDatabase> | null = null;

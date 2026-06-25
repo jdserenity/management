@@ -54,7 +54,7 @@
     "fs": {},
     "sql": {
       "preload": [
-        "sqlite:mgmt.db"
+        "sqlite:local.db"
       ]
     },
     "updater": {

@@ -687,6 +687,21 @@ async fn background_monitoring_task(app_handle: AppHandle, state: AppState) {
 
 // --- Main Application Setup ---
 
+/// Rename mgmt.db → local.db in the app config dir if the old file exists and the new one
+/// doesn't. Runs synchronously before the Tauri builder so the SQL plugin opens the right file.
+fn migrate_db_name_if_needed() {
+    let Some(config_dir) = dirs::config_dir() else { return };
+    let app_dir = config_dir.join("com.diamari.management");
+    let old_path = app_dir.join("mgmt.db");
+    let new_path = app_dir.join("local.db");
+    if old_path.exists() && !new_path.exists() {
+        match fs::rename(&old_path, &new_path) {
+            Ok(_) => info!("Migrated mgmt.db → local.db"),
+            Err(e) => error!("Failed to rename mgmt.db → local.db: {}", e),
+        }
+    }
+}
+
 fn main() {
     #[cfg(target_os = "linux")]
     {
@@ -701,6 +716,7 @@ fn main() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    migrate_db_name_if_needed();
     let run_result = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_autostart::Builder::new().build())
@@ -713,7 +729,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_sql::Builder::new()
             .add_migrations(
-                "sqlite:mgmt.db",
+                "sqlite:local.db",
                 vec![
                     Migration {
                     version: 1,

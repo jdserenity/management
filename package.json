@@ -11,7 +11,7 @@
     "dev": "vite",
     "icons:generate": "node scripts/generate-icons.mjs",
     "dev:companion": "npm run dev -w @mgmt/companion",
-    "dev:sync-api": "npm run dev -w @mgmt/sync-api",
+    "dev:server": "npm run dev -w @mgmt/server",
     "build": "tsc && vite build",
     "build:companion": "npm run build -w @mgmt/companion",
     "test": "vitest run",
@@ -19,6 +19,7 @@
     "tauri": "tauri",
     "db:backup": "node scripts/backup-db.mjs",
     "import:vault": "tsx scripts/import-vault-once.ts",
+    "sync:to-server": "tsx scripts/sync-to-server.ts",
     "app:deploy": "node scripts/install-app.mjs"
   },
   "dependencies": {

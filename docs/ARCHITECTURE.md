@@ -25,22 +25,24 @@
 - `packages/core/`: platform-agnostic session types, flow state, timer math, display helpers (`@mgmt/core`).
 - `packages/storage/`: shared SQLite schema migrations and web SQL backends (`@mgmt/storage`).
 - `packages/sync/`: sync client interface, HTTP client, in-memory bus (`@mgmt/sync`).
-- `apps/sync-api/`: Turso-backed HTTP API for active session sync (`@mgmt/sync-api`).
+- `apps/server/`: SQLite-backed HTTP server for active session sync and future shared data (`@mgmt/server`).
 - `apps/companion/`: Vite PWA mobile companion (`@mgmt/companion`); break/focus timer viewer; no posture.
 - `src-tauri/src/main.rs`: Tauri app entry, tray, background camera loop, SQL migrations, posture ingest command.
 - `src-tauri/src/posture_bridge.rs`: posture debouncer and ingest payload types used from `main.rs`.
 
-## Mobile companion
-- PWA in `apps/companion` (`npm run dev:companion`, port 5173; `npm run build:companion` for installable build).
-- Reuses desktop React pages via Vite alias `@` → `src/`. Shared shell: `src/components/MobileAppShell.tsx` + `src/lib/navConfig.ts` (companion nav: Daily, Work, Stats, Customize, Settings — no Posture).
-- Companion settings: `src/components/CompanionSettingsPage.tsx` (stats day, alerts, habits heatmap, morning stretch). Desktop-only settings (camera, posture, app presence, updater) stay on `SettingsPage.tsx`.
-- Local data: `@mgmt/storage` (`packages/storage/`) provides `SqlDatabase` + schema migrations v1–v7 (same as `src-tauri` `sqlite:mgmt.db`). Companion defaults to **sql.js** in IndexedDB; optional `VITE_LIBSQL_URL` + `VITE_LIBSQL_AUTH_TOKEN` use remote libSQL/Turso when set. Desktop keeps Tauri SQL via `src/lib/db.ts` (`registerSqlBackend` / `getDb`).
-- `src/lib/appRuntime.ts`: `markCompanionApp()`, `hasAppStorage()` — components gate on storage readiness instead of `isTauri()` alone.
-- Active-session remote sync uses Turso (libSQL) via `apps/sync-api` (`npm run dev:sync-api`, default `http://localhost:8787`). Clients authenticate with `SYNC_API_TOKEN` / `VITE_SYNC_API_TOKEN` (see `.env.example`).
-- Phone is the intended **leader** during exercise breaks; `SessionProvider` with `syncMode="companion"` auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
-- Shared session logic lives in `@mgmt/core`; desktop `src/lib/flowState.ts` and `src/lib/sessionProgress.ts` re-export from there. Break timer advance helpers: `src/lib/breakSync.ts`.
-- `@mgmt/sync` defines `ActiveFlowDocument`, `HttpSyncClient`, and `createSyncClient`; `MemorySyncClient` remains for offline dev without the API.
-- Historical stats (`focus_log`, `workout_log`) are **not** synced between devices yet (companion uses its own local DB until Turso stats sync lands).
+## Mobile companion (in progress)
+- PWA in `apps/companion` (`npm run dev:companion`, port 5173).
+- Remote sync goes through `apps/server` (`npm run dev:server`, default `http://localhost:8787`). Clients authenticate with `SERVER_TOKEN` / `VITE_SERVER_TOKEN` (see `.env.example`).
+- Phone is the intended **leader** during exercise breaks; companion auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
+- Shared session logic lives in `@mgmt/core`; desktop `src/lib/flowState.ts` and `src/lib/sessionProgress.ts` re-export from there.
+- `@mgmt/sync` defines `ActiveFlowDocument`, `HttpSyncClient`, and `createSyncClient`; `MemorySyncClient` remains for offline dev without the server running.
+- Companion UI reuses desktop Tailwind tokens and shadcn `Card`/`Button` via Vite aliases; scope excludes posture, camera, and tray settings.
+
+## Backend server (apps/server)
+- Hono HTTP server (`@mgmt/server`); stores active session state in a local SQLite file via `better-sqlite3`.
+- One table: `active_flow_singleton` — the live `ActiveFlowDocument` (timer phase, break workout, leader device).
+- Env vars: `SERVER_TOKEN` (bearer auth), `PORT` (default 8787), `DB_PATH` (optional absolute path; defaults to `apps/server/data/server.db`).
+- In production the server runs on a VPS; `DB_PATH` points to a persistent path outside the repo.
 
 ## Frontend Runtime
 - The desktop app uses Tauri with a React + TypeScript frontend (`src/main.tsx` → `src/App.tsx`).
@@ -49,8 +51,9 @@
 - Navigation and provider wiring are summarized in the first system map below.
 
 ## Data Persistence
-- SQLite database id `sqlite:mgmt.db` (`src/lib/db.ts`; Tauri SQL plugin `preload` in `src-tauri/tauri.conf.json`) holds all durable history. On disk the file is `mgmt.db` under the app config directory (`tauri::path::BaseDirectory::AppConfig`), not in the git repo. Bundle identifier: `com.diamari.management` (`src-tauri/tauri.conf.json`). Typical paths: macOS `~/Library/Application Support/com.diamari.management/mgmt.db`; Linux `~/.config/com.diamari.management/mgmt.db`; Windows `%APPDATA%\com.diamari.management/mgmt.db`. `tauri dev` uses the same config dir for that identifier. `mgmt.db` is created and migrated by the SQL plugin on first use; startup does not copy or replace it from any other file.
-  - Tables in `mgmt.db`:
+- SQLite database id `sqlite:local.db` (`src/lib/db.ts`; Tauri SQL plugin `preload` in `src-tauri/tauri.conf.json`) holds all durable desktop history. On disk the file is `local.db` under the app config directory (`tauri::path::BaseDirectory::AppConfig`). Bundle identifier: `com.diamari.management` (`src-tauri/tauri.conf.json`). Typical paths: macOS `~/Library/Application Support/com.diamari.management/local.db`; Linux `~/.config/com.diamari.management/local.db`; Windows `%APPDATA%\com.diamari.management\local.db`. `tauri dev` uses the same config dir. On first startup, `migrate_db_name_if_needed()` in `main.rs` renames `mgmt.db` → `local.db` if the old name exists and the new one does not. `local.db` is the desktop's working copy; `server.db` is the shared source of truth for all devices — data is pushed from `local.db` to `server.db` via `npm run sync:to-server` until full write-sync is implemented.
+- `server.db` (`apps/server/data/server.db` by default, overridden with `DB_PATH`) mirrors all `local.db` tables plus a `users` table and `user_id` on every row. Owner user ID is seeded on server startup from `OWNER_USER_ID` env var (default `'owner'`). Companion reads data via `GET /v1/data`; full data can be pushed via `POST /v1/data`.
+  - Tables in `local.db`:
     - `posture_log` — posture samples (written from Rust `submit_posture_analysis`; read in Posture tab via `src/posture/postureLogDb.ts`).
     - `focus_log` / `workout_log` — completed focus sessions and break workouts for the Stats tab (`src/lib/sessionDb.ts`, `SessionContext`). Focus rows store partial credit when a focus phase ends early (`completion_ratio`). Phases shorter than 15 seconds are not logged. Stopping the flow during an exercise break does not create a workout row; a workout is logged only when the break timer finishes (≥15s in that break) or the user taps Complete Workout (≥15s in that break). Complete Workout always ends the exercise portion immediately and advances the flow (next focus, long-break relax, or idle for standalone breaks); workout logging on that tap still requires ≥15s in the break.
     - `app_kv` — allowed workout ids (legacy), `workout_customize_prefs_v1` (per-exercise amounts, stretch pick toggles, hold seconds, custom exercises), `morning_stretch_routine_v1` (ordered morning stretch exercise refs), `morning_stretch_enabled_v1` (Daily tab section on/off; default on), `morning_stretch_duration_minutes_v1` (timed block length; default 5), `morning_stretch_hide_after_hour_v1` (local hour when an unfinished section hides; default 11), `cant_exercise_mode_v1` (discreet break moves only; default off), migration flags, last ended-flow summary, `active_flow_state_v1` (in-progress timer, chain counters, and break workout), `posture_monitoring_enabled_v1` (posture tracking on/off; default on when unset), `app_presence_mode_v1` (`dock` = normal app in Dock/App Switcher on macOS; `menu_bar` = menu-bar-only with system tray, hide-on-close; default `dock` when unset), `stats_day_rollover_hour_v1` (local hour when “today” stats reset; default 4; shared by work stats, nutrition log day, and streak current day), `streak_heatmap_color_v1` (optional hex for daily habits heatmap; default green CSS when unset), `vault_import_tdee_v1` / `vault_import_streak_v1` (timestamps set by one-time vault import script), and session alert prefs (`session_alert_sound_v1`, `session_alert_countdown_sound_v1`, `session_alert_focus_window_v1`, `session_alert_dock_bounce_v1`, `session_alert_notify_v1`, `session_tray_timer_v1`; defaults: sound, countdown, and focus window on; dock bounce, notify, and tray timer off — see `src/lib/sessionAlertsPref.ts` and Settings).
@@ -141,7 +144,7 @@ flowchart LR
     page["PosturePage: listen analysis-update, UI and charts"]
     dbread["postureLogDb.ts via lib db.ts plugin-sql"]
   end
-  subgraph store["sqlite:mgmt.db"]
+  subgraph store["sqlite:local.db"]
     logt["posture_log rows"]
     sess["focus_log workout_log app_kv"]
   end
