@@ -336,3 +336,16 @@ export const persistWorkoutLog = async (entry: WorkoutLogEntry): Promise<void> =
   await insertWorkoutLog(entry);
   await pruneWorkoutLogs(MAX_HISTORY_ITEMS);
 };
+
+export const deleteWorkoutLogsForWorkoutIdSince = async (workoutId: string, startTs: number): Promise<number> => {
+  const db = await getDb();
+  const rows = await db.select<{ count: number }[]>(
+    'SELECT COUNT(*) as count FROM workout_log WHERE workout_id = $1 AND completed_at >= $2',
+    [workoutId, startTs]
+  );
+  const count = rows[0]?.count ?? 0;
+  if (count > 0) {
+    await db.execute('DELETE FROM workout_log WHERE workout_id = $1 AND completed_at >= $2', [workoutId, startTs]);
+  }
+  return count;
+};

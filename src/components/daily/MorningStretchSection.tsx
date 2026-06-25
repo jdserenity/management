@@ -27,6 +27,15 @@ export default function MorningStretchSection() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const runStartedAtRef = useRef<number | null>(null);
+  const runActiveRef = useRef(false);
+  const timerIntervalRef = useRef<number | null>(null);
+
+  const clearRunTimer = useCallback(() => {
+    if (timerIntervalRef.current !== null) {
+      window.clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  }, []);
 
   const resolvedExercises = useMemo(
     () => (routine ? resolveMorningStretchExercises(routine, workoutCustomizePrefs) : []),
@@ -77,19 +86,23 @@ export default function MorningStretchSection() {
   }, []);
 
   const finishRun = useCallback((fromTimer = false) => {
+    if (!runActiveRef.current) return;
     const startedAt = runStartedAtRef.current;
     if (!stretchPrefs || resolvedExercises.length === 0 || startedAt === null) return;
+    runActiveRef.current = false;
+    clearRunTimer();
     const elapsed = Math.floor((Date.now() - startedAt) / 1000);
     const ratio = fromTimer ? 1 : morningStretchCompletionRatio(elapsed, stretchPrefs.durationMinutes);
     logMorningStretchCompletion(resolvedExercises, ratio);
     runStartedAtRef.current = null;
     setViewMode('summary');
     setRemainingSeconds(0);
-  }, [stretchPrefs, resolvedExercises, logMorningStretchCompletion]);
+  }, [stretchPrefs, resolvedExercises, logMorningStretchCompletion, clearRunTimer]);
 
   useEffect(() => {
     if (viewMode !== 'run' || !stretchPrefs) return;
     const tick = () => {
+      if (!runActiveRef.current) return;
       const startedAt = runStartedAtRef.current;
       if (startedAt === null) return;
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
@@ -99,18 +112,22 @@ export default function MorningStretchSection() {
       if (nextRemaining <= 0) finishRun(true);
     };
     tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [viewMode, stretchPrefs, finishRun]);
+    timerIntervalRef.current = window.setInterval(tick, 1000);
+    return () => clearRunTimer();
+  }, [viewMode, stretchPrefs, finishRun, clearRunTimer]);
 
   const startRun = () => {
     if (!stretchPrefs || resolvedExercises.length === 0) return;
+    clearRunTimer();
+    runActiveRef.current = true;
     runStartedAtRef.current = Date.now();
     setRemainingSeconds(stretchPrefs.durationMinutes * 60);
     setViewMode('run');
   };
 
   const cancelRun = () => {
+    runActiveRef.current = false;
+    clearRunTimer();
     runStartedAtRef.current = null;
     setRemainingSeconds(0);
     setViewMode('summary');

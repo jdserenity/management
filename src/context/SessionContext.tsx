@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary';
+import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow, isTimestampInStatsDay } from '@/lib/dayBoundary';
 import { loadDayRolloverHourPref, saveDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { isCantExerciseModeEnabled, setCantExerciseModeEnabled } from '@/lib/cantExerciseModePref';
 import { applyCantExerciseModePrefs, shouldScheduleExerciseOnPomodoroBreak } from '@/lib/exerciseBreak';
@@ -64,6 +64,7 @@ import {
   MAX_HISTORY_ITEMS,
   persistFocusLog,
   persistWorkoutLog,
+  deleteWorkoutLogsForWorkoutIdSince,
   saveActiveFlowState,
   saveWorkoutCustomizePrefs
 } from '@/lib/sessionDb';
@@ -78,7 +79,7 @@ import {
 } from '@/lib/sessionSync';
 import type { SyncClient } from '@mgmt/sync';
 import { isActiveExerciseBreak } from '@mgmt/core';
-import { buildMorningStretchLogEntry } from '@/lib/morningStretch/morningStretch';
+import { buildMorningStretchLogEntry, MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
@@ -125,6 +126,7 @@ interface SessionContextValue {
   handleWorkoutCompletion: () => void;
   addManualExercise: (exercise: ExerciseDefinition) => void;
   logMorningStretchCompletion: (exercises: ExerciseDefinition[], completionRatio?: number) => void;
+  clearMorningStretchCompletionToday: () => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
   updateExerciseOverride: (exerciseId: string, amount: number, unit: ExerciseUnit) => void;
@@ -741,6 +743,20 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  const clearMorningStretchCompletionToday = useCallback(() => {
+    const now = Date.now();
+    const { startTs } = getStatsDayWindow(now, dayRolloverHour);
+    setWorkoutLogs((current) =>
+      current.filter(
+        (log) =>
+          !(log.workoutId === MORNING_STRETCH_WORKOUT_ID && isTimestampInStatsDay(log.completedAt, now, dayRolloverHour))
+      )
+    );
+    void deleteWorkoutLogsForWorkoutIdSince(MORNING_STRETCH_WORKOUT_ID, startTs).catch((error) => {
+      console.error('Failed to clear morning stretch log:', error);
+    });
+  }, [dayRolloverHour]);
+
   const setDayRolloverHour = useCallback((hour: number) => {
     void saveDayRolloverHourPref(hour)
       .then((saved) => {
@@ -904,6 +920,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       handleWorkoutCompletion,
       addManualExercise,
       logMorningStretchCompletion,
+      clearMorningStretchCompletionToday,
       handleAllowedWorkoutToggle,
       handleStretchPickToggle,
       updateExerciseOverride,
@@ -949,6 +966,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
       handleWorkoutCompletion,
       addManualExercise,
       logMorningStretchCompletion,
+      clearMorningStretchCompletionToday,
       handleAllowedWorkoutToggle,
       handleStretchPickToggle,
       updateExerciseOverride,
