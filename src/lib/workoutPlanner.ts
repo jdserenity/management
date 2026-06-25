@@ -159,6 +159,38 @@ export const PREDEFINED_WORKOUTS: WorkoutDefinition[] = [
     exercises: [
       { id: 'shadow', name: 'Light shadowboxing', amount: 60, unit: 'seconds' }
     ]
+  },
+  {
+    id: 'arm-rolls',
+    name: '🔄 Arm Rolls',
+    estimatedMinutes: 1,
+    exercises: [
+      { id: 'arm-rolls', name: 'Arm rolls', amount: 30, unit: 'seconds' }
+    ]
+  },
+  {
+    id: 'reverse-lunges',
+    name: '🦵 Reverse Lunges',
+    estimatedMinutes: 1,
+    exercises: [
+      { id: 'reverse-lunges', name: 'Reverse lunges', amount: 10, unit: 'reps' }
+    ]
+  },
+  {
+    id: 'reverse-crunches',
+    name: '🤸 Reverse Crunches',
+    estimatedMinutes: 1,
+    exercises: [
+      { id: 'reverse-crunches', name: 'Reverse crunches', amount: 15, unit: 'reps' }
+    ]
+  },
+  {
+    id: 'plank',
+    name: '🧘 Plank',
+    estimatedMinutes: 1,
+    exercises: [
+      { id: 'plank', name: 'Plank', amount: 30, unit: 'seconds' }
+    ]
   }
 ];
 
@@ -191,6 +223,7 @@ export const STRETCH_PICK_CATALOG: readonly { key: string; label: string; pick: 
     }
   },
   { key: 'stretch-deep-squat', label: 'Deep Squat', pick: { kind: 'single', id: 'stretch-deep-squat', name: 'Deep Squat' } },
+  { key: 'stretch-forward-hang', label: 'Standing Forward Hang', pick: { kind: 'single', id: 'stretch-forward-hang', name: 'Standing Forward Hang' } },
   {
     key: 'stretch-quad-standing',
     label: 'Standing Quad Stretch (left and right)',
@@ -290,7 +323,8 @@ export type StretchBodyRegion = 'upper' | 'lower';
 export const STRETCH_UPPER_BODY_IDS = new Set<string>([
   'stretch-neck-roll',
   'stretch-lateral-shoulder-L',
-  'stretch-lateral-shoulder-R'
+  'stretch-lateral-shoulder-R',
+  'stretch-forward-hang'
 ]);
 
 export const STRETCH_LOWER_BODY_IDS = new Set<string>([

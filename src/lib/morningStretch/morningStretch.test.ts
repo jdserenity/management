@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { defaultWorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 import {
   buildMorningStretchLogEntry,
+  DEFAULT_MORNING_STRETCH_EXERCISE_REFS,
+  defaultMorningStretchRoutine,
   isBeforeMorningStretchHideCutoff,
   isMorningStretchCompletedToday,
   listMorningStretchCatalog,
@@ -12,6 +14,19 @@ import {
   shouldShowMorningStretchSection
 } from '@/lib/morningStretch/morningStretch';
 import { defaultMorningStretchPrefs } from '@/lib/morningStretch/morningStretchPref';
+
+describe('defaultMorningStretchRoutine', () => {
+  it('starts with the five default stretch picks', () => {
+    expect(defaultMorningStretchRoutine().exerciseRefs).toEqual(DEFAULT_MORNING_STRETCH_EXERCISE_REFS);
+    expect(DEFAULT_MORNING_STRETCH_EXERCISE_REFS.map((ref) => ref.id)).toEqual([
+      'stretch-lateral-shoulder',
+      'stretch-neck-roll',
+      'stretch-hip-roll',
+      'stretch-deep-squat',
+      'stretch-forward-hang'
+    ]);
+  });
+});
 
 describe('listMorningStretchCatalog', () => {
   it('includes enabled predefined moves, stretch picks, and custom exercises', () => {

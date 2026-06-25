@@ -188,7 +188,7 @@ export default function MorningStretchSection() {
 
   return (
     <section aria-label="Morning stretch">
-      <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/16 via-background to-amber-400/14 p-4 shadow-sm ring-1 ring-orange-500/20">
+      <div className="overflow-hidden rounded-xl border border-orange-200/80 bg-gradient-to-br from-orange-100 via-amber-50 to-orange-50 p-4 shadow-sm ring-1 ring-orange-200/50 dark:from-orange-100/95 dark:via-amber-50/90 dark:to-orange-100/95 dark:border-orange-200/60">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Sunrise className="h-5 w-5 text-orange-500" />
@@ -196,7 +196,7 @@ export default function MorningStretchSection() {
           </h2>
           {viewMode === 'summary' && (
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" className="bg-background/70" onClick={() => setViewMode('edit')} aria-label="Edit morning stretch routine">
+              <Button size="sm" variant="outline" className="border-orange-200/80 bg-white/70 hover:bg-white/90" onClick={() => setViewMode('edit')} aria-label="Edit morning stretch routine">
                 <Pencil className="h-4 w-4" />
                 Edit
               </Button>
@@ -209,7 +209,7 @@ export default function MorningStretchSection() {
             </div>
           )}
           {viewMode !== 'summary' && (
-            <Button size="sm" variant="ghost" className="bg-background/60" onClick={() => (viewMode === 'run' ? cancelRun() : setViewMode('summary'))} aria-label="Close morning stretch">
+            <Button size="sm" variant="ghost" className="bg-white/60 hover:bg-white/80" onClick={() => (viewMode === 'run' ? cancelRun() : setViewMode('summary'))} aria-label="Close morning stretch">
               <X className="h-4 w-4" />
             </Button>
           )}
@@ -224,7 +224,7 @@ export default function MorningStretchSection() {
             ) : (
               <ol className="space-y-2">
                 {routine.exerciseRefs.map((ref, index) => (
-                  <li key={`${refKey(ref)}-${index}`} className="rounded-md border border-orange-500/15 bg-background/70 px-3 py-2 text-sm">
+                  <li key={`${refKey(ref)}-${index}`} className="rounded-md border border-orange-200/70 bg-white/55 px-3 py-2 text-sm">
                     <span className="font-medium">{labelForRef(ref)}</span>
                   </li>
                 ))}
@@ -247,13 +247,13 @@ export default function MorningStretchSection() {
 
         {viewMode === 'run' && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-orange-500/20 bg-background/75 p-4 shadow-inner">
+            <div className="rounded-xl border border-orange-200/70 bg-white/60 p-4 shadow-inner">
               <p className="text-sm font-medium text-muted-foreground">Morning stretch block</p>
               <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight">{formatClock(remainingSeconds)}</p>
             </div>
             <ul className="space-y-2">
               {resolvedExercises.map((ex, index) => (
-                <li key={`${ex.id}-${index}`} className="rounded-md border border-orange-500/15 bg-background/70 px-3 py-2">
+                <li key={`${ex.id}-${index}`} className="rounded-md border border-orange-200/70 bg-white/55 px-3 py-2">
                   <p className="text-sm font-medium">{ex.name}</p>
                   <p className="text-xs text-muted-foreground">{formatExerciseAmount(ex)}</p>
                 </li>
@@ -263,7 +263,7 @@ export default function MorningStretchSection() {
               <Button onClick={() => finishRun(false)} disabled={!canLogEarly}>
                 Complete block
               </Button>
-              <Button variant="outline" className="bg-background/70" onClick={cancelRun}>Cancel</Button>
+              <Button variant="outline" className="border-orange-200/80 bg-white/70 hover:bg-white/90" onClick={cancelRun}>Cancel</Button>
             </div>
           </div>
         )}

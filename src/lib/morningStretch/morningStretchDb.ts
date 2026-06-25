@@ -25,7 +25,9 @@ export const loadMorningStretchRoutine = async (
   const raw = await getKv(KV_MORNING_STRETCH_ROUTINE);
   if (!raw) return defaultMorningStretchRoutine();
   try {
-    return normalizeMorningStretchRoutine(JSON.parse(raw) as Partial<MorningStretchRoutine>, prefs);
+    const parsed = JSON.parse(raw) as Partial<MorningStretchRoutine>;
+    if (!Array.isArray(parsed.exerciseRefs) || parsed.exerciseRefs.length === 0) return defaultMorningStretchRoutine();
+    return normalizeMorningStretchRoutine(parsed, prefs);
   } catch (error) {
     console.error('Failed to parse morning_stretch_routine from app_kv:', error);
     return defaultMorningStretchRoutine();

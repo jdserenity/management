@@ -62,13 +62,13 @@ describe('normalizeWorkoutCustomizePrefs', () => {
   it('maps legacy stretch-mobility to all stretch picks', () => {
     const prefs = normalizeWorkoutCustomizePrefs(null, ['stretch-mobility', 'push-ups']);
     expect(prefs.allowedWorkoutIds).toContain('push-ups');
-    expect(prefs.allowedStretchPickKeys.length).toBe(9);
+    expect(prefs.allowedStretchPickKeys.length).toBe(10);
   });
 
   it('defaults when empty', () => {
     const prefs = normalizeWorkoutCustomizePrefs(null, null);
     expect(prefs.allowedWorkoutIds.length).toBeGreaterThan(0);
-    expect(prefs.allowedStretchPickKeys.length).toBe(9);
+    expect(prefs.allowedStretchPickKeys.length).toBe(10);
     expect(prefs).toEqual(defaultWorkoutCustomizePrefs());
   });
 });

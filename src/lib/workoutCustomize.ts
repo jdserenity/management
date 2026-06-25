@@ -9,7 +9,11 @@ const NON_STRETCH_WORKOUT_IDS = [
   'jumping-jacks',
   'push-ups',
   'air-squats',
-  'shadowboxing'
+  'shadowboxing',
+  'arm-rolls',
+  'reverse-lunges',
+  'reverse-crunches',
+  'plank'
 ] as const;
 
 const LEGACY_DEFAULT_ALLOWED = [
@@ -38,7 +42,8 @@ export const DEFAULT_STRETCH_PICK_KEYS = [
   'stretch-toe-both',
   'stretch-toe-one',
   'stretch-deep-squat',
-  'stretch-quad-standing'
+  'stretch-quad-standing',
+  'stretch-forward-hang'
 ] as const;
 
 export const stretchHoldSecondsForPickKey = (pickKey: string, prefs: WorkoutCustomizePrefs): number => {
