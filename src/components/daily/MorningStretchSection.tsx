@@ -168,13 +168,13 @@ export default function MorningStretchSection() {
         </div>
 
         {viewMode === 'summary' && (
-          <div className="flex flex-col justify-center pb-1 pt-1">
+          <div className="flex flex-col justify-center py-2">
             {routine.exerciseRefs.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Add moves in Settings → Morning stretch.
               </p>
             ) : (
-              <p className="text-center text-lg italic leading-snug text-white">
+              <p className="text-base leading-relaxed text-muted-foreground">
                 Start your day off right with a preset routine of 6 stretches. (~5 min)
               </p>
             )}
