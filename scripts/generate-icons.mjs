@@ -47,7 +47,8 @@ const appPng1024 = path.join(tauriIcons, 'app-icon.png');
 writeSvg(appSvg, appIconSvg(1024));
 writeSvg(traySvg, trayIconSvg(1024, '#FFFFFF'));
 writeSvg(monitoringOffSvg, trayIconSvg(1024, '#FFFFFF', 0.0625, 0.45));
-svgToPngOpaque(appSvg, appPng1024, 1024, BRAND_COLOR);
+// Transparent background is required — opaque corners turn the icon into a flat square.
+svgToPng(appSvg, appPng1024, 1024);
 
 execFileSync('npx', ['tauri', 'icon', appPng1024, '-o', tauriIcons], { cwd: root, stdio: 'inherit' });
 
