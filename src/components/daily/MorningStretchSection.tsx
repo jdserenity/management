@@ -146,7 +146,7 @@ export default function MorningStretchSection() {
 
   return (
     <section aria-label="Morning stretch">
-      <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/16 via-amber-500/10 to-amber-400/14 p-4 shadow-sm ring-1 ring-border/70">
+      <div className="overflow-hidden rounded-xl border bg-gradient-to-br from-orange-500/16 via-background to-amber-400/14 p-4 shadow-sm ring-1 ring-orange-500/20">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Sunrise className="h-5 w-5 text-orange-500" />
