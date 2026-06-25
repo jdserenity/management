@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
 import { isTauri } from '@/lib/isTauri';
+import { resetButtonLabel } from '@/lib/streak/resetDisplay';
 import type { StreakActivity, StreakState } from '@/lib/streak/types';
-import { archiveStreakActivity, loadStreakState, resetStreakActivity, upsertStreakActivity } from '@/lib/streakDb';
+import { archiveStreakActivity, loadStreakState, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
 
 export default function CustomizeHabitsPanel() {
   const [state, setState] = useState<StreakState | null>(null);
@@ -48,19 +49,24 @@ export default function CustomizeHabitsPanel() {
             <ul className="space-y-2">
               {activities.map((activity) => {
                 const resetCount = state.data.activityResetCounts[activity.id] || 0;
+                const isPaused = !!state.data.pausedActivities[activity.id];
                 return (
                   <li key={activity.id} className="flex flex-col gap-2 rounded-md border px-3 py-2">
                     <div className="min-w-0">
                       <p className="font-medium">{activity.name || activity.id}</p>
                       <p className="text-xs text-muted-foreground">
                         {activity.frequency === 'weekly' ? `Weekly · ${activity.weeklyTarget ?? 1}/wk` : 'Daily'}
+                        {isPaused ? ' · Paused' : ''}
                         {activity.description ? ` · ${activity.description}` : ''}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="secondary" onClick={() => { setEditingActivity(activity); setIsNewActivity(false); setEditorOpen(true); }}>Edit</Button>
+                      <Button size="sm" variant="ghost" title={isPaused ? 'Resume activity' : 'Pause activity'} onClick={() => void setActivityPaused(state, activity.id, !isPaused).then(setState)}>
+                        {isPaused ? '▶ Resume' : '⏸ Pause'}
+                      </Button>
                       <Button size="sm" variant="ghost" title="Reset stats" onClick={() => void resetStreakActivity(state, activity.id).then(setState)}>
-                        <span className="inline-flex items-center gap-1"><span>↻</span><span>{resetCount}</span></span>
+                        {resetButtonLabel(resetCount)}
                       </Button>
                       <Button size="sm" variant="ghost" title="Archive activity" onClick={() => void archiveStreakActivity(state, activity.id).then(setState)}>🗃 Archive</Button>
                     </div>

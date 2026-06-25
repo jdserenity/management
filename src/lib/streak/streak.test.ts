@@ -10,6 +10,7 @@ import { mergeLogs, mergeState } from '@/lib/streak/merge';
 import { normalizeConfig } from '@/lib/streak/normalize';
 import { pausedStateFromVault, mergePausedOnIncoming } from '@/lib/streak/pauseSync';
 import { calculateStats } from '@/lib/streak/stats';
+import { resetButtonLabel } from '@/lib/streak/resetDisplay';
 import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/streakDisplay';
 import { isElementTruncated } from '@/lib/streak/truncation';
 import type { StreakActivityStats, StreakConfig, StreakData } from '@/lib/streak/types';
@@ -251,6 +252,22 @@ describe('normalize config fixture', () => {
 describe('dates iso week', () => {
   it('getISOWeekStart returns Monday', () => {
     expect(getISOWeekStart('2026-05-20')).toBe('2026-05-18');
+  });
+});
+
+describe('resetButtonLabel', () => {
+  it('shows plain Reset when never reset', () => {
+    expect(resetButtonLabel(0)).toBe('Reset');
+  });
+
+  it('shows Once and Twice in brackets', () => {
+    expect(resetButtonLabel(1)).toBe('Reset (Once)');
+    expect(resetButtonLabel(2)).toBe('Reset (Twice)');
+    expect(resetButtonLabel(3)).toBe('Reset (Thrice)');
+  });
+
+  it('falls back to count for higher reset totals', () => {
+    expect(resetButtonLabel(4)).toBe('Reset (4 times)');
   });
 });
 

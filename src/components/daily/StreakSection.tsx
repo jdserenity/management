@@ -12,7 +12,6 @@ import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import {
   loadStreakState,
   saveStreakLog,
-  setActivityPaused,
   updateStreakActivityDescription
 } from '@/lib/streakDb';
 import './streak.css';
@@ -87,7 +86,6 @@ export default function StreakSection() {
                 activity={a}
                 state={state}
                 onLog={(id, s, d) => void handleLog(id, s, d)}
-                onPause={(id, paused) => void setActivityPaused(state, id, paused).then(setState)}
                 onEditDescription={(id, desc) => void updateStreakActivityDescription(state, id, desc).then(setState)}
               />
             ))}
@@ -98,7 +96,6 @@ export default function StreakSection() {
                 activity={a}
                 state={state}
                 onLog={(id, s, d) => void handleLog(id, s, d)}
-                onPause={(id, paused) => void setActivityPaused(state, id, paused).then(setState)}
                 onEditDescription={(id, desc) => void updateStreakActivityDescription(state, id, desc).then(setState)}
               />
             ))}
