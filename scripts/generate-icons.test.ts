@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'generate-icons.mjs');
 
 describe('generate-icons script', () => {
-  it('exists and references royal blue brand color', () => {
+  it('exists and references the brand color', () => {
     const source = fs.readFileSync(scriptPath, 'utf8');
-    expect(source).toContain('#4169E1');
+    expect(source).toContain('#0000FF');
     expect(source).toContain('tray.png');
     expect(source).toContain('monitoring_off.png');
   });
