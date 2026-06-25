@@ -8,7 +8,7 @@ const scriptPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'gene
 describe('generate-icons script', () => {
   it('exists and references the brand color', () => {
     const source = fs.readFileSync(scriptPath, 'utf8');
-    expect(source).toContain('#0000FF');
+    expect(source).toContain('#0047AB');
     expect(source).toContain('tray.png');
     expect(source).toContain('monitoring_off.png');
   });

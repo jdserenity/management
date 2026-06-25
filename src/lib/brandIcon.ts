@@ -1,5 +1,5 @@
 /** Royal blue app icon fill — shared by desktop bundle, PWA, and favicon assets. */
-export const BRAND_ICON_COLOR = '#0000FF';
+export const BRAND_ICON_COLOR = '#0047AB';
 
 /** macOS-style corner radius as a fraction of the square edge length. */
 export const BRAND_ICON_CORNER_RATIO = 0.2237;

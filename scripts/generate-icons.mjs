@@ -10,10 +10,10 @@ const tauriIcons = path.join(root, 'src-tauri/icons');
 const companionPublic = path.join(root, 'apps/companion/public');
 const publicDir = path.join(root, 'public');
 
-const BRAND_COLOR = '#0000FF';
+const BRAND_COLOR = '#0047AB';
 const CORNER_RATIO = 0.2237;
-// ~5% inset on each side so the icon floats within the canvas like other macOS dock icons.
-const ICON_PADDING_RATIO = 0.05;
+// ~8% inset on each side so the icon floats within the canvas like other macOS dock icons.
+const ICON_PADDING_RATIO = 0.08;
 
 function appIconSvg(size) {
   const pad = Math.round(size * ICON_PADDING_RATIO);
