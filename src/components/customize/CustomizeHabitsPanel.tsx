@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
-import { isTauri } from '@/lib/isTauri';
+import { hasAppStorage } from '@/lib/appRuntime';
 import { resetButtonLabel } from '@/lib/streak/resetDisplay';
 import type { StreakActivity, StreakState } from '@/lib/streak/types';
 import { archiveStreakActivity, loadStreakState, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
@@ -15,7 +15,7 @@ export default function CustomizeHabitsPanel() {
   const [isNewActivity, setIsNewActivity] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!isTauri()) { setLoadError(null); setState(null); return; }
+    if (!hasAppStorage()) { setLoadError(null); setState(null); return; }
     try {
       setLoadError(null);
       setState(await loadStreakState());
@@ -27,8 +27,8 @@ export default function CustomizeHabitsPanel() {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  if (!isTauri()) {
-    return <p className="text-sm text-muted-foreground">Run <code>npm run tauri dev</code> to edit habits.</p>;
+  if (!hasAppStorage()) {
+    return <p className="text-sm text-muted-foreground">Storage is not ready yet.</p>;
   }
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!state) return <p className="text-sm text-muted-foreground">Loading habits…</p>;

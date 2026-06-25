@@ -29,7 +29,8 @@ export default defineConfig({
     alias: [
       { find: '@', replacement: path.resolve(__dirname, '../../src') },
       { find: '@mgmt/core', replacement: path.resolve(__dirname, '../../packages/core/src/index.ts') },
-      { find: '@mgmt/sync', replacement: path.resolve(__dirname, '../../packages/sync/src/index.ts') }
+      { find: '@mgmt/sync', replacement: path.resolve(__dirname, '../../packages/sync/src/index.ts') },
+      { find: '@mgmt/storage', replacement: path.resolve(__dirname, '../../packages/storage/src/index.ts') }
     ]
   },
   server: {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSession } from '@/context/SessionContext';
+import { isTauri } from '@/lib/isTauri';
 import {
   formatSessionTrayTitle,
   sessionPhaseNotifyCopy,
@@ -65,7 +66,7 @@ const SessionAlerts = () => {
     if (!alertsActive) return;
     if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
     if (!prefs.trayTimer) {
-      invoke('set_tray_session_label', { label: '' }).catch(console.error);
+      if (isTauri()) invoke('set_tray_session_label', { label: '' }).catch(console.error);
       return;
     }
     trayLabelTimerRef.current = setTimeout(() => {
@@ -78,7 +79,7 @@ const SessionAlerts = () => {
         Boolean(activeWorkout)
       );
       const label = traySessionLabelInvokeArg(phase, formatted);
-      invoke('set_tray_session_label', { label }).catch(console.error);
+      if (isTauri()) invoke('set_tray_session_label', { label }).catch(console.error);
     }, 200);
     return () => {
       if (trayLabelTimerRef.current) clearTimeout(trayLabelTimerRef.current);
@@ -123,8 +124,8 @@ const SessionAlerts = () => {
     if (enteringActive) {
       const background = takeBackgroundFlowStart();
       if (prefs.sound && !background) playPhaseChangeChime();
-      if (prefs.focusWindow && !background) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
-      if (prefs.notify && !background) {
+      if (prefs.focusWindow && !background && isTauri()) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+      if (prefs.notify && !background && isTauri()) {
         const copy = sessionPhaseNotifyCopy(phase, activeSessionType, breakVariant, longBreakStage);
         if (copy) invoke('notify_session_phase', { title: copy.title, body: copy.body }).catch(console.error);
       }
@@ -133,8 +134,8 @@ const SessionAlerts = () => {
 
     if (leftActive) {
       if (prefs.sound) playPhaseChangeChime();
-      if (prefs.focusWindow) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
-      if (prefs.notify) {
+      if (prefs.focusWindow && isTauri()) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+      if (prefs.notify && isTauri()) {
         invoke('notify_session_phase', {
           title: 'Session flow ended',
           body: 'Your scheduled focus and break chain has finished.'
