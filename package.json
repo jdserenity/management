@@ -8,6 +8,7 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "vite",
     "icons:generate": "node scripts/generate-icons.mjs",
     "dev:companion": "npm run dev -w @mgmt/companion",
     "dev:sync-api": "npm run dev -w @mgmt/sync-api",
