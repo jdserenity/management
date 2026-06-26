@@ -57,4 +57,4 @@ Documentation Rules
 
 Daily tracker deck (user-facing names — do not substitute)
 - The three stacked panels on the Daily tab are **Streaks**, **TDEE**, and **Water**. Never label them Habits, Calories, Nutrition, or Food in UI copy or docs.
-- All three panels are always visible in fixed slots: **TDEE** left, **Streaks** center (full width, on top by default), **Water** right. TDEE and Water are **smaller** than Streaks when behind (shorter, slightly narrower); their outer edge peeks in the side lanes while Streaks covers the overlap. Click raises z-index in place. No card frames. No tab pills.
+- All three panels are always visible in fixed slots: **TDEE** left (bottom-aligned behind Streaks), **Streaks** center (widest, on top by default), **Water** right (slightly below top, behind Streaks). TDEE/Water are smaller when behind. Click raises z-index in place. No card frames. No tab pills.
