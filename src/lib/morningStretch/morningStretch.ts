@@ -2,7 +2,6 @@ import { isTimestampInStatsDay } from '@/lib/dayBoundary';
 import { scaleExercisesByRatio } from '@/lib/sessionProgress';
 import {
   applyExerciseOverride,
-  resolveAllowedStretchPickKeys,
   resolveAllowedWorkoutIdsFromPrefs,
   stretchHoldSecondsForPickKey,
   type WorkoutCustomizePrefs
@@ -90,8 +89,7 @@ export const listMorningStretchCatalog = (prefs: WorkoutCustomizePrefs): Morning
   PREDEFINED_WORKOUTS.filter((w) => w.id !== 'stretch-mobility' && allowedWorkoutIds.has(w.id)).forEach((w) => {
     out.push({ ref: { kind: 'predefined', id: w.id }, label: w.name, group: 'moves' });
   });
-  const allowedStretchKeys = new Set(resolveAllowedStretchPickKeys(prefs));
-  STRETCH_PICK_CATALOG.filter((row) => allowedStretchKeys.has(row.key)).forEach((row) => {
+  STRETCH_PICK_CATALOG.forEach((row) => {
     out.push({ ref: { kind: 'stretchPick', id: row.key }, label: row.label, group: 'stretches' });
   });
   prefs.customExercises.forEach((ex) => {

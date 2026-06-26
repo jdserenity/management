@@ -32,7 +32,7 @@ export default function MorningStretchRoutineEditor({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Turn on pool moves in Stretch pool below, then add them to this routine. Predefined moves (e.g. arm rolls) come from Customize → Exercises.
+        Turn on predefined moves under Customize → Exercises, then add stretches and moves to this routine. Break-pool toggles below only affect focus-flow breaks.
       </p>
       {routine.exerciseRefs.length === 0 ? (
         <p className="text-sm text-muted-foreground">No moves in your routine yet.</p>
@@ -86,7 +86,7 @@ export default function MorningStretchRoutineEditor({
         </div>
       )}
       {availableToAdd.length === 0 && routine.exerciseRefs.length === 0 && (
-        <p className="text-sm text-muted-foreground">Enable stretches in the pool below, or turn on moves under Customize → Exercises.</p>
+        <p className="text-sm text-muted-foreground">Add stretches from the catalog, or enable predefined moves under Customize → Exercises.</p>
       )}
     </div>
   );

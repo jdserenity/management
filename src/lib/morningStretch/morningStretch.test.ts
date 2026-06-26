@@ -47,13 +47,13 @@ describe('listMorningStretchCatalog', () => {
     expect(catalog.some((row) => row.ref.kind === 'custom' && row.ref.id === 'custom-a')).toBe(true);
   });
 
-  it('drops disabled predefined moves and stretch picks', () => {
+  it('drops disabled predefined moves but always lists every stretch pick', () => {
     const prefs = defaultWorkoutCustomizePrefs();
     prefs.allowedWorkoutIds = prefs.allowedWorkoutIds.filter((id) => id !== 'push-ups');
     prefs.allowedStretchPickKeys = prefs.allowedStretchPickKeys.filter((key) => key !== 'stretch-neck-roll');
     const catalog = listMorningStretchCatalog(prefs);
     expect(catalog.some((row) => row.ref.id === 'push-ups')).toBe(false);
-    expect(catalog.some((row) => row.ref.id === 'stretch-neck-roll')).toBe(false);
+    expect(catalog.some((row) => row.ref.id === 'stretch-neck-roll')).toBe(true);
   });
 });
 

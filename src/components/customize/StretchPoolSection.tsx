@@ -16,9 +16,9 @@ export default function StretchPoolSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Stretch pool</CardTitle>
+        <CardTitle>Break stretch pool</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Moves you turn on here can be added to stretch routines below and may appear in exercise breaks. Neck, hip roll, and standing forward hang always use 30s holds.
+          Choose which stretches can appear in mixed exercise breaks during focus flows. Stretch creator routines can use any stretch; these toggles do not limit that.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
