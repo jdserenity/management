@@ -5,6 +5,7 @@ import { parseScheduledDays } from '@/lib/streak/activityCatalog';
 import { getISOWeekStart, getWeekDays, parseDate } from '@/lib/streak/dates';
 import { getLogState } from '@/lib/streak/logs';
 import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/streakDisplay';
+import { formatOverlapBadge } from '@/lib/streak/overlap';
 import { isElementTruncated } from '@/lib/streak/truncation';
 import type { StreakActivity, StreakActivityStats, StreakLogState, StreakState } from '@/lib/streak/types';
 
@@ -72,6 +73,7 @@ const ActivityName = ({
   const nameRef = useRef<HTMLDivElement>(null);
   const [nameWrap, setNameWrap] = useState(false);
   const hasDescription = !!activity.description;
+  const overlapBadge = formatOverlapBadge(activity);
 
   const handleClick = () => {
     if (!hasDescription) return;
@@ -88,6 +90,7 @@ const ActivityName = ({
       onClick={handleClick}
     >
       {activity.name || activity.id}
+      {overlapBadge ? <span className="streak-overlap-badge">{overlapBadge}</span> : null}
     </div>
   );
 };
