@@ -28,6 +28,7 @@ describe('sessionProgress', () => {
 
   it('advances long break exercise to relax before next focus', () => {
     expect(breakTimerEndAction('long', 'exercise', 'pomodoro')).toBe('long_relax');
+    expect(breakTimerEndAction('long', 'very_light', 'pomodoro')).toBe('long_relax');
     expect(breakTimerEndAction('long', 'relax', 'pomodoro')).toBe('start_focus');
   });
 

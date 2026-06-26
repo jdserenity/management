@@ -10,6 +10,8 @@ export const sessionTimerLabel = (
   if (phase === 'focus') {
     return activeSessionType === 'pomodoro' ? '🍅 Pomodoro focus' : '🎯 Deep work focus';
   }
+  if (phase === 'break' && breakVariant === 'very_light') return '🫖 Very Light Break';
+  if (phase === 'break' && longBreakStage === 'very_light') return '🫖 Very Light Break';
   if (phase === 'break' && !activeSessionType) return '🏃 Exercise break';
   if (phase === 'break' && breakVariant === 'short') return '🏃 Exercise break';
   if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise') return '🏃 Exercise break';

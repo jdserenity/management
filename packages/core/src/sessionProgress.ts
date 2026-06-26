@@ -18,7 +18,7 @@ export const breakTimerEndAction = (
   longBreakStage: LongBreakStage | null,
   nextSessionType: SessionType | null
 ): BreakTimerEndAction => {
-  if (breakVariant === 'long' && longBreakStage === 'exercise') return 'long_relax';
+  if (breakVariant === 'long' && (longBreakStage === 'exercise' || longBreakStage === 'very_light')) return 'long_relax';
   if (!nextSessionType) return 'finish';
   return 'start_focus';
 };

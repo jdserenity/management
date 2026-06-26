@@ -11,7 +11,13 @@ import {
 import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow, isTimestampInStatsDay } from '@/lib/dayBoundary';
 import { loadDayRolloverHourPref, saveDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { isCantExerciseModeEnabled, setCantExerciseModeEnabled } from '@/lib/cantExerciseModePref';
-import { pickBreakWorkoutFromPrefs, refineBreakWorkoutForCantExerciseMode, shouldScheduleExerciseOnPomodoroBreak } from '@/lib/exerciseBreak';
+import {
+  isVeryLightBreak,
+  normalizeFlowForCantExerciseMode,
+  resolveLongBreakExerciseStage,
+  resolvePomodoroBreakKind,
+  restoreExerciseBreakFromVeryLight
+} from '@/lib/exerciseBreak';
 import {
   defaultWorkoutCustomizePrefs,
   mergeExerciseOverride,
@@ -23,6 +29,7 @@ import {
 import {
   buildManualExerciseLogEntry,
   mergeWorkoutExercisesIntoTotals,
+  pickWorkoutForBreak,
   sumExerciseVolume,
   summarizeFocusToday,
   summarizeTodayExerciseTotals,
@@ -218,9 +225,37 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     phaseStartedAtMsRef.current = Date.now();
   }, []);
 
-  const pickBreakWorkout = useCallback(() => {
-    return pickBreakWorkoutFromPrefs(workoutCustomizePrefsRef.current, cantExerciseModeRef.current);
-  }, []);
+  const pickBreakWorkout = useCallback(() => pickWorkoutForBreak(workoutCustomizePrefsRef.current), []);
+
+  const applyFlowSnapshot = useCallback(
+    (flow: PersistedFlowState) => {
+      const normalized = normalizeFlowForCantExerciseMode(flow, cantExerciseModeRef.current);
+      phasePlannedSecondsRef.current = normalized.phasePlannedSeconds;
+      phaseStartedAtMsRef.current =
+        normalized.phaseStartedAtMs ??
+        Date.now() - Math.max(0, normalized.phasePlannedSeconds - normalized.remainingSeconds) * 1000;
+      phaseEndsAtMsRef.current = Date.now() + normalized.remainingSeconds * 1000;
+      setPhase(normalized.phase);
+      setBreakVariant(normalized.breakVariant);
+      setLongBreakStage(normalized.longBreakStage);
+      setActiveSessionType(normalized.activeSessionType);
+      setRemainingSeconds(normalized.remainingSeconds);
+      setNextSessionType(normalized.nextSessionType);
+      setActiveWorkout(normalized.activeWorkout);
+      setWorkoutLogged(normalized.workoutLogged);
+      workoutLoggedRef.current = normalized.workoutLogged;
+      setRunStartedAt(normalized.runStartedAt);
+      runPomodorosRef.current = normalized.runPomodoros;
+      runDeepWorkRef.current = normalized.runDeepWork;
+      setRunPomodoros(normalized.runPomodoros);
+      setRunDeepWork(normalized.runDeepWork);
+      runExerciseTotalsRef.current = { ...normalized.runExerciseTotals };
+      setRunExerciseTotals(normalized.runExerciseTotals);
+      setPomodoroPosture(normalized.pomodoroPosture);
+      lastPomodoroPostureRef.current = normalized.lastPomodoroPosture;
+    },
+    []
+  );
 
   const setPhaseTimer = useCallback((seconds: number, plannedSeconds?: number) => {
     const planned = plannedSeconds ?? seconds;
@@ -269,39 +304,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     }, 400);
   }, [buildPersistedFlow]);
 
-  const applyPersistedFlow = useCallback(
-    (flow: PersistedFlowState) => {
-      phasePlannedSecondsRef.current = flow.phasePlannedSeconds;
-      phaseStartedAtMsRef.current =
-        flow.phaseStartedAtMs ??
-        Date.now() - Math.max(0, flow.phasePlannedSeconds - flow.remainingSeconds) * 1000;
-      phaseEndsAtMsRef.current = Date.now() + flow.remainingSeconds * 1000;
-      const activeWorkout = refineBreakWorkoutForCantExerciseMode(
-        flow.activeWorkout,
-        cantExerciseModeRef.current,
-        workoutCustomizePrefsRef.current
-      );
-      setPhase(flow.phase);
-      setBreakVariant(flow.breakVariant);
-      setLongBreakStage(flow.longBreakStage);
-      setActiveSessionType(flow.activeSessionType);
-      setRemainingSeconds(flow.remainingSeconds);
-      setNextSessionType(flow.nextSessionType);
-      setActiveWorkout(activeWorkout);
-      setWorkoutLogged(flow.workoutLogged);
-      workoutLoggedRef.current = flow.workoutLogged;
-      setRunStartedAt(flow.runStartedAt);
-      runPomodorosRef.current = flow.runPomodoros;
-      runDeepWorkRef.current = flow.runDeepWork;
-      setRunPomodoros(flow.runPomodoros);
-      setRunDeepWork(flow.runDeepWork);
-      runExerciseTotalsRef.current = { ...flow.runExerciseTotals };
-      setRunExerciseTotals(flow.runExerciseTotals);
-      setPomodoroPosture(flow.pomodoroPosture);
-      lastPomodoroPostureRef.current = flow.lastPomodoroPosture;
-    },
-    []
-  );
+  const applyPersistedFlow = applyFlowSnapshot;
 
   const applyExerciseTotals = useCallback((next: Record<string, ExerciseRunAgg>) => {
     runExerciseTotalsRef.current = next;
@@ -401,19 +404,20 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   const startExerciseBreak = useCallback(() => {
     const empty = emptyExerciseTotals();
     const startedAt = Date.now();
+    const veryLight = cantExerciseModeRef.current;
     setRunStartedAt(startedAt);
     runStartedAtRef.current = startedAt;
     phaseRef.current = 'break';
-    breakVariantRef.current = 'short';
+    breakVariantRef.current = veryLight ? 'very_light' : 'short';
     longBreakStageRef.current = null;
     activeSessionTypeRef.current = null;
     nextSessionTypeRef.current = null;
     setPhase('break');
-    setBreakVariant('short');
+    setBreakVariant(veryLight ? 'very_light' : 'short');
     setLongBreakStage(null);
     setActiveSessionType(null);
     setNextSessionType(null);
-    setActiveWorkout(pickBreakWorkout());
+    setActiveWorkout(veryLight ? null : pickBreakWorkout());
     setWorkoutLogged(false);
     workoutLoggedRef.current = false;
     applyExerciseTotals(empty);
@@ -425,7 +429,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     const secs = SESSION_DURATIONS_MINUTES.break * 60;
     setPhaseTimer(secs, secs);
     schedulePersistFlow();
-  }, [applyExerciseTotals, markPhaseStarted, setPhaseTimer, schedulePersistFlow]);
+  }, [applyExerciseTotals, markPhaseStarted, pickBreakWorkout, setPhaseTimer, schedulePersistFlow]);
 
   const startFlow = useCallback(
     (sessionType: SessionType, options?: StartFlowOptions) => {
@@ -579,15 +583,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
         setWorkoutLogs(snapshot.workoutLogs);
         setFocusLogs(snapshot.focusLogs);
         if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
-          const flow = {
-            ...snapshot.activeFlow,
-            activeWorkout: refineBreakWorkoutForCantExerciseMode(
-              snapshot.activeFlow.activeWorkout,
-              cantExerciseEnabled,
-              snapshot.workoutCustomizePrefs
-            )
-          };
-          applyPersistedFlow(flow);
+          applyPersistedFlow(snapshot.activeFlow);
           if (snapshot.activeFlow.remainingSeconds === 0) prevRemainingForTimerEndRef.current = -1;
         }
       })
@@ -695,14 +691,19 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
         recordFocusSession(sessionType, 1);
         if (sessionType === 'pomodoro') {
           lastPomodoroPostureRef.current = pomodoroPostureRef.current;
-          if (shouldScheduleExerciseOnPomodoroBreak(runPomodorosRef.current)) {
+          const breakKind = resolvePomodoroBreakKind(runPomodorosRef.current, cantExerciseModeRef.current);
+          if (breakKind === 'exercise') {
             setActiveWorkout(pickBreakWorkout());
+            setBreakVariant('short');
+          } else if (breakKind === 'very_light') {
+            setActiveWorkout(null);
+            setBreakVariant('very_light');
           } else {
             setActiveWorkout(null);
+            setBreakVariant('short');
           }
           setWorkoutLogged(false);
           workoutLoggedRef.current = false;
-          setBreakVariant('short');
           setLongBreakStage(null);
           setPhase('break');
           markPhaseStarted();
@@ -710,11 +711,12 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
           setPhaseTimer(secs, secs);
           return;
         }
-        setActiveWorkout(pickBreakWorkout());
+        const longStage = resolveLongBreakExerciseStage(cantExerciseModeRef.current);
+        setActiveWorkout(longStage === 'exercise' ? pickBreakWorkout() : null);
         setWorkoutLogged(false);
         workoutLoggedRef.current = false;
         setBreakVariant('long');
-        setLongBreakStage('exercise');
+        setLongBreakStage(longStage);
         setPhase('break');
         markPhaseStarted();
         const secs = SESSION_DURATIONS_MINUTES.break * 60;
@@ -726,7 +728,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
         advanceCurrentBreak();
       }
     };
-  }, [recordFocusSession, logActiveWorkoutIfNeeded, advanceCurrentBreak, setPhaseTimer, markPhaseStarted]);
+  }, [recordFocusSession, logActiveWorkoutIfNeeded, advanceCurrentBreak, pickBreakWorkout, setPhaseTimer, markPhaseStarted]);
 
   useEffect(() => {
     if (!sessionStorageReady || phase === 'idle') {
@@ -806,18 +808,32 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     void setCantExerciseModeEnabled(enabled).catch((error) => {
       console.error('Failed to save can\'t-exercise mode:', error);
     });
+    if (phaseRef.current !== 'break') return;
     if (enabled) {
-      const refined = refineBreakWorkoutForCantExerciseMode(
-        activeWorkoutRef.current,
-        true,
-        workoutCustomizePrefsRef.current
-      );
-      if (refined !== activeWorkoutRef.current) {
-        setActiveWorkout(refined);
+      const normalized = normalizeFlowForCantExerciseMode(buildPersistedFlow(), true);
+      if (
+        normalized.breakVariant !== breakVariantRef.current ||
+        normalized.longBreakStage !== longBreakStageRef.current ||
+        normalized.activeWorkout !== activeWorkoutRef.current
+      ) {
+        applyFlowSnapshot(normalized);
         schedulePersistFlow();
       }
+      return;
     }
-  }, [schedulePersistFlow]);
+    if (!isVeryLightBreak(phaseRef.current, breakVariantRef.current, longBreakStageRef.current)) return;
+    const restored = restoreExerciseBreakFromVeryLight(buildPersistedFlow());
+    breakVariantRef.current = restored.breakVariant;
+    longBreakStageRef.current = restored.longBreakStage;
+    setBreakVariant(restored.breakVariant);
+    setLongBreakStage(restored.longBreakStage);
+    const workout = pickBreakWorkout();
+    setActiveWorkout(workout);
+    activeWorkoutRef.current = workout;
+    setWorkoutLogged(false);
+    workoutLoggedRef.current = false;
+    schedulePersistFlow();
+  }, [applyFlowSnapshot, buildPersistedFlow, pickBreakWorkout, schedulePersistFlow]);
 
   const todayExerciseTotals = useMemo(
     () => summarizeTodayExerciseTotals(workoutLogs, Date.now(), dayRolloverHour),

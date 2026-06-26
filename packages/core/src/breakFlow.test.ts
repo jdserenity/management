@@ -53,6 +53,12 @@ describe('breakFlow', () => {
     }
   });
 
+  it('advances long break very light to relax before next focus', () => {
+    const flow = { ...baseFlow(), breakVariant: 'long' as const, longBreakStage: 'very_light' as const, activeSessionType: 'deep' as const, nextSessionType: 'pomodoro' as const, activeWorkout: null };
+    const result = advanceBreakWhenTimerEnds(flow, 1000);
+    expect(result.kind).toBe('long_relax');
+  });
+
   it('complete workout uses the same advance rules as timer end', () => {
     const result = advanceBreakAfterExerciseComplete({ ...baseFlow(), nextSessionType: null }, 1000);
     expect(result.kind).toBe('finish');
