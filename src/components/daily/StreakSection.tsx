@@ -14,9 +14,15 @@ import {
   saveStreakLog,
   updateStreakActivityDescription
 } from '@/lib/streakDb';
+import { addCustomEntry, loadTdeeFile } from '@/lib/tdeeDb';
+import { addWaterEntry, loadWaterFile } from '@/lib/waterDb';
 import './streak.css';
 
-export default function StreakSection() {
+type Props = {
+  onCrossLog?: (kind: 'tdee' | 'water') => void;
+};
+
+export default function StreakSection({ onCrossLog }: Props) {
   const [state, setState] = useState<StreakState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [heatmapColor, setHeatmapColor] = useState<string | null>(null);
@@ -53,6 +59,19 @@ export default function StreakSection() {
     const next = await saveStreakLog(state, activityId, newState, day);
     const nowComplete = isDayComplete(next.data, buildActivityCatalog(next.config, next.data), targetDay);
     if (!wasComplete && nowComplete && newState === 'success') fireDayCompleteConfetti();
+    if (newState === 'success') {
+      const activity = next.config.activities.find((a) => a.id === activityId);
+      if (activity?.extraCalories) {
+        const tdeeFile = await loadTdeeFile();
+        await addCustomEntry(tdeeFile, activity.name || activity.id, activity.extraCalories, activity.extraProtein ?? 0, 1);
+        onCrossLog?.('tdee');
+      }
+      if (activity?.extraWaterMl) {
+        const waterFile = await loadWaterFile();
+        await addWaterEntry(waterFile, activity.name || activity.id, activity.extraWaterMl, 1);
+        onCrossLog?.('water');
+      }
+    }
     setState(next);
   };
 
