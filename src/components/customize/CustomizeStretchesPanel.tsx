@@ -20,6 +20,7 @@ import {
   type StretchGradientId
 } from '@/lib/stretchCreator/stretchCreator';
 import { loadStretchDefinitions, removeStretchDefinition, upsertStretchDefinition } from '@/lib/stretchCreator/stretchCreatorDb';
+import StretchPoolSection from '@/components/customize/StretchPoolSection';
 import { Plus, Trash2 } from 'lucide-react';
 
 const refKey = (ref: MorningStretchRef): string => `${ref.kind}:${ref.id}`;
@@ -107,6 +108,7 @@ export default function CustomizeStretchesPanel() {
 
   return (
     <div className="space-y-4">
+      <StretchPoolSection />
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <div>

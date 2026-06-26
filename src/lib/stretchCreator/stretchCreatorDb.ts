@@ -99,7 +99,15 @@ export const loadStretchDefinitions = async (
   }
   try {
     const parsed = JSON.parse(raw) as unknown;
-    return normalizeCollection(parsed, prefs);
+    const collection = normalizeCollection(parsed, prefs);
+    const rawItems = Array.isArray(parsed) ? parsed : [];
+    const rawBuiltIn = rawItems.find((item) => (item as StretchDefinition)?.id === BUILTIN_MORNING_STRETCH_ID) as Partial<StretchDefinition> | undefined;
+    const loadedBuiltIn = collection.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID);
+    const rawLen = Array.isArray(rawBuiltIn?.exerciseRefs) ? rawBuiltIn!.exerciseRefs!.length : 0;
+    if (loadedBuiltIn && loadedBuiltIn.exerciseRefs.length > rawLen) {
+      await saveStretchDefinitions(collection, prefs);
+    }
+    return collection;
   } catch (error) {
     console.error('Failed to parse stretch_definitions from app_kv:', error);
     return [await migrateFromLegacyMorningStretch(prefs)];

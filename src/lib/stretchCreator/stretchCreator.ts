@@ -6,6 +6,7 @@ import {
   MORNING_STRETCH_WORKOUT_ID,
   MORNING_STRETCH_WORKOUT_NAME,
   normalizeMorningStretchRoutine,
+  repairBuiltinMorningStretchRefs,
   resolveMorningStretchExercises,
   type MorningStretchRef
 } from '@/lib/morningStretch/morningStretch';
@@ -163,9 +164,10 @@ export const normalizeStretchDefinition = (
 ): StretchDefinition => {
   const base = fallback ?? defaultBuiltinMorningStretch();
   if (!raw) return { ...base };
-  const routine = normalizeMorningStretchRoutine({ exerciseRefs: raw.exerciseRefs }, prefs);
   const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : base.id;
   const builtIn = raw.builtIn === true || id === BUILTIN_MORNING_STRETCH_ID;
+  const routine = normalizeMorningStretchRoutine({ exerciseRefs: raw.exerciseRefs }, prefs);
+  const exerciseRefs = builtIn ? repairBuiltinMorningStretchRefs(routine.exerciseRefs) : routine.exerciseRefs;
   const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : (builtIn ? base.name : 'New stretch');
   const emoji = typeof raw.emoji === 'string' && raw.emoji.trim() ? raw.emoji.trim() : (builtIn ? base.emoji : '🧘');
   const workoutId = typeof raw.workoutId === 'string' && raw.workoutId.trim() ? raw.workoutId.trim() : (builtIn ? MORNING_STRETCH_WORKOUT_ID : id);
@@ -175,7 +177,7 @@ export const normalizeStretchDefinition = (
     name,
     emoji,
     gradientId: isStretchGradientId(raw.gradientId) ? raw.gradientId : (builtIn ? base.gradientId : 'ocean'),
-    exerciseRefs: routine.exerciseRefs,
+    exerciseRefs,
     enabled: typeof raw.enabled === 'boolean' ? raw.enabled : true,
     durationMinutes: typeof raw.durationMinutes === 'number' ? clampStretchDurationMinutes(raw.durationMinutes) : DEFAULT_STRETCH_DURATION_MINUTES,
     trigger: raw.trigger ? normalizeTrigger(raw.trigger) : defaultTrigger,

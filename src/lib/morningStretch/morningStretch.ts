@@ -42,6 +42,23 @@ export type MorningStretchCatalogEntry = {
 
 const refKey = (ref: MorningStretchRef): string => `${ref.kind}:${ref.id}`;
 
+export const isStretchExerciseRefValid = (ref: MorningStretchRef, prefs: WorkoutCustomizePrefs): boolean => {
+  if (!ref?.id || !ref?.kind) return false;
+  if (ref.kind === 'stretchPick') return STRETCH_PICK_CATALOG.some((row) => row.key === ref.id);
+  if (ref.kind === 'predefined') return PREDEFINED_WORKOUTS.some((w) => w.id === ref.id && w.id !== 'stretch-mobility');
+  if (ref.kind === 'custom') return prefs.customExercises.some((ex) => ex.id === ref.id);
+  return false;
+};
+
+/** Restore shipped default refs when a large subset of defaults was saved after pool-filter stripping. */
+export const repairBuiltinMorningStretchRefs = (refs: MorningStretchRef[]): MorningStretchRef[] => {
+  const defaults = DEFAULT_MORNING_STRETCH_EXERCISE_REFS;
+  const defaultKeySet = new Set(defaults.map(refKey));
+  const savedAreOnlyDefaults = refs.length > 0 && refs.every((ref) => defaultKeySet.has(refKey(ref)));
+  if (savedAreOnlyDefaults && refs.length >= 4 && refs.length < defaults.length) return [...defaults];
+  return refs;
+};
+
 export const labelForMorningStretchRef = (ref: MorningStretchRef): string => {
   if (ref.kind === 'stretchPick') {
     const row = STRETCH_PICK_CATALOG.find((r) => r.key === ref.id);
@@ -93,11 +110,10 @@ export const normalizeMorningStretchRoutine = (
   raw: Partial<MorningStretchRoutine> | null | undefined,
   prefs: WorkoutCustomizePrefs
 ): MorningStretchRoutine => {
-  const valid = catalogRefSet(prefs);
   const refs = Array.isArray(raw?.exerciseRefs)
     ? raw!.exerciseRefs.filter(
         (ref): ref is MorningStretchRef =>
-          Boolean(ref?.id && ref?.kind && valid.has(refKey({ kind: ref.kind, id: ref.id })))
+          Boolean(ref?.id && ref?.kind && isStretchExerciseRefValid({ kind: ref.kind, id: ref.id }, prefs))
       )
     : [];
   return { exerciseRefs: refs };

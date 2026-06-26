@@ -32,7 +32,7 @@ export default function MorningStretchRoutineEditor({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Only exercises enabled under Customize workouts appear here. Add new moves to the global pool first.
+        Turn on pool moves under Stretch pool above, then add them to this routine. Predefined moves (e.g. arm rolls) come from Customize → Exercises.
       </p>
       {routine.exerciseRefs.length === 0 ? (
         <p className="text-sm text-muted-foreground">No moves in your routine yet.</p>
@@ -86,7 +86,7 @@ export default function MorningStretchRoutineEditor({
         </div>
       )}
       {availableToAdd.length === 0 && routine.exerciseRefs.length === 0 && (
-        <p className="text-sm text-muted-foreground">Enable exercises on the Customize workouts tab first.</p>
+        <p className="text-sm text-muted-foreground">Enable stretches in the pool above, or turn on moves under Customize → Exercises.</p>
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import {
   KV_MORNING_STRETCH_HIDE_AFTER_HOUR
 } from '@/lib/morningStretch/morningStretchPref';
 import { BUILTIN_MORNING_STRETCH_ID, defaultBuiltinMorningStretch } from '@/lib/stretchCreator/stretchCreator';
+import type { StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
 import {
   KV_STRETCH_DEFINITIONS,
   loadStretchDefinitions,
@@ -70,11 +71,13 @@ describe('stretchCreatorDb', () => {
     expect(loaded.some((s) => s.id === 'stretch-custom')).toBe(true);
   });
 
-  it('upserts a stretch by id', async () => {
-    const updated = defaultBuiltinMorningStretch();
-    updated.name = 'Sunrise routine';
-    await upsertStretchDefinition(updated);
-    const loaded = await loadStretchDefinitions();
-    expect(loaded.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID)?.name).toBe('Sunrise routine');
+  it('repairs and persists built-in morning stretch when pool stripping left a subset', async () => {
+    const subset = defaultBuiltinMorningStretch().exerciseRefs.slice(0, 4);
+    kvStore.set(KV_STRETCH_DEFINITIONS, JSON.stringify([{ ...defaultBuiltinMorningStretch(), exerciseRefs: subset }]));
+    const loaded = await loadStretchDefinitions(defaultWorkoutCustomizePrefs());
+    const morning = loaded.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID);
+    expect(morning?.exerciseRefs).toHaveLength(6);
+    const persisted = JSON.parse(kvStore.get(KV_STRETCH_DEFINITIONS)!) as StretchDefinition[];
+    expect(persisted.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID)?.exerciseRefs).toHaveLength(6);
   });
 });
