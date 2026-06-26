@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { defaultWorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 import {
   applyCantExerciseModePrefs,
+  isDiscreetBreakWorkout,
+  pickBreakWorkoutFromPrefs,
   POMODORO_EXERCISE_BREAK_INTERVAL,
+  refineBreakWorkoutForCantExerciseMode,
   shouldScheduleExerciseOnPomodoroBreak
 } from '@/lib/exerciseBreak';
 import { pickWorkoutForBreak } from '@/lib/workoutPlanner';
@@ -40,5 +43,32 @@ describe('applyCantExerciseModePrefs', () => {
   it('never picks push-ups or shadowboxing in discreet mode', () => {
     const workout = pickWorkoutForBreak(applyCantExerciseModePrefs(defaultWorkoutCustomizePrefs()), 0.55);
     expect(workout.exercises.every((e) => e.id === 'march' || e.id.startsWith('stretch-'))).toBe(true);
+  });
+});
+
+describe('pickBreakWorkoutFromPrefs', () => {
+  it('uses full pool when cant-exercise mode is off', () => {
+    const workout = pickBreakWorkoutFromPrefs(defaultWorkoutCustomizePrefs(), false, 0.37);
+    expect(isDiscreetBreakWorkout(workout)).toBe(false);
+  });
+
+  it('limits to marching and stretches when cant-exercise mode is on', () => {
+    const workout = pickBreakWorkoutFromPrefs(defaultWorkoutCustomizePrefs(), true, 0.55);
+    expect(isDiscreetBreakWorkout(workout)).toBe(true);
+  });
+});
+
+describe('refineBreakWorkoutForCantExerciseMode', () => {
+  it('re-picks when a stored break has push-ups but cant-exercise mode is on', () => {
+    const heavy = pickBreakWorkoutFromPrefs(defaultWorkoutCustomizePrefs(), false, 0.37);
+    expect(isDiscreetBreakWorkout(heavy)).toBe(false);
+    const refined = refineBreakWorkoutForCantExerciseMode(heavy, true, defaultWorkoutCustomizePrefs(), 0.55);
+    expect(refined).not.toBeNull();
+    expect(isDiscreetBreakWorkout(refined)).toBe(true);
+  });
+
+  it('leaves discreet workouts unchanged', () => {
+    const discreet = pickBreakWorkoutFromPrefs(defaultWorkoutCustomizePrefs(), true, 0.55);
+    expect(refineBreakWorkoutForCantExerciseMode(discreet, true, defaultWorkoutCustomizePrefs(), 0.99)).toBe(discreet);
   });
 });

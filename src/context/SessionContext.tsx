@@ -11,7 +11,7 @@ import {
 import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow, isTimestampInStatsDay } from '@/lib/dayBoundary';
 import { loadDayRolloverHourPref, saveDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { isCantExerciseModeEnabled, setCantExerciseModeEnabled } from '@/lib/cantExerciseModePref';
-import { applyCantExerciseModePrefs, shouldScheduleExerciseOnPomodoroBreak } from '@/lib/exerciseBreak';
+import { pickBreakWorkoutFromPrefs, refineBreakWorkoutForCantExerciseMode, shouldScheduleExerciseOnPomodoroBreak } from '@/lib/exerciseBreak';
 import {
   defaultWorkoutCustomizePrefs,
   mergeExerciseOverride,
@@ -23,7 +23,6 @@ import {
 import {
   buildManualExerciseLogEntry,
   mergeWorkoutExercisesIntoTotals,
-  pickWorkoutForBreak,
   sumExerciseVolume,
   summarizeFocusToday,
   summarizeTodayExerciseTotals,
@@ -220,9 +219,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   }, []);
 
   const pickBreakWorkout = useCallback(() => {
-    let prefs = workoutCustomizePrefsRef.current;
-    if (cantExerciseModeRef.current) prefs = applyCantExerciseModePrefs(prefs);
-    return pickWorkoutForBreak(prefs);
+    return pickBreakWorkoutFromPrefs(workoutCustomizePrefsRef.current, cantExerciseModeRef.current);
   }, []);
 
   const setPhaseTimer = useCallback((seconds: number, plannedSeconds?: number) => {
@@ -279,13 +276,18 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
         flow.phaseStartedAtMs ??
         Date.now() - Math.max(0, flow.phasePlannedSeconds - flow.remainingSeconds) * 1000;
       phaseEndsAtMsRef.current = Date.now() + flow.remainingSeconds * 1000;
+      const activeWorkout = refineBreakWorkoutForCantExerciseMode(
+        flow.activeWorkout,
+        cantExerciseModeRef.current,
+        workoutCustomizePrefsRef.current
+      );
       setPhase(flow.phase);
       setBreakVariant(flow.breakVariant);
       setLongBreakStage(flow.longBreakStage);
       setActiveSessionType(flow.activeSessionType);
       setRemainingSeconds(flow.remainingSeconds);
       setNextSessionType(flow.nextSessionType);
-      setActiveWorkout(flow.activeWorkout);
+      setActiveWorkout(activeWorkout);
       setWorkoutLogged(flow.workoutLogged);
       workoutLoggedRef.current = flow.workoutLogged;
       setRunStartedAt(flow.runStartedAt);
@@ -550,13 +552,6 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       .catch((error) => {
         console.error('Failed to load day rollover hour:', error);
       });
-    void isCantExerciseModeEnabled()
-      .then((enabled) => {
-        if (!cancelled) setCantExerciseModeState(enabled);
-      })
-      .catch((error) => {
-        console.error('Failed to load can\'t-exercise mode:', error);
-      });
     return () => {
       cancelled = true;
     };
@@ -574,14 +569,25 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
 
   useEffect(() => {
     let cancelled = false;
-    loadSessionStorage()
-      .then((snapshot) => {
+    Promise.all([loadSessionStorage(), isCantExerciseModeEnabled()])
+      .then(([snapshot, cantExerciseEnabled]) => {
         if (cancelled) return;
+        cantExerciseModeRef.current = cantExerciseEnabled;
+        setCantExerciseModeState(cantExerciseEnabled);
+        workoutCustomizePrefsRef.current = snapshot.workoutCustomizePrefs;
         setWorkoutCustomizePrefs(snapshot.workoutCustomizePrefs);
         setWorkoutLogs(snapshot.workoutLogs);
         setFocusLogs(snapshot.focusLogs);
         if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
-          applyPersistedFlow(snapshot.activeFlow);
+          const flow = {
+            ...snapshot.activeFlow,
+            activeWorkout: refineBreakWorkoutForCantExerciseMode(
+              snapshot.activeFlow.activeWorkout,
+              cantExerciseEnabled,
+              snapshot.workoutCustomizePrefs
+            )
+          };
+          applyPersistedFlow(flow);
           if (snapshot.activeFlow.remainingSeconds === 0) prevRemainingForTimerEndRef.current = -1;
         }
       })
@@ -795,11 +801,23 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   }, []);
 
   const setCantExerciseMode = useCallback((enabled: boolean) => {
+    cantExerciseModeRef.current = enabled;
     setCantExerciseModeState(enabled);
     void setCantExerciseModeEnabled(enabled).catch((error) => {
       console.error('Failed to save can\'t-exercise mode:', error);
     });
-  }, []);
+    if (enabled) {
+      const refined = refineBreakWorkoutForCantExerciseMode(
+        activeWorkoutRef.current,
+        true,
+        workoutCustomizePrefsRef.current
+      );
+      if (refined !== activeWorkoutRef.current) {
+        setActiveWorkout(refined);
+        schedulePersistFlow();
+      }
+    }
+  }, [schedulePersistFlow]);
 
   const todayExerciseTotals = useMemo(
     () => summarizeTodayExerciseTotals(workoutLogs, Date.now(), dayRolloverHour),
