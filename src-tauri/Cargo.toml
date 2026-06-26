@@ -49,4 +49,4 @@ tauri-plugin-updater = "2.10.0"
 block2 = "0.6"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = ["NSWorkspace"] }
-objc2-foundation = { version = "0.3", features = ["NSNotification", "NSDistributedNotificationCenter", "block2", "NSString"] }
+objc2-foundation = { version = "0.3", features = ["NSNotification", "block2"] }

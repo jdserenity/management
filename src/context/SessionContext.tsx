@@ -88,7 +88,7 @@ import { createActiveFlowDocument } from '@mgmt/sync';
 import { isActiveExerciseBreak } from '@mgmt/core';
 import { MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch';
 import { buildStretchLogEntry, defaultBuiltinMorningStretch, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
-import { FLOW_SUSPEND_EVENT, flowShouldStopForHeartbeatGap } from '@/lib/flowSuspend';
+import { FLOW_LID_PAUSE_EVENT, FLOW_LID_RESUME_EVENT, phaseEndsAtMsAfterLidResume } from '@/lib/flowLidPause';
 import { isTauri } from '@/lib/isTauri';
 import { listen } from '@tauri-apps/api/event';
 
@@ -201,8 +201,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   const lastPublishedAtMsRef = useRef(0);
   const processTimerEndRef = useRef<() => void>(() => {});
   const prevRemainingForTimerEndRef = useRef<number | null>(null);
-  const lastFlowHeartbeatMsRef = useRef<number | null>(null);
-  const finishFlowRef = useRef<() => void>(() => {});
+  const flowLidPausedRef = useRef(false);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -404,6 +403,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     phasePlannedSecondsRef.current = 0;
     phaseEndsAtMsRef.current = 0;
     phaseStartedAtMsRef.current = 0;
+    flowLidPausedRef.current = false;
   }, [applyExerciseTotals]);
 
   const startExerciseBreak = useCallback(() => {
@@ -515,12 +515,19 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     }
   }, [recordFocusSession, resetToIdle]);
 
-  finishFlowRef.current = finishFlow;
+  const pauseFlowForLid = useCallback(() => {
+    if (syncMode !== 'desktop' || phaseRef.current === 'idle' || flowLidPausedRef.current) return;
+    flowLidPausedRef.current = true;
+    const rem = Math.max(0, Math.ceil((phaseEndsAtMsRef.current - Date.now()) / 1000));
+    setRemainingSeconds(rem);
+  }, [syncMode]);
 
-  const stopFlowForSuspend = useCallback(() => {
+  const resumeFlowFromLid = useCallback(() => {
+    if (syncMode !== 'desktop' || !flowLidPausedRef.current) return;
+    flowLidPausedRef.current = false;
     if (phaseRef.current === 'idle') return;
-    finishFlowRef.current();
-  }, []);
+    phaseEndsAtMsRef.current = phaseEndsAtMsAfterLidResume(remainingSecondsRef.current, Date.now());
+  }, [syncMode]);
 
   const advanceCurrentBreak = useCallback(() => {
     const afterBreak = breakTimerEndAction(breakVariantRef.current, longBreakStageRef.current, nextSessionTypeRef.current);
@@ -682,55 +689,40 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   ]);
 
   useEffect(() => {
-    if (phase === 'idle') {
-      lastFlowHeartbeatMsRef.current = null;
-      return;
-    }
-    if (lastFlowHeartbeatMsRef.current === null) lastFlowHeartbeatMsRef.current = Date.now();
+    if (phase === 'idle') return;
     const intervalId = window.setInterval(() => {
-      const now = Date.now();
-      if (flowShouldStopForHeartbeatGap(lastFlowHeartbeatMsRef.current, now)) {
-        stopFlowForSuspend();
-        return;
-      }
-      lastFlowHeartbeatMsRef.current = now;
-      const rem = Math.max(0, Math.ceil((phaseEndsAtMsRef.current - now) / 1000));
+      if (flowLidPausedRef.current) return;
+      const rem = Math.max(0, Math.ceil((phaseEndsAtMsRef.current - Date.now()) / 1000));
       setRemainingSeconds(rem);
     }, 1000);
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [phase, stopFlowForSuspend]);
+  }, [phase]);
 
   useEffect(() => {
-    const onResume = () => {
-      if (phaseRef.current === 'idle') return;
-      const now = Date.now();
-      if (flowShouldStopForHeartbeatGap(lastFlowHeartbeatMsRef.current, now)) stopFlowForSuspend();
-    };
-    document.addEventListener('visibilitychange', onResume);
-    window.addEventListener('focus', onResume);
-    return () => {
-      document.removeEventListener('visibilitychange', onResume);
-      window.removeEventListener('focus', onResume);
-    };
-  }, [stopFlowForSuspend]);
-
-  useEffect(() => {
-    if (!isTauri()) return;
+    if (syncMode !== 'desktop' || !isTauri()) return;
     let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    void listen(FLOW_SUSPEND_EVENT, () => {
-      if (!cancelled) stopFlowForSuspend();
+    let unlistenPause: (() => void) | undefined;
+    let unlistenResume: (() => void) | undefined;
+    void listen(FLOW_LID_PAUSE_EVENT, () => {
+      if (!cancelled) pauseFlowForLid();
     }).then((fn) => {
       if (cancelled) fn();
-      else unlisten = fn;
+      else unlistenPause = fn;
+    }).catch(console.error);
+    void listen(FLOW_LID_RESUME_EVENT, () => {
+      if (!cancelled) resumeFlowFromLid();
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlistenResume = fn;
     }).catch(console.error);
     return () => {
       cancelled = true;
-      unlisten?.();
+      unlistenPause?.();
+      unlistenResume?.();
     };
-  }, [stopFlowForSuspend]);
+  }, [syncMode, pauseFlowForLid, resumeFlowFromLid]);
 
   useEffect(() => {
     processTimerEndRef.current = () => {
