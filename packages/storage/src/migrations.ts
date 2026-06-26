@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with src-tauri/src/main.rs sqlite:mgmt.db migrations (v1–v7). */
+/** Keep in sync with src-tauri/src/main.rs sqlite:local.db migrations (v1–v9). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -36,6 +36,16 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 7,
     description: 'nutrition_protein_real',
     sql: "CREATE TABLE nutrition_config_new (id INTEGER PRIMARY KEY CHECK (id = 1), tdee INTEGER NOT NULL DEFAULT 0, protein REAL NOT NULL DEFAULT 0, log_day TEXT NOT NULL DEFAULT ''); INSERT INTO nutrition_config_new SELECT id, tdee, CAST(protein AS REAL), log_day FROM nutrition_config; DROP TABLE nutrition_config; ALTER TABLE nutrition_config_new RENAME TO nutrition_config; CREATE TABLE nutrition_staples_new (id TEXT PRIMARY KEY, name TEXT NOT NULL, calories INTEGER NOT NULL, protein REAL NOT NULL DEFAULT 0, ingredients_json TEXT, sort_order INTEGER NOT NULL DEFAULT 0); INSERT INTO nutrition_staples_new SELECT id, name, calories, CAST(protein AS REAL), ingredients_json, sort_order FROM nutrition_staples; DROP TABLE nutrition_staples; ALTER TABLE nutrition_staples_new RENAME TO nutrition_staples; CREATE TABLE nutrition_regulars_new (id TEXT PRIMARY KEY, name TEXT NOT NULL, calories INTEGER NOT NULL, protein REAL NOT NULL DEFAULT 0, ingredients_json TEXT, sort_order INTEGER NOT NULL DEFAULT 0); INSERT INTO nutrition_regulars_new SELECT id, name, calories, CAST(protein AS REAL), ingredients_json, sort_order FROM nutrition_regulars; DROP TABLE nutrition_regulars; ALTER TABLE nutrition_regulars_new RENAME TO nutrition_regulars; CREATE TABLE nutrition_entries_new (id TEXT NOT NULL, log_day TEXT NOT NULL, kind TEXT NOT NULL, ref_id TEXT, label TEXT NOT NULL, calories INTEGER NOT NULL, protein REAL NOT NULL DEFAULT 0, count INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (id, log_day)); INSERT INTO nutrition_entries_new SELECT id, log_day, kind, ref_id, label, calories, CAST(protein AS REAL), count, updated_at, deleted FROM nutrition_entries; DROP TABLE nutrition_entries; ALTER TABLE nutrition_entries_new RENAME TO nutrition_entries;"
+  },
+  {
+    version: 8,
+    description: 'water_tracker_tables',
+    sql: "CREATE TABLE IF NOT EXISTS water_config (id INTEGER PRIMARY KEY CHECK (id = 1), target_ml INTEGER NOT NULL DEFAULT 2500, log_day TEXT NOT NULL DEFAULT ''); CREATE TABLE IF NOT EXISTS water_entries (id TEXT NOT NULL, log_day TEXT NOT NULL, label TEXT NOT NULL, ml INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, deleted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (id, log_day));"
+  },
+  {
+    version: 9,
+    description: 'streak_activity_cross_log_columns',
+    sql: 'ALTER TABLE streak_activities ADD COLUMN extra_calories INTEGER; ALTER TABLE streak_activities ADD COLUMN extra_protein REAL; ALTER TABLE streak_activities ADD COLUMN extra_water_ml INTEGER;'
   }
 ];
 
