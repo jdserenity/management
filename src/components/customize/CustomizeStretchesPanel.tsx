@@ -108,7 +108,6 @@ export default function CustomizeStretchesPanel() {
 
   return (
     <div className="space-y-4">
-      <StretchPoolSection />
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <div>
@@ -280,6 +279,7 @@ export default function CustomizeStretchesPanel() {
           </CardContent>
         </Card>
       )}
+      <StretchPoolSection />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 ## Product Intent
 - The app is being repurposed from posture tracking into a personal background manager for focus and movement.
 - **Daily tab** (`DailyPage.tsx`) is the default landing tab: **scheduled stretches** (built-in morning stretch plus user-created routines with a Daily-tab trigger, top section), **nutrition** (TDEE targets, today’s food log, staples/regulars) and **habits** (streak tracker heatmaps, daily/weekly activities, pause/reset/archive). Ported from Obsidian plugins; data lives in SQLite (`src/lib/tdeeDb.ts`, `src/lib/streakDb.ts`, `src/lib/stretchCreator/stretchCreatorDb.ts`). Day boundary uses the same `stats_day_rollover_hour_v1` as work/movement stats.
-- **Customize tab** (`CustomizePage.tsx`) has four subtabs — **Exercises**, **Stretches**, **Habits**, **Food** — and sits between Stats and Settings in the nav. **Stretches** (`CustomizeStretchesPanel.tsx`): **stretch pool** (toggle which stretches are available for routines and break workouts; default hold seconds) plus stretch creator — name, emoji, colour gradient, ordered exercise refs, block duration, enabled toggle, trigger **scheduled** (shows on Daily until hide-after hour or completion) or **manual** (not surfaced on Daily yet). Built-in **morning stretch** ships with the app and cannot be deleted. **Exercises** covers predefined break moves and custom exercises only (not the stretch pool). Habits: add/edit/pause/archive/reset streak activities. Food: TDEE/protein targets, staples, and regulars edited as ingredients (totals sum from ingredients) or as simple no-ingredient items. Daily tab is log-only (check off habits, log food).
+- **Customize tab** (`CustomizePage.tsx`) has four subtabs — **Exercises**, **Stretches**, **Streaks**, **TDEE** — and sits between Stats and Settings in the nav. **Stretches** (`CustomizeStretchesPanel.tsx`): **stretch pool** (toggle which stretches are available for routines and break workouts; default hold seconds) plus stretch creator — name, emoji, colour gradient, ordered exercise refs, block duration, enabled toggle, trigger **scheduled** (shows on Daily until hide-after hour or completion) or **manual** (not surfaced on Daily yet). Built-in **morning stretch** ships with the app and cannot be deleted. **Exercises** covers predefined break moves and custom exercises only (not the stretch pool). Habits: add/edit/pause/archive/reset streak activities. Food: TDEE/protein targets, staples, and regulars edited as ingredients (totals sum from ingredients) or as simple no-ingredient items. Daily tab is log-only (check off habits, log food).
 - **Work tab** (`Dashboard.tsx`, nav label “Work”) is the session-driven focus flow below.
 - Pomodoro sessions are 25 minutes of focus followed by a 5 minute break.
 - Deep Work sessions are 90 minutes of focus followed by a long break: 5 minutes of guided exercise then 10 minutes of relax (`SESSION_DURATIONS_MINUTES` in `src/lib/workoutPlanner.ts`, driven by `src/context/SessionContext.tsx`).
@@ -86,7 +86,7 @@ flowchart TB
     Daily["DailyPage.tsx scheduled stretches TdeeSection habits StreakSection"]
     D["Dashboard.tsx Work tab timer chain today totals"]
     PPg["PosturePage.tsx live score charts history export"]
-    CW["CustomizePage.tsx exercises stretches habits food subtabs"]
+    CW["CustomizePage.tsx exercises stretches streaks tdee subtabs"]
     ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]
     SE["SettingsPage.tsx camera monitoring battery habits heatmap restart"]
   end

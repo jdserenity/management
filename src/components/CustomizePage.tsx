@@ -10,13 +10,13 @@ export default function CustomizePage() {
       <TabsList className="mb-6 grid w-full grid-cols-4">
         <TabsTrigger value="exercises">Exercises</TabsTrigger>
         <TabsTrigger value="stretches">Stretches</TabsTrigger>
-        <TabsTrigger value="habits">Habits</TabsTrigger>
-        <TabsTrigger value="food">Food</TabsTrigger>
+        <TabsTrigger value="streaks">Streaks</TabsTrigger>
+        <TabsTrigger value="tdee">TDEE</TabsTrigger>
       </TabsList>
       <TabsContent value="exercises"><CustomizeExercisesPanel /></TabsContent>
       <TabsContent value="stretches"><CustomizeStretchesPanel /></TabsContent>
-      <TabsContent value="habits"><CustomizeHabitsPanel /></TabsContent>
-      <TabsContent value="food"><CustomizeFoodPanel /></TabsContent>
+      <TabsContent value="streaks"><CustomizeHabitsPanel /></TabsContent>
+      <TabsContent value="tdee"><CustomizeFoodPanel /></TabsContent>
     </Tabs>
   );
 }
