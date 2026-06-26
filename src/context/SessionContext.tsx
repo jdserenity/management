@@ -80,7 +80,8 @@ import {
 import type { SyncClient } from '@mgmt/sync';
 import { createActiveFlowDocument } from '@mgmt/sync';
 import { isActiveExerciseBreak } from '@mgmt/core';
-import { buildMorningStretchLogEntry, MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch';
+import { MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch';
+import { buildStretchLogEntry, defaultBuiltinMorningStretch, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
@@ -126,6 +127,7 @@ interface SessionContextValue {
   finishFlow: () => void;
   handleWorkoutCompletion: () => void;
   addManualExercise: (exercise: ExerciseDefinition) => void;
+  logStretchCompletion: (stretch: StretchDefinition, exercises: ExerciseDefinition[], completionRatio?: number) => void;
   logMorningStretchCompletion: (exercises: ExerciseDefinition[], completionRatio?: number) => void;
   clearMorningStretchCompletionToday: () => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
@@ -754,14 +756,18 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     [applyExerciseTotals]
   );
 
-  const logMorningStretchCompletion = useCallback((exercises: ExerciseDefinition[], completionRatio: number = 1) => {
+  const logStretchCompletion = useCallback((stretch: StretchDefinition, exercises: ExerciseDefinition[], completionRatio: number = 1) => {
     if (exercises.length === 0) return;
-    const entry = buildMorningStretchLogEntry(exercises, createId('workout'), Date.now(), completionRatio);
+    const entry = buildStretchLogEntry(stretch, exercises, createId('workout'), Date.now(), completionRatio);
     setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
     void persistWorkoutLog(entry).catch((error) => {
-      console.error('Failed to persist morning stretch log:', error);
+      console.error('Failed to persist stretch log:', error);
     });
   }, []);
+
+  const logMorningStretchCompletion = useCallback((exercises: ExerciseDefinition[], completionRatio: number = 1) => {
+    logStretchCompletion(defaultBuiltinMorningStretch(), exercises, completionRatio);
+  }, [logStretchCompletion]);
 
   const clearMorningStretchCompletionToday = useCallback(() => {
     const now = Date.now();
@@ -939,6 +945,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       finishFlow,
       handleWorkoutCompletion,
       addManualExercise,
+      logStretchCompletion,
       logMorningStretchCompletion,
       clearMorningStretchCompletionToday,
       handleAllowedWorkoutToggle,
@@ -985,6 +992,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       finishFlow,
       handleWorkoutCompletion,
       addManualExercise,
+      logStretchCompletion,
       logMorningStretchCompletion,
       clearMorningStretchCompletionToday,
       handleAllowedWorkoutToggle,
