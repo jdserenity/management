@@ -8,7 +8,7 @@ import './tracker-deck.css';
 
 type PanelId = 'streaks' | 'tdee' | 'water';
 
-type DeckSide = 'center' | 'left' | 'right';
+type DeckSlot = 'left' | 'center' | 'right';
 
 const PANEL_LABELS: Record<PanelId, string> = {
   streaks: 'Streaks',
@@ -16,19 +16,11 @@ const PANEL_LABELS: Record<PanelId, string> = {
   water: 'Water'
 };
 
-/** Side slots when a given panel is in front. */
-const PEEK_SIDES: Record<PanelId, { left: PanelId; right: PanelId }> = {
-  streaks: { left: 'tdee', right: 'water' },
-  tdee: { left: 'streaks', right: 'water' },
-  water: { left: 'tdee', right: 'streaks' }
-};
-
-const deckSide = (panel: PanelId, active: PanelId): DeckSide => {
-  if (panel === active) return 'center';
-  const sides = PEEK_SIDES[active];
-  if (panel === sides.left) return 'left';
-  if (panel === sides.right) return 'right';
-  return 'center';
+/** Fixed positions — panels never move, only z-index/opacity changes. */
+const PANEL_SLOT: Record<PanelId, DeckSlot> = {
+  tdee: 'left',
+  streaks: 'center',
+  water: 'right'
 };
 
 export default function TrackerDeck() {
@@ -53,25 +45,27 @@ export default function TrackerDeck() {
     const end = e.changedTouches[0]?.clientX;
     if (end == null) return;
     const delta = end - start;
-    const sides = PEEK_SIDES[active];
-    if (delta > 50) setActive(sides.left);
-    else if (delta < -50) setActive(sides.right);
+    if (delta > 50) setActive('tdee');
+    else if (delta < -50) setActive('water');
   };
 
-  const renderCard = (panel: PanelId, content: ReactNode) => {
-    const side = deckSide(panel, active);
-    const isBack = side === 'left' || side === 'right';
+  const renderPanel = (panel: PanelId, content: ReactNode) => {
+    const isFront = panel === active;
+    const slot = PANEL_SLOT[panel];
     return (
       <div
         key={panel}
-        className={`tracker-deck-card deck-${side}`}
-        onClick={isBack ? () => setActive(panel) : undefined}
-        role={isBack ? 'button' : undefined}
-        tabIndex={isBack ? 0 : undefined}
-        onKeyDown={isBack ? (e) => { if (e.key === 'Enter' || e.key === ' ') setActive(panel); } : undefined}
-        aria-label={isBack ? `Bring ${PANEL_LABELS[panel]} to front` : undefined}
+        className={`tracker-deck-panel deck-slot-${slot}${isFront ? ' deck-front' : ' deck-back'}`}
       >
-        <div className="tracker-deck-card-inner">{content}</div>
+        {!isFront ? (
+          <button
+            type="button"
+            className="tracker-deck-hit"
+            aria-label={`Bring ${PANEL_LABELS[panel]} to front`}
+            onClick={() => setActive(panel)}
+          />
+        ) : null}
+        {content}
       </div>
     );
   };
@@ -84,9 +78,9 @@ export default function TrackerDeck() {
         onTouchEnd={handleTouchEnd}
       >
         <div className="tracker-deck">
-          {renderCard('streaks', <StreakSection onCrossLog={handleCrossLog} />)}
-          {renderCard('tdee', <TdeeSection refreshKey={tdeeRefreshKey} />)}
-          {renderCard('water', <WaterSection refreshKey={waterRefreshKey} />)}
+          {renderPanel('tdee', <TdeeSection refreshKey={tdeeRefreshKey} />)}
+          {renderPanel('streaks', <StreakSection onCrossLog={handleCrossLog} />)}
+          {renderPanel('water', <WaterSection refreshKey={waterRefreshKey} />)}
         </div>
       </div>
     </div>
