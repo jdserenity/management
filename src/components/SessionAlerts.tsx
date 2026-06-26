@@ -7,6 +7,7 @@ import {
   sessionPhaseNotifyCopy,
   traySessionLabelInvokeArg
 } from '@/lib/sessionAlertLabels';
+import { requestGoToWorkTab } from '@/lib/navConfig';
 import {
   defaultSessionAlertsPrefs,
   loadSessionAlertsPrefs,
@@ -124,7 +125,10 @@ const SessionAlerts = () => {
     if (enteringActive) {
       const background = takeBackgroundFlowStart();
       if (prefs.sound && !background) playPhaseChangeChime();
-      if (prefs.focusWindow && !background && isTauri()) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+      if (prefs.focusWindow && !background && isTauri()) {
+        invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+        requestGoToWorkTab();
+      }
       if (prefs.notify && !background && isTauri()) {
         const copy = sessionPhaseNotifyCopy(phase, activeSessionType, breakVariant, longBreakStage);
         if (copy) invoke('notify_session_phase', { title: copy.title, body: copy.body }).catch(console.error);
@@ -134,7 +138,10 @@ const SessionAlerts = () => {
 
     if (leftActive) {
       if (prefs.sound) playPhaseChangeChime();
-      if (prefs.focusWindow && isTauri()) invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+      if (prefs.focusWindow && isTauri()) {
+        invoke('focus_main_window', { dockBounce: prefs.dockBounce }).catch(console.error);
+        requestGoToWorkTab();
+      }
       if (prefs.notify && isTauri()) {
         invoke('notify_session_phase', {
           title: 'Session flow ended',

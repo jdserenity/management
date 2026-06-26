@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Button } from '@/components/ui/button';
 import FlowHeaderControl from '@/components/FlowHeaderControl';
 import { cn } from '@/lib/utils';
-import { companionNavItems, desktopNavItems, type NavItemDef } from '@/lib/navConfig';
+import { companionNavItems, desktopNavItems, NAV_GO_TO_WORK, type NavItemDef } from '@/lib/navConfig';
 import { useTranslation } from 'react-i18next';
 
 type ShellVariant = 'desktop' | 'companion';
@@ -23,6 +23,12 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
   const mainRef = useRef<HTMLElement>(null);
 
   const goToWork = () => setActiveComponentId('work');
+
+  useEffect(() => {
+    const onGoToWork = () => setActiveComponentId('work');
+    window.addEventListener(NAV_GO_TO_WORK, onGoToWork);
+    return () => window.removeEventListener(NAV_GO_TO_WORK, onGoToWork);
+  }, []);
 
   const navigate = (id: string) => {
     setActiveComponentId(id);

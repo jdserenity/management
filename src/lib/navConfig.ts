@@ -30,3 +30,9 @@ export const companionNavItems = (): NavItemDef[] =>
   allNavItems
     .filter((item) => item.id !== 'posture')
     .map((item) => (item.id === 'settings' ? { ...item, component: CompanionSettingsPage } : item));
+
+export const NAV_GO_TO_WORK = 'mgmt-nav-go-to-work';
+
+export const requestGoToWorkTab = (): void => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(NAV_GO_TO_WORK));
+};
