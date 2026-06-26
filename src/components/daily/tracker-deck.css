@@ -1,25 +1,43 @@
-/* Tracker deck — full-width panels; TDEE/Water behind Streaks, clipped to 1/3 peek */
+/* Tracker deck — gutters contain peeks; Streaks full width; no horizontal overflow */
 
 .tracker-deck-wrap {
+  --deck-gutter: clamp(1.25rem, 8vw, 4.5rem);
   position: relative;
   width: 100%;
-  overflow: visible;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .tracker-deck-outer {
   width: 100%;
-  overflow: visible;
+  max-width: 100%;
+  padding-inline: var(--deck-gutter);
+  overflow: hidden;
   touch-action: pan-y;
+  box-sizing: border-box;
 }
 
 .tracker-deck {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .tracker-deck-panel {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+/* Full width streaks when in front — bleed back across gutters */
+.deck-slot-center.deck-front {
+  width: calc(100% + 2 * var(--deck-gutter));
+  margin-inline: calc(-1 * var(--deck-gutter));
+  background: var(--background);
+  isolation: isolate;
 }
 
 .deck-slot-center {
@@ -30,17 +48,16 @@
   position: absolute;
   top: 0;
   left: 0;
-  transform: translateX(-33.333%);
+  transform: translateX(calc(-66.666% + var(--deck-gutter)));
 }
 
 .deck-slot-right {
   position: absolute;
   top: 0;
   left: 0;
-  transform: translateX(33.333%);
+  transform: translateX(calc(66.666% - var(--deck-gutter)));
 }
 
-/* Behind Streaks: only the outer third is painted */
 .deck-peek-left {
   clip-path: inset(0 66.666% 0 0);
 }
@@ -53,8 +70,12 @@
   z-index: 10;
   opacity: 1;
   filter: none;
-  background: var(--background);
-  isolation: isolate;
+}
+
+/* Only Streaks needs a solid backing to hide panels behind it */
+.deck-slot-left.deck-front,
+.deck-slot-right.deck-front {
+  background: transparent;
 }
 
 .deck-back {
