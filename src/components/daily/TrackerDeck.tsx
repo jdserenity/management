@@ -8,19 +8,10 @@ import './tracker-deck.css';
 
 type PanelId = 'streaks' | 'tdee' | 'water';
 
-type DeckSlot = 'left' | 'center' | 'right';
-
 const PANEL_LABELS: Record<PanelId, string> = {
   streaks: 'Streaks',
   tdee: 'TDEE',
   water: 'Water'
-};
-
-/** Fixed positions — panels never move, only z-index/opacity changes. */
-const PANEL_SLOT: Record<PanelId, DeckSlot> = {
-  tdee: 'left',
-  streaks: 'center',
-  water: 'right'
 };
 
 export default function TrackerDeck() {
@@ -49,20 +40,12 @@ export default function TrackerDeck() {
     else if (delta < -50) setActive('water');
   };
 
-  const renderPanel = (panel: PanelId, content: ReactNode) => {
+  const renderPanel = (panel: PanelId, slot: 'left' | 'center' | 'right', content: ReactNode) => {
     const isFront = panel === active;
-    const slot = PANEL_SLOT[panel];
-    let peekClip = '';
-    if (!isFront) {
-      if (panel === 'tdee') peekClip = 'deck-peek-left';
-      else if (panel === 'water') peekClip = 'deck-peek-right';
-      else if (panel === 'streaks' && active === 'tdee') peekClip = 'deck-peek-right';
-      else if (panel === 'streaks' && active === 'water') peekClip = 'deck-peek-left';
-    }
     return (
       <div
         key={panel}
-        className={`tracker-deck-panel deck-slot-${slot}${isFront ? ' deck-front' : ' deck-back'}${peekClip ? ` ${peekClip}` : ''}`}
+        className={`tracker-deck-panel deck-slot-${slot}${isFront ? ' deck-front' : ' deck-back'}`}
       >
         {!isFront ? (
           <button
@@ -72,7 +55,7 @@ export default function TrackerDeck() {
             onClick={() => setActive(panel)}
           />
         ) : null}
-        {content}
+        <div className="tracker-deck-panel-body">{content}</div>
       </div>
     );
   };
@@ -85,9 +68,9 @@ export default function TrackerDeck() {
         onTouchEnd={handleTouchEnd}
       >
         <div className="tracker-deck">
-          {renderPanel('tdee', <TdeeSection refreshKey={tdeeRefreshKey} />)}
-          {renderPanel('streaks', <StreakSection onCrossLog={handleCrossLog} />)}
-          {renderPanel('water', <WaterSection refreshKey={waterRefreshKey} />)}
+          {renderPanel('tdee', 'left', <TdeeSection refreshKey={tdeeRefreshKey} />)}
+          {renderPanel('streaks', 'center', <StreakSection onCrossLog={handleCrossLog} />)}
+          {renderPanel('water', 'right', <WaterSection refreshKey={waterRefreshKey} />)}
         </div>
       </div>
     </div>
