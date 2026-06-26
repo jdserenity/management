@@ -52,10 +52,17 @@ export default function TrackerDeck() {
   const renderPanel = (panel: PanelId, content: ReactNode) => {
     const isFront = panel === active;
     const slot = PANEL_SLOT[panel];
+    let peekClip = '';
+    if (!isFront) {
+      if (panel === 'tdee') peekClip = 'deck-peek-left';
+      else if (panel === 'water') peekClip = 'deck-peek-right';
+      else if (panel === 'streaks' && active === 'tdee') peekClip = 'deck-peek-right';
+      else if (panel === 'streaks' && active === 'water') peekClip = 'deck-peek-left';
+    }
     return (
       <div
         key={panel}
-        className={`tracker-deck-panel deck-slot-${slot}${isFront ? ' deck-front' : ' deck-back'}`}
+        className={`tracker-deck-panel deck-slot-${slot}${isFront ? ' deck-front' : ' deck-back'}${peekClip ? ` ${peekClip}` : ''}`}
       >
         {!isFront ? (
           <button
