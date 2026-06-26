@@ -37,6 +37,7 @@ use tauri_plugin_sql::{DbInstances, Migration, MigrationKind};
 mod app_presence;
 mod camera_capture;
 mod camera_watch;
+mod flow_suspend_watch;
 mod posture_bridge;
 use posture_bridge::{posture_recommendations, PostureDebouncer, PostureIngestPayload};
 
@@ -824,6 +825,7 @@ pub fn run() {
             app.manage(app_state.clone());
 
             camera_watch::start_camera_watch(app.handle().clone(), app_state.clone());
+            flow_suspend_watch::start_flow_suspend_watch(app.handle().clone());
 
             let alert_app_handle = app.handle().clone();
             let alert_state = app_state.clone();

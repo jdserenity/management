@@ -88,6 +88,9 @@ import { createActiveFlowDocument } from '@mgmt/sync';
 import { isActiveExerciseBreak } from '@mgmt/core';
 import { MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch';
 import { buildStretchLogEntry, defaultBuiltinMorningStretch, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
+import { FLOW_SUSPEND_EVENT, flowShouldStopForHeartbeatGap } from '@/lib/flowSuspend';
+import { isTauri } from '@/lib/isTauri';
+import { listen } from '@tauri-apps/api/event';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
@@ -198,6 +201,8 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   const lastPublishedAtMsRef = useRef(0);
   const processTimerEndRef = useRef<() => void>(() => {});
   const prevRemainingForTimerEndRef = useRef<number | null>(null);
+  const lastFlowHeartbeatMsRef = useRef<number | null>(null);
+  const finishFlowRef = useRef<() => void>(() => {});
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -510,6 +515,13 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     }
   }, [recordFocusSession, resetToIdle]);
 
+  finishFlowRef.current = finishFlow;
+
+  const stopFlowForSuspend = useCallback(() => {
+    if (phaseRef.current === 'idle') return;
+    finishFlowRef.current();
+  }, []);
+
   const advanceCurrentBreak = useCallback(() => {
     const afterBreak = breakTimerEndAction(breakVariantRef.current, longBreakStageRef.current, nextSessionTypeRef.current);
     if (afterBreak === 'long_relax') {
@@ -670,15 +682,55 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   ]);
 
   useEffect(() => {
-    if (phase === 'idle') return;
+    if (phase === 'idle') {
+      lastFlowHeartbeatMsRef.current = null;
+      return;
+    }
+    if (lastFlowHeartbeatMsRef.current === null) lastFlowHeartbeatMsRef.current = Date.now();
     const intervalId = window.setInterval(() => {
-      const rem = Math.max(0, Math.ceil((phaseEndsAtMsRef.current - Date.now()) / 1000));
+      const now = Date.now();
+      if (flowShouldStopForHeartbeatGap(lastFlowHeartbeatMsRef.current, now)) {
+        stopFlowForSuspend();
+        return;
+      }
+      lastFlowHeartbeatMsRef.current = now;
+      const rem = Math.max(0, Math.ceil((phaseEndsAtMsRef.current - now) / 1000));
       setRemainingSeconds(rem);
     }, 1000);
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [phase]);
+  }, [phase, stopFlowForSuspend]);
+
+  useEffect(() => {
+    const onResume = () => {
+      if (phaseRef.current === 'idle') return;
+      const now = Date.now();
+      if (flowShouldStopForHeartbeatGap(lastFlowHeartbeatMsRef.current, now)) stopFlowForSuspend();
+    };
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('focus', onResume);
+    return () => {
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('focus', onResume);
+    };
+  }, [stopFlowForSuspend]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen(FLOW_SUSPEND_EVENT, () => {
+      if (!cancelled) stopFlowForSuspend();
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    }).catch(console.error);
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [stopFlowForSuspend]);
 
   useEffect(() => {
     processTimerEndRef.current = () => {
