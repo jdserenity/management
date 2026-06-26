@@ -1,44 +1,14 @@
-/* Stacked tracker deck — Daily tab */
+/* Stacked tracker deck — Daily tab (Streaks center default; TDEE left peek; Water right peek) */
 
 .tracker-deck-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tracker-deck-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tracker-deck-tab {
-  padding: 6px 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--secondary);
-  color: var(--muted-foreground);
-  cursor: pointer;
-  font-size: 0.85em;
-  font-weight: 600;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.tracker-deck-tab:hover {
-  background: var(--accent);
-  color: var(--foreground);
-}
-
-.tracker-deck-tab-active {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border-color: var(--primary);
+  --deck-peek-shift: 44%;
+  --deck-peek-scale: 0.94;
 }
 
 .tracker-deck-outer {
-  overflow: hidden;
-  border-radius: 12px;
+  position: relative;
+  overflow: visible;
+  padding: 4px 0 8px;
   touch-action: pan-y;
 }
 
@@ -46,47 +16,85 @@
   display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto;
-  min-height: 280px;
+  min-height: 300px;
+  position: relative;
 }
 
 .tracker-deck-card {
   grid-area: 1 / 1;
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease, box-shadow 0.35s ease;
-  will-change: transform, opacity;
-  border-radius: 12px;
+  position: relative;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--card);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.38s ease, box-shadow 0.38s ease, filter 0.38s ease;
+  will-change: transform, opacity;
 }
 
-.deck-active {
-  transform: translateX(0);
+.deck-center {
+  transform: translateX(0) scale(1);
   opacity: 1;
   z-index: 10;
   pointer-events: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.14);
 }
 
 .deck-left {
-  transform: translateX(-65%);
-  opacity: 0.45;
+  transform: translateX(calc(-1 * var(--deck-peek-shift))) scale(var(--deck-peek-scale));
+  opacity: 0.48;
   z-index: 5;
   pointer-events: auto;
   cursor: pointer;
+  filter: saturate(0.85);
 }
 
 .deck-right {
-  transform: translateX(65%);
-  opacity: 0.45;
+  transform: translateX(var(--deck-peek-shift)) scale(var(--deck-peek-scale));
+  opacity: 0.48;
   z-index: 5;
   pointer-events: auto;
   cursor: pointer;
+  filter: saturate(0.85);
+}
+
+.deck-left:hover,
+.deck-right:hover {
+  opacity: 0.62;
+  filter: saturate(0.95);
+}
+
+.tracker-deck-peek-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35em;
+  font-weight: 700;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  user-select: none;
+}
+
+.deck-left .tracker-deck-peek-label {
+  justify-content: flex-end;
+  padding-right: 10%;
+}
+
+.deck-right .tracker-deck-peek-label {
+  justify-content: flex-start;
+  padding-left: 10%;
 }
 
 .tracker-deck-card-inner {
   max-height: 70vh;
   overflow-y: auto;
+}
+
+.tracker-deck-card-inner-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .tracker-deck-card-inner .tdee-tracker-container {

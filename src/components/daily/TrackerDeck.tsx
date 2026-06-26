@@ -6,29 +6,33 @@ import TdeeSection from '@/components/daily/TdeeSection';
 import WaterSection from '@/components/daily/WaterSection';
 import './tracker-deck.css';
 
-type PanelId = 'streak' | 'calories' | 'water';
+type PanelId = 'streaks' | 'tdee' | 'water';
 
-const PANELS: PanelId[] = ['streak', 'calories', 'water'];
+type DeckSide = 'center' | 'left' | 'right';
 
 const PANEL_LABELS: Record<PanelId, string> = {
-  streak: 'Habits',
-  calories: 'Calories',
+  streaks: 'Streaks',
+  tdee: 'TDEE',
   water: 'Water'
 };
 
-const deckClass = (panel: PanelId, active: PanelId): string => {
-  if (panel === active) return 'tracker-deck-card deck-active';
-  const activeIdx = PANELS.indexOf(active);
-  const panelIdx = PANELS.indexOf(panel);
-  const leftIdx = (activeIdx - 1 + PANELS.length) % PANELS.length;
-  const rightIdx = (activeIdx + 1) % PANELS.length;
-  if (panelIdx === leftIdx) return 'tracker-deck-card deck-left';
-  if (panelIdx === rightIdx) return 'tracker-deck-card deck-right';
-  return 'tracker-deck-card';
+/** Which panels peek left/right when a given panel is centered. */
+const PEEK_SIDES: Record<PanelId, { left: PanelId; right: PanelId }> = {
+  streaks: { left: 'tdee', right: 'water' },
+  tdee: { left: 'streaks', right: 'water' },
+  water: { left: 'tdee', right: 'streaks' }
+};
+
+const deckSide = (panel: PanelId, active: PanelId): DeckSide => {
+  if (panel === active) return 'center';
+  const sides = PEEK_SIDES[active];
+  if (panel === sides.left) return 'left';
+  if (panel === sides.right) return 'right';
+  return 'center';
 };
 
 export default function TrackerDeck() {
-  const [active, setActive] = useState<PanelId>('streak');
+  const [active, setActive] = useState<PanelId>('streaks');
   const [tdeeRefreshKey, setTdeeRefreshKey] = useState(0);
   const [waterRefreshKey, setWaterRefreshKey] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -49,58 +53,40 @@ export default function TrackerDeck() {
     const end = e.changedTouches[0]?.clientX;
     if (end == null) return;
     const delta = end - start;
-    const activeIdx = PANELS.indexOf(active);
-    if (delta > 50) {
-      const leftIdx = (activeIdx - 1 + PANELS.length) % PANELS.length;
-      setActive(PANELS[leftIdx]);
-    } else if (delta < -50) {
-      const rightIdx = (activeIdx + 1) % PANELS.length;
-      setActive(PANELS[rightIdx]);
-    }
+    const sides = PEEK_SIDES[active];
+    if (delta > 50) setActive(sides.left);
+    else if (delta < -50) setActive(sides.right);
   };
 
   const renderCard = (panel: PanelId, content: ReactNode) => {
-    const cls = deckClass(panel, active);
-    const isPeek = cls.includes('deck-left') || cls.includes('deck-right');
+    const side = deckSide(panel, active);
+    const isPeek = side === 'left' || side === 'right';
     return (
       <div
         key={panel}
-        className={cls}
+        className={`tracker-deck-card deck-${side}`}
         onClick={isPeek ? () => setActive(panel) : undefined}
         role={isPeek ? 'button' : undefined}
         tabIndex={isPeek ? 0 : undefined}
         onKeyDown={isPeek ? (e) => { if (e.key === 'Enter' || e.key === ' ') setActive(panel); } : undefined}
         aria-label={isPeek ? `Show ${PANEL_LABELS[panel]}` : undefined}
       >
-        <div className="tracker-deck-card-inner">{content}</div>
+        {isPeek ? <div className="tracker-deck-peek-label">{PANEL_LABELS[panel]}</div> : null}
+        <div className={`tracker-deck-card-inner${isPeek ? ' tracker-deck-card-inner-hidden' : ''}`}>{content}</div>
       </div>
     );
   };
 
   return (
     <div className="tracker-deck-wrap">
-      <div className="tracker-deck-tabs" role="tablist" aria-label="Daily trackers">
-        {PANELS.map((panel) => (
-          <button
-            key={panel}
-            type="button"
-            role="tab"
-            aria-selected={active === panel}
-            className={`tracker-deck-tab${active === panel ? ' tracker-deck-tab-active' : ''}`}
-            onClick={() => setActive(panel)}
-          >
-            {PANEL_LABELS[panel]}
-          </button>
-        ))}
-      </div>
       <div
         className="tracker-deck-outer"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         <div className="tracker-deck">
-          {renderCard('streak', <StreakSection onCrossLog={handleCrossLog} />)}
-          {renderCard('calories', <TdeeSection refreshKey={tdeeRefreshKey} />)}
+          {renderCard('streaks', <StreakSection onCrossLog={handleCrossLog} />)}
+          {renderCard('tdee', <TdeeSection refreshKey={tdeeRefreshKey} />)}
           {renderCard('water', <WaterSection refreshKey={waterRefreshKey} />)}
         </div>
       </div>

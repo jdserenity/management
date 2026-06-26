@@ -54,3 +54,7 @@ Documentation Rules
 - Update AGENTS.md whenever the user specifies a repeated agent behavior that should persist.
 - Keep documentation factual and current.
 - Separate confirmed decisions from open questions clearly.
+
+Daily tracker deck (user-facing names — do not substitute)
+- The three stacked panels on the Daily tab are **Streaks**, **TDEE**, and **Water**. Never label them Habits, Calories, Nutrition, or Food in UI copy or docs.
+- Default layout: Streaks centered and fully visible; TDEE peeks from the left (~half visible, faded); Water peeks from the right. No tab pills or separate nav — click a peeking side card or swipe to bring it forward.
