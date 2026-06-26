@@ -2,7 +2,7 @@
 
 ## Product Intent
 - The app is being repurposed from posture tracking into a personal background manager for focus and movement.
-- **Daily tab** (`DailyPage.tsx`): **morning stretch**, then **tracker deck** (`TrackerDeck.tsx`) — three panels always visible in fixed slots: TDEE left, **Streaks** center (full width), Water right. One in front (opacity/z-index only; panels never swap position). Default front: Streaks. No card frames. Streak cross-log optional. Data: `tdeeDb`, `waterDb`, `streakDb`, `morningStretch`; day boundary `stats_day_rollover_hour_v1`.
+- **Daily tab** (`DailyPage.tsx`): **morning stretch**, then **tracker deck** (`TrackerDeck.tsx`) — full-width **Streaks** centered on top by default; **TDEE** and **Water** full-size behind it (offset left/right) with only their outer third peeking. Click peek to raise z-index. No card frames. Cross-log on streak success optional. Data: `tdeeDb`, `waterDb`, `streakDb`, `morningStretch`; day boundary `stats_day_rollover_hour_v1`.
 - **Customize tab** (`CustomizePage.tsx`) has three subtabs — **Exercises**, **Habits**, **Food** — and sits between Stats and Settings in the nav. Habits: add/edit/pause/archive/reset streak activities (optional cross-log fields for calories, protein, water). Food: TDEE/protein targets, staples, regulars, and water daily target (ml). Daily tab is log-only (check off habits, log food, log water).
 - **Work tab** (`Dashboard.tsx`, nav label “Work”) is the session-driven focus flow below.
 - Pomodoro sessions are 25 minutes of focus followed by a 5 minute break.
