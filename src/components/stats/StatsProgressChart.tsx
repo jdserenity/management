@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { periodMoveMinutes, type PeriodStatsPoint } from '@/lib/workoutPlanner';
+import { STATS_CHART_MIN_HEIGHT_PX, statsProgressChartPlotClass, statsProgressChartPlotStyle, statsProgressChartRootClass } from '@/lib/statsChartLayout';
 
 export type StatsChartRow = PeriodStatsPoint & { label: string; moveMinutes: number };
 
@@ -24,7 +25,7 @@ const StatsProgressChart = ({ data, selectedIndex, onSelectIndex }: StatsProgres
 
   if (data.length === 0) {
     return (
-      <div className="flex h-full min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/40 px-4 text-sm text-slate-400">
+      <div className="flex items-center justify-center rounded-2xl border border-dashed border-white/20 bg-slate-900/40 px-4 text-sm text-slate-400" style={{ minHeight: STATS_CHART_MIN_HEIGHT_PX }}>
         📉 No history to chart yet
       </div>
     );
@@ -52,13 +53,13 @@ const StatsProgressChart = ({ data, selectedIndex, onSelectIndex }: StatsProgres
     };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-visible rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 p-4 shadow-inner">
+    <div className={statsProgressChartRootClass()}>
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold uppercase tracking-widest text-slate-400">
         <span>📈 Over time</span>
         <span className="normal-case tracking-normal text-blue-400">⏳ Focus</span>
         <span className="normal-case tracking-normal text-orange-400">💪 Move</span>
       </div>
-      <div ref={chartAreaRef} className="relative min-h-0 flex-1 overflow-visible">
+      <div ref={chartAreaRef} className={statsProgressChartPlotClass()} style={statsProgressChartPlotStyle()}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
