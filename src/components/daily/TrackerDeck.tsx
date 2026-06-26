@@ -16,7 +16,7 @@ const PANEL_LABELS: Record<PanelId, string> = {
   water: 'Water'
 };
 
-/** Which panels peek left/right when a given panel is centered. */
+/** Side slots when a given panel is in front. */
 const PEEK_SIDES: Record<PanelId, { left: PanelId; right: PanelId }> = {
   streaks: { left: 'tdee', right: 'water' },
   tdee: { left: 'streaks', right: 'water' },
@@ -60,19 +60,18 @@ export default function TrackerDeck() {
 
   const renderCard = (panel: PanelId, content: ReactNode) => {
     const side = deckSide(panel, active);
-    const isPeek = side === 'left' || side === 'right';
+    const isBack = side === 'left' || side === 'right';
     return (
       <div
         key={panel}
         className={`tracker-deck-card deck-${side}`}
-        onClick={isPeek ? () => setActive(panel) : undefined}
-        role={isPeek ? 'button' : undefined}
-        tabIndex={isPeek ? 0 : undefined}
-        onKeyDown={isPeek ? (e) => { if (e.key === 'Enter' || e.key === ' ') setActive(panel); } : undefined}
-        aria-label={isPeek ? `Show ${PANEL_LABELS[panel]}` : undefined}
+        onClick={isBack ? () => setActive(panel) : undefined}
+        role={isBack ? 'button' : undefined}
+        tabIndex={isBack ? 0 : undefined}
+        onKeyDown={isBack ? (e) => { if (e.key === 'Enter' || e.key === ' ') setActive(panel); } : undefined}
+        aria-label={isBack ? `Bring ${PANEL_LABELS[panel]} to front` : undefined}
       >
-        {isPeek ? <div className="tracker-deck-peek-label">{PANEL_LABELS[panel]}</div> : null}
-        <div className={`tracker-deck-card-inner${isPeek ? ' tracker-deck-card-inner-hidden' : ''}`}>{content}</div>
+        <div className="tracker-deck-card-inner">{content}</div>
       </div>
     );
   };
