@@ -30,13 +30,14 @@
 - `src-tauri/src/main.rs`: Tauri app entry, tray, background camera loop, SQL migrations, posture ingest command.
 - `src-tauri/src/posture_bridge.rs`: posture debouncer and ingest payload types used from `main.rs`.
 
-## Mobile companion (in progress)
+## Mobile companion
 - PWA in `apps/companion` (`npm run dev:companion`, port 5173).
 - Remote sync goes through `apps/server` (`npm run dev:server`, default `http://localhost:8787`). Clients authenticate with `SERVER_TOKEN` / `VITE_SERVER_TOKEN` (see `.env.example`).
 - Phone is the intended **leader** during exercise breaks; companion auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
 - Shared session logic lives in `@mgmt/core`; desktop `src/lib/flowState.ts` and `src/lib/sessionProgress.ts` re-export from there.
 - `@mgmt/sync` defines `ActiveFlowDocument`, `HttpSyncClient`, and `createSyncClient`; `MemorySyncClient` remains for offline dev without the server running.
-- Companion UI reuses desktop Tailwind tokens and shadcn `Card`/`Button` via Vite aliases; scope excludes posture, camera, and tray settings.
+- Companion UI reuses all desktop tabs via Vite aliases (`@` → `src/`) through `MobileAppShell variant="companion"`, which loads `companionNavItems()` — Daily, Work, Stats, Customize, Settings (no Posture/camera). `CompanionSettingsPage` replaces `SettingsPage` to exclude Tauri-only controls.
+- Companion storage: sql.js SQLite backed by IndexedDB (`mgmt-companion-sql`). On startup, fetches a full data snapshot from `GET /v1/data` and merges it (upserts) into the local db (`hydrateDb` in `@mgmt/sync`). After each local write, a debounced push via `POST /v1/data` keeps the server current (`pushUserData` / `extractUserData` in `@mgmt/sync`). If `VITE_SERVER_URL` is unset, sync is silently skipped.
 
 ## Backend server (apps/server)
 - Hono HTTP server (`@mgmt/server`); stores active session state in a local SQLite file via `better-sqlite3`.
