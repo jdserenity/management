@@ -24,7 +24,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@mgmt/core": ["./packages/core/src/index.ts"],
-      "@mgmt/sync": ["./packages/sync/src/index.ts"]
+      "@mgmt/sync": ["./packages/sync/src/index.ts"],
+      "@mgmt/storage": ["./packages/storage/src/types.ts"]
     }
   },
   "include": ["src"],

@@ -8,6 +8,7 @@ import {
   type PeriodStatsPoint
 } from '@/lib/workoutPlanner';
 import StatsProgressChart, { toChartRows, type StatsChartRow } from '@/components/stats/StatsProgressChart';
+import { statsChartShellClass } from '@/lib/statsChartLayout';
 
 const focusMinutesLabel = (minutes: number) => {
   if (minutes < 60) return `${minutes}m`;
@@ -111,7 +112,7 @@ const StatsPeriodExplorer = ({ series, periodTitle, chartLabel, exercisesForBuck
         </div>
       </div>
 
-      <div className="overflow-visible lg:min-h-0 lg:col-span-3">
+      <div className={statsChartShellClass()}>
         <StatsProgressChart data={chartData} selectedIndex={selectedIndex} onSelectIndex={(index) => setSelectedIndex(index)} />
       </div>
     </div>
