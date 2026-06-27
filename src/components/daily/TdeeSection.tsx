@@ -88,7 +88,11 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
   );
 }
 
-export default function TdeeSection() {
+type Props = {
+  refreshKey?: number;
+};
+
+export default function TdeeSection({ refreshKey }: Props) {
   const [file, setFile] = useState<TdeeFile | null>(null);
   const [addMode, setAddMode] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -110,6 +114,10 @@ export default function TdeeSection() {
     const id = window.setInterval(() => void refresh(), 60_000);
     return () => window.clearInterval(id);
   }, [refresh]);
+
+  useEffect(() => {
+    if (refreshKey != null) void refresh();
+  }, [refreshKey, refresh]);
 
   if (!hasAppStorage()) {
     return (
