@@ -32,6 +32,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: [
+      { find: '@/lib/navConfig', replacement: path.resolve(__dirname, 'src/companionNavConfig.ts') },
       { find: '@', replacement: path.resolve(__dirname, '../../src') },
       { find: '@mgmt/core', replacement: path.resolve(__dirname, '../../packages/core/src/index.ts') },
       { find: '@mgmt/sync', replacement: path.resolve(__dirname, '../../packages/sync/src/index.ts') },
