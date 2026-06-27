@@ -33,8 +33,6 @@ const UNIT_OPTIONS: { value: ExerciseUnit; label: string }[] = [
   { value: 'minutes', label: 'min' }
 ];
 
-const unitShort = (unit: ExerciseUnit): string => UNIT_OPTIONS.find((o) => o.value === unit)?.label ?? unit;
-
 const createCustomId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `custom-${crypto.randomUUID()}`;
   return `custom-${Date.now()}`;

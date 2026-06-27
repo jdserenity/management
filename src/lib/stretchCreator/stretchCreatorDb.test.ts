@@ -13,8 +13,7 @@ import type { StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
 import {
   KV_STRETCH_DEFINITIONS,
   loadStretchDefinitions,
-  saveStretchDefinitions,
-  upsertStretchDefinition
+  saveStretchDefinitions
 } from '@/lib/stretchCreator/stretchCreatorDb';
 
 const { kvStore } = vi.hoisted(() => ({ kvStore: new Map<string, string>() }));
