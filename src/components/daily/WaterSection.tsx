@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { activeEntries } from '@/lib/water/entries';
-import { entryMl, formatMl, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
+import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
 import type { WaterEntry, WaterFile } from '@/lib/water/types';
 import { addWaterEntry, loadWaterFile, removeWaterEntry } from '@/lib/waterDb';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
@@ -70,18 +70,17 @@ export default function WaterSection({ refreshKey }: Props) {
 
   const renderChip = (entry: WaterEntry, withConnector: boolean) => {
     const amount = entryMl(entry);
-    const displayLabel = entry.count > 1 ? `${entry.label} ×${entry.count}` : entry.label;
+    const chipLabel = entry.count > 1 ? `${formatWaterLabel(entry.ml)} ×${entry.count}` : formatWaterLabel(amount);
     return (
       <>
         {withConnector ? <TdeeChainConnector /> : null}
         <button
           type="button"
-          className="water-chain-btn water-chain-done"
-          title={`${formatMl(amount)} ml — click to remove`}
+          className="water-chain-btn water-chain-done water-chain-btn-single"
+          title={`${chipLabel} — click to remove`}
           onClick={() => void handleRemove(entry.id)}
         >
-          <span className="water-chain-label">{displayLabel}</span>
-          <span className="water-chain-ml">{formatMl(amount)} ml</span>
+          <span className="water-chain-label">{chipLabel}</span>
         </button>
       </>
     );
@@ -96,11 +95,11 @@ export default function WaterSection({ refreshKey }: Props) {
     <section className="water-tracker-container" aria-label="Water">
       <div className="water-summary">
         <div className="water-counts">
-          <span className="water-today">{formatMl(total)} ml</span>
+          <span className="water-today">{formatLitres(total)}</span>
           {target > 0 ? (
             <>
               <span className="water-sep"> / </span>
-              <span className="water-target">{formatMl(target)} target 💧</span>
+              <span className="water-target">{formatLitres(target)} daily goal 💧</span>
             </>
           ) : null}
         </div>
@@ -136,7 +135,7 @@ export default function WaterSection({ refreshKey }: Props) {
           className="water-log-btn"
           onClick={() => void handleAdd(Math.round(Number(customMl) || 0))}
         >
-          Log
+          Drink
         </button>
       </div>
     </section>

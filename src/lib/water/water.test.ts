@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { activeEntries, makeEntry, makeTombstone } from '@/lib/water/entries';
 import {
   entryMl,
+  formatLitres,
   formatWaterLabel,
+  litresToMl,
+  mlToLitres,
   progressRatio,
   remainingDisplay,
   totalWater
@@ -42,6 +45,17 @@ describe('water totals', () => {
   it('formatWaterLabel uses L for round liters', () => {
     expect(formatWaterLabel(1000)).toBe('1 L');
     expect(formatWaterLabel(250)).toBe('250 ml');
+  });
+
+  it('formatLitres shows daily totals and goals in litres', () => {
+    expect(formatLitres(2000)).toBe('2 L');
+    expect(formatLitres(2500)).toBe('2.5 L');
+    expect(formatLitres(1250)).toBe('1.25 L');
+  });
+
+  it('litresToMl and mlToLitres round-trip storage', () => {
+    expect(litresToMl(2.5)).toBe(2500);
+    expect(mlToLitres(2500)).toBe(2.5);
   });
 
   it('activeEntries filters tombstones', () => {

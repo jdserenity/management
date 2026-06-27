@@ -11,6 +11,18 @@ export const totalWater = (entries: WaterStoredEntry[]): number =>
 
 export const formatMl = (n: number): string => Math.round(n).toLocaleString();
 
+const formatLitresValue = (litres: number): string => {
+  const rounded = Math.round(litres * 100) / 100;
+  if (Number.isInteger(rounded)) return String(rounded);
+  return rounded.toFixed(2).replace(/\.?0+$/, '');
+};
+
+export const mlToLitres = (ml: number): number => ml / 1000;
+
+export const litresToMl = (litres: number): number => Math.round(litres * 1000);
+
+export const formatLitres = (ml: number): string => `${formatLitresValue(mlToLitres(ml))} L`;
+
 export const formatWaterLabel = (ml: number): string => {
   if (ml >= 1000 && ml % 1000 === 0) return `${ml / 1000} L`;
   return `${formatMl(ml)} ml`;
