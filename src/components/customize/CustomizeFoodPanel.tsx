@@ -14,6 +14,7 @@ import {
   upsertTdeeRegular,
   upsertTdeeStaple
 } from '@/lib/tdeeDb';
+import { loadWaterFile, saveWaterTarget } from '@/lib/waterDb';
 import { hasAppStorage } from '@/lib/appRuntime';
 
 type IngredientDraft = { name: string; calories: string; protein: string };
@@ -185,15 +186,17 @@ export default function CustomizeFoodPanel() {
   const [stapleEditId, setStapleEditId] = useState<string | null>(null);
   const [regularDraft, setRegularDraft] = useState<MealDraft>(emptyDraft);
   const [regularEditId, setRegularEditId] = useState<string | null>(null);
+  const [waterTargetDraft, setWaterTargetDraft] = useState('');
 
   const refresh = useCallback(async () => {
     if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
     try {
       setLoadError(null);
-      const next = await loadTdeeFile();
+      const [next, water] = await Promise.all([loadTdeeFile(), loadWaterFile()]);
       setFile(next);
       setTdeeDraft(String(next.tdee || ''));
       setProteinDraft(String(next.protein || ''));
+      setWaterTargetDraft(String(water.targetMl || ''));
     } catch (e) {
       console.error(e);
       setLoadError(e instanceof Error ? e.message : 'Failed to load nutrition data');
@@ -256,6 +259,19 @@ export default function CustomizeFoodPanel() {
           <p className="text-sm text-muted-foreground">Reusable meals with default portions; log them from the + menu on Daily.</p>
           <MealList meals={file.regulars} onEdit={(meal) => { setRegularEditId(meal.id); setRegularDraft(mealToDraft(meal)); }} onRemove={(id) => void removeTdeeRegular(file, id).then(setFile)} />
           <MealEditor title={regularEditId ? 'Edit regular' : 'Add regular'} draft={regularDraft} editingId={regularEditId} onDraftChange={setRegularDraft} onSave={() => void saveMeal(regularDraft, regularEditId, file.regulars, upsertTdeeRegular, () => { setRegularDraft(emptyDraft()); setRegularEditId(null); })} onCancel={() => { setRegularDraft(emptyDraft()); setRegularEditId(null); }} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Water</CardTitle></CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="text-muted-foreground">Daily target (ml)</span>
+              <input type="number" min={0} step={50} className="w-28 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={waterTargetDraft} onChange={(e) => setWaterTargetDraft(e.target.value)} />
+            </label>
+            <Button type="button" size="sm" onClick={() => void loadWaterFile().then((w) => saveWaterTarget(w, Number(waterTargetDraft) || 0))}>Save water target</Button>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -338,6 +338,19 @@
   color: var(--primary);
 }
 
+.streak-overlap-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.72em;
+  font-weight: 500;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 /* Activity name with links */
 .streak-activity-name.clickable-parts {
   cursor: default;

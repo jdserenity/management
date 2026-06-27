@@ -1,0 +1,175 @@
+/* Water Tracker — Management Daily tab */
+
+.water-tracker-container {
+  padding: 16px;
+  font-family: inherit;
+  --water-accent: rgb(56, 189, 248);
+}
+
+.water-tracker-empty {
+  color: var(--muted-foreground);
+  font-style: italic;
+  margin: 0;
+}
+
+.water-summary {
+  margin-bottom: 16px;
+}
+
+.water-counts {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.water-sep,
+.water-target {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.water-remaining {
+  margin-top: 4px;
+  font-size: 0.9em;
+  color: var(--muted-foreground);
+}
+
+.water-remaining-surplus {
+  color: var(--water-accent);
+  font-weight: 600;
+}
+
+.water-progress {
+  margin-top: 10px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.water-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--water-accent);
+  transition: width 0.2s ease;
+}
+
+.water-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 12px;
+}
+
+.water-chain-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 2px;
+  min-height: 52px;
+  min-width: 44px;
+  max-width: 160px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: normal;
+  text-align: center;
+  transition: background 0.15s ease;
+}
+
+.water-chain-label {
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  max-width: 100%;
+}
+
+.water-chain-ml {
+  font-size: 0.75em;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.water-chain-btn:hover:not(.water-chain-done) {
+  background: var(--accent);
+}
+
+.water-chain-done {
+  background: var(--water-accent);
+  color: #fff;
+  border-color: var(--water-accent);
+}
+
+.water-chain-done:hover {
+  filter: brightness(0.92);
+}
+
+.water-chain-done .water-chain-label,
+.water-chain-done .water-chain-ml {
+  color: #fff;
+}
+
+.water-quick-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.water-quick-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.water-quick-btn:hover {
+  background: var(--accent);
+}
+
+.water-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.water-custom-input {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.water-log-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.water-log-btn:hover {
+  filter: brightness(1.05);
+}

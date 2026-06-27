@@ -23,6 +23,9 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [weeklyTarget, setWeeklyTarget] = useState('1');
   const [scheduledDays, setScheduledDays] = useState('Sun');
+  const [extraCalories, setExtraCalories] = useState('');
+  const [extraProtein, setExtraProtein] = useState('');
+  const [extraWaterMl, setExtraWaterMl] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -32,6 +35,9 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
     setFrequency(activity?.frequency === 'weekly' ? 'weekly' : 'daily');
     setWeeklyTarget(String(activity?.weeklyTarget ?? 1));
     setScheduledDays((activity?.scheduledDays || ['Sun']).join(', '));
+    setExtraCalories(activity?.extraCalories ? String(activity.extraCalories) : '');
+    setExtraProtein(activity?.extraProtein ? String(activity.extraProtein) : '');
+    setExtraWaterMl(activity?.extraWaterMl ? String(activity.extraWaterMl) : '');
   }, [open, activity]);
 
   const handleSave = () => {
@@ -46,7 +52,10 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
       ...(frequency === 'weekly' ? {
         weeklyTarget: Math.max(1, parseInt(weeklyTarget, 10) || 1),
         scheduledDays: scheduledDays.split(',').map((d) => d.trim()).filter(Boolean)
-      } : {})
+      } : {}),
+      ...(Number(extraCalories) > 0 ? { extraCalories: Math.round(Number(extraCalories)) } : {}),
+      ...(Number(extraProtein) > 0 ? { extraProtein: Number(extraProtein) } : {}),
+      ...(Number(extraWaterMl) > 0 ? { extraWaterMl: Math.round(Number(extraWaterMl)) } : {})
     };
     onSave(parsed, isNew);
     onClose();
@@ -92,6 +101,23 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
               </label>
             </>
           ) : null}
+          <div className="rounded-md border border-border px-3 py-2">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Also log on success</p>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="text-muted-foreground">+kcal</span>
+                <input type="number" min={0} step={1} className="w-20 rounded-md border border-border bg-background px-2 py-1" value={extraCalories} onChange={(e) => setExtraCalories(e.target.value)} />
+              </label>
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="text-muted-foreground">+protein (g)</span>
+                <input type="number" min={0} step={0.1} className="w-20 rounded-md border border-border bg-background px-2 py-1" value={extraProtein} onChange={(e) => setExtraProtein(e.target.value)} />
+              </label>
+              <label className="flex flex-col gap-1 text-xs">
+                <span className="text-muted-foreground">+water (ml)</span>
+                <input type="number" min={0} step={1} className="w-20 rounded-md border border-border bg-background px-2 py-1" value={extraWaterMl} onChange={(e) => setExtraWaterMl(e.target.value)} />
+              </label>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>

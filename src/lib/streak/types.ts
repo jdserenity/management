@@ -11,6 +11,9 @@ export type StreakActivity = {
   scheduledDays?: string[];
   canFail?: boolean;
   archivedAt?: string | null;
+  extraCalories?: number;
+  extraProtein?: number;
+  extraWaterMl?: number;
   _fromConfig?: boolean;
   _logOnly?: boolean;
 };

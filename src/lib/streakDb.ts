@@ -19,6 +19,9 @@ type ActivityRow = {
   can_fail: number;
   archived_at: string | null;
   sort_order: number;
+  extra_calories: number | null;
+  extra_protein: number | null;
+  extra_water_ml: number | null;
 };
 
 type LogRow = { log_date: string; activity_id: string; state: string; updated_at: string };
@@ -40,6 +43,9 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     } catch { /* ignore */ }
   }
   if (row.archived_at) a.archivedAt = row.archived_at;
+  if (row.extra_calories != null && row.extra_calories > 0) a.extraCalories = row.extra_calories;
+  if (row.extra_protein != null && row.extra_protein > 0) a.extraProtein = row.extra_protein;
+  if (row.extra_water_ml != null && row.extra_water_ml > 0) a.extraWaterMl = row.extra_water_ml;
   return a;
 };
 
@@ -61,7 +67,7 @@ const buildState = (config: StreakConfig, data: StreakData, currentDay: string, 
 const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakData, 'stats'> }> => {
   const db = await getDb();
   const activityRows = await db.select<ActivityRow[]>(
-    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order FROM streak_activities ORDER BY sort_order, name'
+    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml FROM streak_activities ORDER BY sort_order, name'
   );
   const activities: StreakActivity[] = [];
   const archivedActivities: StreakActivity[] = [];
@@ -115,7 +121,7 @@ const saveActivities = async (config: StreakConfig): Promise<void> => {
   const write = async (a: StreakActivity, archived: boolean) => {
     const scheduledJson = a.scheduledDays?.length ? JSON.stringify(a.scheduledDays) : null;
     await db.execute(
-      'INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+      'INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
       [
         a.id,
         a.name || a.id,
@@ -125,7 +131,10 @@ const saveActivities = async (config: StreakConfig): Promise<void> => {
         scheduledJson,
         a.canFail ? 1 : 0,
         archived ? (a.archivedAt ?? null) : null,
-        order++
+        order++,
+        a.extraCalories ?? null,
+        a.extraProtein ?? null,
+        a.extraWaterMl ?? null
       ]
     );
   };
@@ -275,7 +284,14 @@ export const upsertStreakActivity = async (state: StreakState, activity: StreakA
     state.config.activities = [...state.config.activities, activity];
     state.data.activityStartDates = { ...state.data.activityStartDates, [activity.id]: state.currentDay };
   } else {
-    state.config.activities = state.config.activities.map((a) => (a.id === activity.id ? { ...a, ...activity } : a));
+    state.config.activities = state.config.activities.map((a) => {
+      if (a.id !== activity.id) return a;
+      const next: StreakActivity = { ...a, ...activity };
+      if (!activity.extraCalories) delete next.extraCalories;
+      if (!activity.extraProtein) delete next.extraProtein;
+      if (!activity.extraWaterMl) delete next.extraWaterMl;
+      return next;
+    });
   }
   return saveStreakState(state);
 };
