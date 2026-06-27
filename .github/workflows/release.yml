@@ -121,4 +121,4 @@ jobs:
           releaseName: Management ${{ steps.release-tag.outputs.value }}
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} -c '{"bundle":{"createUpdaterArtifacts":true}}'

@@ -17,7 +17,7 @@
     "deploy:companion": "node scripts/deploy-companion.mjs",
     "test": "vitest run",
     "preview": "vite preview",
-    "tauri": "tauri",
+    "tauri": "node scripts/tauri.mjs",
     "db:backup": "node scripts/backup-db.mjs",
     "import:vault": "tsx scripts/import-vault-once.ts",
     "sync:to-server": "tsx scripts/sync-to-server.ts",
