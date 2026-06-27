@@ -23,3 +23,9 @@ export const companionNavItems = (): NavItemDef[] => [
 
 // Companion build never uses desktop nav; stub avoids importing PosturePage / Tauri-only pages.
 export const desktopNavItems = (): NavItemDef[] => companionNavItems();
+
+export const NAV_GO_TO_WORK = 'mgmt-nav-go-to-work';
+
+export const requestGoToWorkTab = (): void => {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(NAV_GO_TO_WORK));
+};
