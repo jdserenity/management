@@ -16,14 +16,12 @@ import {
   applyExerciseOverride,
   FILLS_ENTIRE_BREAK_CONFIRM_MESSAGE,
   maxStretchHoldSeconds,
-  stretchHoldSecondsForPickKey,
   timedExerciseNeedsFillBreakConfirm,
   resolveAllowedStretchPickKeys,
   resolveAllowedWorkoutIdsFromPrefs
 } from '@/lib/workoutCustomize';
 import {
   PREDEFINED_WORKOUTS,
-  STRETCH_PICK_CATALOG,
   formatExerciseAmount,
   type ExerciseDefinition,
   type ExerciseUnit
@@ -50,9 +48,7 @@ export default function CustomizeExercisesPanel() {
   const {
     workoutCustomizePrefs,
     handleAllowedWorkoutToggle,
-    handleStretchPickToggle,
     updateExerciseOverride,
-    updateStretchHoldSeconds,
     addCustomExercise,
     removeCustomExercise
   } = useSession();
@@ -135,7 +131,7 @@ export default function CustomizeExercisesPanel() {
             Exercises
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Exercise breaks build a random ~2–3 minute circuit from the moves you turn on below. The same move can show up again on a later break in the day, but never twice in one break.
+            Exercise breaks build a random ~2–3 minute circuit from the moves you turn on below. Stretches are configured under Customize → Stretches. The same move can show up again on a later break in the day, but never twice in one break.
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -186,47 +182,6 @@ export default function CustomizeExercisesPanel() {
               </div>
             );
           })}
-
-          <div className="space-y-3 rounded-md border px-3 py-3">
-            <p className="text-lg font-semibold">🤸 Stretching / Mobility</p>
-            <p className="text-xs text-muted-foreground">
-              Standard stretches use the hold time below. Neck and hip rolls always use 30s (both directions).
-            </p>
-            <label className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-medium">Hold per stretch</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm font-semibold tabular-nums"
-                value={workoutCustomizePrefs.stretchHoldSeconds}
-                onChange={(e) => updateStretchHoldSeconds(Number(e.target.value))}
-              />
-              <span className="text-muted-foreground">{unitShort('seconds')}</span>
-            </label>
-            <ul className="space-y-2">
-              {STRETCH_PICK_CATALOG.map((row) => {
-                const enabled = allowedStretchKeys.includes(row.key);
-                const isOnlyEnabledMove = enabled && enabledMoveCount === 1;
-                const hold = stretchHoldSecondsForPickKey(row.key, workoutCustomizePrefs);
-                const preview = { id: row.key, name: row.label, amount: hold, unit: 'seconds' as const };
-                return (
-                  <li key={row.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/20 px-2 py-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{row.label}</p>
-                      <p className="text-xs text-muted-foreground">{formatExerciseAmount(preview)}</p>
-                    </div>
-                    <Switch
-                      checked={enabled}
-                      disabled={isOnlyEnabledMove}
-                      onCheckedChange={(checked) => handleStretchPickToggle(row.key, checked)}
-                      className="shrink-0"
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
 
           <div className="space-y-3 rounded-md border px-3 py-3">
             <p className="text-lg font-semibold">Your exercises</p>

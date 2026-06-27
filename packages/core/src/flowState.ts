@@ -1,8 +1,8 @@
 import type { ExerciseRunAgg, SessionType, WorkoutDefinition } from './sessionTypes';
 
 export type FlowPhase = 'idle' | 'focus' | 'break';
-export type BreakVariant = 'short' | 'long';
-export type LongBreakStage = 'exercise' | 'relax';
+export type BreakVariant = 'short' | 'long' | 'very_light';
+export type LongBreakStage = 'exercise' | 'relax' | 'very_light';
 export type DeskPosture = 'sitting' | 'standing';
 
 export interface PersistedFlowState {
