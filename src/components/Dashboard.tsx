@@ -18,7 +18,7 @@ import {
   type SessionType
 } from '@/lib/workoutPlanner';
 import { canConvertFocusSession, showSessionChainControls } from '@/lib/sessionProgress';
-import { shouldScheduleExerciseOnPomodoroBreak } from '@/lib/exerciseBreak';
+import { isVeryLightBreak, resolvePomodoroBreakKind, VERY_LIGHT_BREAK_HINT, VERY_LIGHT_BREAK_TITLE } from '@/lib/exerciseBreak';
 
 const Dashboard = () => {
   const {
@@ -57,10 +57,12 @@ const Dashboard = () => {
       ? activeSessionType === 'pomodoro'
         ? '🍅 Pomodoro focus'
         : '🎯 Deep work focus'
+      : phase === 'break' && isVeryLightBreak(phase, breakVariant, longBreakStage)
+        ? VERY_LIGHT_BREAK_TITLE
       : phase === 'break' && !activeSessionType
         ? '🏃 Exercise break'
       : phase === 'break' && breakVariant === 'short'
-        ? '🏃 Exercise break'
+        ? activeWorkout ? '🏃 Exercise break' : '☕ Short break'
         : phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise'
           ? '🏃 Exercise break'
           : phase === 'break' && breakVariant === 'long' && longBreakStage === 'relax'
@@ -82,7 +84,9 @@ const Dashboard = () => {
     if (phase === 'focus' && activeSessionType === 'pomodoro') start = now + remMs + shortBreakMs;
     else if (phase === 'focus' && activeSessionType === 'deep') start = now + remMs + longBreakMs;
     else if (phase === 'break' && breakVariant === 'short') start = now + remMs;
+    else if (phase === 'break' && breakVariant === 'very_light') start = now + remMs;
     else if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise') start = now + remMs + longBreakRelaxMs;
+    else if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'very_light') start = now + remMs + longBreakRelaxMs;
     else if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'relax') start = now + remMs;
     else if (phase === 'break' && breakVariant === 'long') start = now + remMs + longBreakRelaxMs;
     else start = now + remMs;
@@ -95,30 +99,49 @@ const Dashboard = () => {
     activeWorkout &&
     (breakVariant === 'short' || (breakVariant === 'long' && longBreakStage === 'exercise'));
 
-  const isStandaloneExerciseBreak = phase === 'break' && !activeSessionType;
+  const showVeryLightBreakPanel = phase === 'break' && isVeryLightBreak(phase, breakVariant, longBreakStage);
+
+  const isStandaloneExerciseBreak = phase === 'break' && !activeSessionType && breakVariant === 'short';
+  const isStandaloneVeryLightBreak = phase === 'break' && !activeSessionType && breakVariant === 'very_light';
   const showChainControls = showSessionChainControls(phase);
 
   const breakPreview = useMemo(() => {
-    if (phase === 'idle' || isStandaloneExerciseBreak) return null;
+    if (phase === 'idle' || isStandaloneExerciseBreak || isStandaloneVeryLightBreak) return null;
     if (phase === 'focus' && activeSessionType === 'pomodoro') {
-      const willExercise = shouldScheduleExerciseOnPomodoroBreak(runPomodoros + 1);
+      const breakKind = resolvePomodoroBreakKind(runPomodoros + 1, cantExerciseMode);
       return {
-        title: willExercise ? '🏃 Exercise break' : '☕ Short break',
-        detail: willExercise
-          ? `${SESSION_DURATIONS_MINUTES.break} min before next focus`
-          : `${SESSION_DURATIONS_MINUTES.break} min · sit/stand reminder`
+        title: breakKind === 'very_light' ? VERY_LIGHT_BREAK_TITLE : breakKind === 'exercise' ? '🏃 Exercise break' : '☕ Short break',
+        detail: breakKind === 'very_light'
+          ? `${SESSION_DURATIONS_MINUTES.break} min · water, bathroom, or phone`
+          : breakKind === 'exercise'
+            ? `${SESSION_DURATIONS_MINUTES.break} min before next focus`
+            : `${SESSION_DURATIONS_MINUTES.break} min · sit/stand reminder`
       } as const;
     }
     if (phase === 'focus' && activeSessionType === 'deep') {
       return {
-        title: '☕ Long break',
-        detail: `${SESSION_DURATIONS_MINUTES.break} min exercise, then ${longBreakRelaxMinutes} min relax`
+        title: cantExerciseMode ? VERY_LIGHT_BREAK_TITLE : '☕ Long break',
+        detail: cantExerciseMode
+          ? `${SESSION_DURATIONS_MINUTES.break} min very light, then ${longBreakRelaxMinutes} min relax`
+          : `${SESSION_DURATIONS_MINUTES.break} min exercise, then ${longBreakRelaxMinutes} min relax`
+      } as const;
+    }
+    if (phase === 'break' && breakVariant === 'very_light') {
+      return {
+        title: VERY_LIGHT_BREAK_TITLE,
+        detail: `${SESSION_DURATIONS_MINUTES.break} min`
       } as const;
     }
     if (phase === 'break' && breakVariant === 'short') {
       return {
         title: activeWorkout ? '🏃 Exercise break' : '☕ Short break',
         detail: `${SESSION_DURATIONS_MINUTES.break} min`
+      } as const;
+    }
+    if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'very_light') {
+      return {
+        title: VERY_LIGHT_BREAK_TITLE,
+        detail: `Then ${longBreakRelaxMinutes} min to relax`
       } as const;
     }
     if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise') {
@@ -140,7 +163,7 @@ const Dashboard = () => {
       } as const;
     }
     return null;
-  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak, runPomodoros, activeWorkout]);
+  }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak, isStandaloneVeryLightBreak, runPomodoros, activeWorkout, cantExerciseMode]);
 
   const unitShort = (unit: ExerciseUnit) => (unit === 'reps' ? 'reps' : unit === 'seconds' ? 'sec' : 'min');
 
@@ -214,7 +237,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 gap-3 lg:contents">
               {/* Break preview */}
               <div className="min-w-0 lg:flex-[1.1] lg:max-w-[11rem] lg:flex-none lg:basis-[10%]">
-                {phase === 'idle' || isStandaloneExerciseBreak ? (
+                {phase === 'idle' || isStandaloneExerciseBreak || isStandaloneVeryLightBreak ? (
                   <div className="flex h-full min-h-[5.5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/25 bg-muted/10 px-2 py-2 text-center text-[10px] text-muted-foreground">
                     <span>Break</span>
                   </div>
@@ -294,7 +317,9 @@ const Dashboard = () => {
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => startFlow('pomodoro')}>🍅 Start Pomodoro</Button>
               <Button variant="secondary" onClick={() => startFlow('deep')}>🎯 Start deep work</Button>
-              <Button variant="outline" onClick={startExerciseBreak}>🏃 Start Exercise Break</Button>
+              <Button variant="outline" onClick={startExerciseBreak}>
+                {cantExerciseMode ? '🫖 Start Very Light Break' : '🏃 Start Exercise Break'}
+              </Button>
             </div>
           ) : (
             <div className="flex flex-wrap gap-3">
@@ -333,6 +358,13 @@ const Dashboard = () => {
               <Button size="sm" onClick={handleWorkoutCompletion}>
                 {workoutLogged ? 'Workout Logged' : 'Complete Workout'}
               </Button>
+            </div>
+          )}
+
+          {showVeryLightBreakPanel && (
+            <div className="rounded-lg border border-dashed bg-sky-50/50 px-4 py-3 text-sm dark:bg-sky-950/20">
+              <p className="font-semibold text-foreground">{VERY_LIGHT_BREAK_TITLE}</p>
+              <p className="mt-1 text-muted-foreground">{VERY_LIGHT_BREAK_HINT}</p>
             </div>
           )}
 

@@ -19,6 +19,7 @@ describe('sessionAlertLabels', () => {
     expect(formatSessionTrayTitle('focus', 60, 'deep', null, null, false)).toBe('🎯 1:00');
     expect(formatSessionTrayTitle('break', 300, null, 'short', null, true)).toBe('🏃 5:00');
     expect(formatSessionTrayTitle('break', 300, 'pomodoro', 'short', null, false)).toBe('☕ 5:00');
+    expect(formatSessionTrayTitle('break', 300, 'pomodoro', 'very_light', null, false)).toBe('🫖 5:00');
     expect(formatSessionTrayTitle('break', 600, null, 'long', 'relax', false)).toBe('☕ 10:00');
     expect(formatSessionTrayTitle('idle', 0, null, null, null, false)).toBeNull();
   });
@@ -26,6 +27,7 @@ describe('sessionAlertLabels', () => {
   it('flow status label omits timer and reflects short breaks without exercise', () => {
     expect(flowStatusLabel('focus', 'pomodoro', null, null, false)).toBe('🍅 Pomodoro focus');
     expect(flowStatusLabel('break', 'pomodoro', 'short', null, false)).toBe('☕ Short break');
+    expect(flowStatusLabel('break', 'pomodoro', 'very_light', null, false)).toBe('🫖 Very Light Break');
     expect(flowStatusLabel('break', 'pomodoro', 'short', null, true)).toBe('🏃 Exercise break');
   });
 

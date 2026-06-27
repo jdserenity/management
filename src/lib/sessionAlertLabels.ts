@@ -6,7 +6,8 @@ export const SESSION_FLOW_EMOJI = {
   pomodoro: '🍅',
   deep: '🎯',
   exerciseBreak: '🏃',
-  relax: '☕'
+  relax: '☕',
+  veryLight: '🫖'
 } as const;
 
 const pad2 = (n: number): string => String(n).padStart(2, '0');
@@ -27,6 +28,8 @@ export const flowStatusLabel = (
   hasActiveWorkout: boolean
 ): string => {
   if (phase === 'focus') return activeSessionType === 'pomodoro' ? '🍅 Pomodoro focus' : '🎯 Deep work focus';
+  if (phase === 'break' && breakVariant === 'very_light') return '🫖 Very Light Break';
+  if (phase === 'break' && longBreakStage === 'very_light') return '🫖 Very Light Break';
   if (phase === 'break' && !activeSessionType) return '🏃 Exercise break';
   if (phase === 'break' && breakVariant === 'short') return hasActiveWorkout ? '🏃 Exercise break' : '☕ Short break';
   if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise') return '🏃 Exercise break';
@@ -50,6 +53,7 @@ export const formatSessionTrayTitle = (
     return `${emoji} ${time}`;
   }
   if (longBreakStage === 'relax') return `${SESSION_FLOW_EMOJI.relax} ${time}`;
+  if (breakVariant === 'very_light' || longBreakStage === 'very_light') return `${SESSION_FLOW_EMOJI.veryLight} ${time}`;
   if (breakVariant === 'short' && !hasActiveWorkout) return `${SESSION_FLOW_EMOJI.relax} ${time}`;
   return `${SESSION_FLOW_EMOJI.exerciseBreak} ${time}`;
 };
@@ -74,7 +78,9 @@ export const sessionPhaseNotifyCopy = (
     if (activeSessionType === 'deep') return { title: 'Deep work', body: 'Focus session started.' };
     return { title: 'Pomodoro', body: 'Focus session started.' };
   }
+  if (longBreakStage === 'very_light') return { title: 'Very Light Break', body: 'Quiet break — water, bathroom, or phone.' };
   if (longBreakStage === 'relax') return { title: 'Long break', body: 'Relax time — stretch and rest.' };
+  if (breakVariant === 'very_light') return { title: 'Very Light Break', body: 'Quiet break — water, bathroom, or phone.' };
   if (breakVariant === 'long') return { title: 'Long break', body: 'Exercise break started.' };
   return { title: 'Break', body: 'Break started — time for movement.' };
 };

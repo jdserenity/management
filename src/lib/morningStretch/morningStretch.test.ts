@@ -11,6 +11,7 @@ import {
   morningStretchCompletionRatio,
   MORNING_STRETCH_WORKOUT_ID,
   normalizeMorningStretchRoutine,
+  repairBuiltinMorningStretchRefs,
   resolveMorningStretchExercises,
   shouldShowMorningStretchSection
 } from '@/lib/morningStretch/morningStretch';
@@ -46,20 +47,38 @@ describe('listMorningStretchCatalog', () => {
     expect(catalog.some((row) => row.ref.kind === 'custom' && row.ref.id === 'custom-a')).toBe(true);
   });
 
-  it('drops disabled predefined moves and stretch picks', () => {
+  it('drops disabled predefined moves but always lists every stretch pick', () => {
     const prefs = defaultWorkoutCustomizePrefs();
     prefs.allowedWorkoutIds = prefs.allowedWorkoutIds.filter((id) => id !== 'push-ups');
     prefs.allowedStretchPickKeys = prefs.allowedStretchPickKeys.filter((key) => key !== 'stretch-neck-roll');
     const catalog = listMorningStretchCatalog(prefs);
     expect(catalog.some((row) => row.ref.id === 'push-ups')).toBe(false);
-    expect(catalog.some((row) => row.ref.id === 'stretch-neck-roll')).toBe(false);
+    expect(catalog.some((row) => row.ref.id === 'stretch-neck-roll')).toBe(true);
+  });
+});
+
+describe('repairBuiltinMorningStretchRefs', () => {
+  it('restores the shipped default when four default refs were saved', () => {
+    const subset = DEFAULT_MORNING_STRETCH_EXERCISE_REFS.slice(0, 4);
+    expect(repairBuiltinMorningStretchRefs(subset)).toEqual(DEFAULT_MORNING_STRETCH_EXERCISE_REFS);
+  });
+
+  it('does not expand a single-move custom built-in routine', () => {
+    const one = [DEFAULT_MORNING_STRETCH_EXERCISE_REFS[0]];
+    expect(repairBuiltinMorningStretchRefs(one)).toEqual(one);
+  });
+
+  it('leaves custom routines alone', () => {
+    const custom = [{ kind: 'stretchPick' as const, id: 'stretch-butterfly' }];
+    expect(repairBuiltinMorningStretchRefs(custom)).toEqual(custom);
   });
 });
 
 describe('normalizeMorningStretchRoutine', () => {
-  it('keeps only refs still in the exercise pool', () => {
+  it('keeps refs even when not in the enabled pool', () => {
     const prefs = defaultWorkoutCustomizePrefs();
     prefs.allowedWorkoutIds = prefs.allowedWorkoutIds.filter((id) => id !== 'push-ups');
+    prefs.allowedStretchPickKeys = prefs.allowedStretchPickKeys.filter((key) => key !== 'stretch-neck-roll');
     const routine = normalizeMorningStretchRoutine(
       {
         exerciseRefs: [
@@ -67,6 +86,18 @@ describe('normalizeMorningStretchRoutine', () => {
           { kind: 'stretchPick', id: 'stretch-neck-roll' }
         ]
       },
+      prefs
+    );
+    expect(routine.exerciseRefs).toEqual([
+      { kind: 'predefined', id: 'push-ups' },
+      { kind: 'stretchPick', id: 'stretch-neck-roll' }
+    ]);
+  });
+
+  it('drops unknown refs', () => {
+    const prefs = defaultWorkoutCustomizePrefs();
+    const routine = normalizeMorningStretchRoutine(
+      { exerciseRefs: [{ kind: 'stretchPick', id: 'stretch-neck-roll' }, { kind: 'stretchPick', id: 'bogus-stretch' }] },
       prefs
     );
     expect(routine.exerciseRefs).toEqual([{ kind: 'stretchPick', id: 'stretch-neck-roll' }]);
