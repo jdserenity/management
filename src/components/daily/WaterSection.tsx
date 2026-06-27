@@ -17,6 +17,7 @@ type Props = {
 
 export default function WaterSection({ refreshKey }: Props) {
   const [file, setFile] = useState<WaterFile | null>(null);
+  const [addMode, setAddMode] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [customMl, setCustomMl] = useState('');
 
@@ -66,6 +67,7 @@ export default function WaterSection({ refreshKey }: Props) {
     if (!ml || ml <= 0) return;
     setFile(await addWaterEntry(file, label || formatWaterLabel(ml), ml, 1));
     setCustomMl('');
+    setAddMode(false);
   };
 
   const renderChip = (entry: WaterEntry, withConnector: boolean) => {
@@ -91,6 +93,20 @@ export default function WaterSection({ refreshKey }: Props) {
     chainItems.push(renderChip(entry, i > 0));
   });
 
+  if (chainItems.length > 0) chainItems.push(<TdeeChainConnector key="c-plus" />);
+  chainItems.push(
+    <button
+      key="plus"
+      type="button"
+      className={`water-chain-btn water-chain-plus${addMode ? ' water-chain-plus-disabled' : ''}`}
+      title={addMode ? 'Close add menu first' : 'Log water'}
+      disabled={addMode}
+      onClick={() => setAddMode(true)}
+    >
+      +
+    </button>
+  );
+
   return (
     <section className="water-tracker-container" aria-label="Water">
       <div className="water-summary">
@@ -112,32 +128,42 @@ export default function WaterSection({ refreshKey }: Props) {
           </div>
         ) : null}
       </div>
-      {chainItems.length > 0 ? <div className="water-chain">{chainItems}</div> : null}
-      <div className="water-quick-add">
-        {QUICK_AMOUNTS.map((ml) => (
-          <button key={ml} type="button" className="water-quick-btn" onClick={() => void handleAdd(ml)}>
-            {formatWaterLabel(ml)}
-          </button>
-        ))}
-      </div>
-      <div className="water-custom-row">
-        <input
-          className="water-custom-input"
-          type="number"
-          min={1}
-          step={1}
-          placeholder="ml"
-          value={customMl}
-          onChange={(e) => setCustomMl(e.target.value)}
-        />
-        <button
-          type="button"
-          className="water-log-btn"
-          onClick={() => void handleAdd(Math.round(Number(customMl) || 0))}
-        >
-          Drink
-        </button>
-      </div>
+      <div className="water-chain">{chainItems}</div>
+      {addMode ? (
+        <div className="water-add-panel">
+          <div className="water-add-header">
+            <span className="water-add-title">Drink water</span>
+            <button type="button" className="water-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
+              ×
+            </button>
+          </div>
+          <div className="water-quick-add">
+            {QUICK_AMOUNTS.map((ml) => (
+              <button key={ml} type="button" className="water-quick-btn" onClick={() => void handleAdd(ml)}>
+                {formatWaterLabel(ml)}
+              </button>
+            ))}
+          </div>
+          <div className="water-custom-row">
+            <input
+              className="water-custom-input"
+              type="number"
+              min={1}
+              step={1}
+              placeholder="ml"
+              value={customMl}
+              onChange={(e) => setCustomMl(e.target.value)}
+            />
+            <button
+              type="button"
+              className="water-log-btn"
+              onClick={() => void handleAdd(Math.round(Number(customMl) || 0))}
+            >
+              Drink
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

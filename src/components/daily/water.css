@@ -99,6 +99,22 @@
   min-height: 44px;
 }
 
+.water-chain-plus {
+  min-width: 44px;
+  font-size: 1.4em;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+.water-chain-plus-disabled,
+.water-chain-plus:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--border);
+  color: var(--muted-foreground);
+}
+
 .water-chain-btn:hover:not(.water-chain-done) {
   background: var(--accent);
 }
@@ -115,6 +131,47 @@
 
 .water-chain-done .water-chain-label {
   color: #fff;
+}
+
+.water-add-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--secondary);
+}
+
+.water-add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.water-add-title {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.water-add-close {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 1.35em;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.water-add-close:hover {
+  background: var(--accent);
+  color: var(--foreground);
 }
 
 .water-quick-add {
