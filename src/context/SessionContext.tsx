@@ -18,6 +18,7 @@ import {
   resolvePomodoroBreakKind,
   restoreExerciseBreakFromVeryLight
 } from '@/lib/exerciseBreak';
+import { loadPomodoroBreakChain, savePomodoroBreakChain } from '@/lib/pomodoroBreakChain';
 import {
   defaultWorkoutCustomizePrefs,
   mergeExerciseOverride,
@@ -219,6 +220,8 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   workoutCustomizePrefsRef.current = workoutCustomizePrefs;
   const cantExerciseModeRef = useRef(cantExerciseMode);
   cantExerciseModeRef.current = cantExerciseMode;
+  const dayRolloverHourRef = useRef(dayRolloverHour);
+  dayRolloverHourRef.current = dayRolloverHour;
   const backgroundFlowStartRef = useRef(false);
   const pomodoroPostureRef = useRef(pomodoroPosture);
   pomodoroPostureRef.current = pomodoroPosture;
@@ -319,6 +322,9 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     if (sessionType === 'pomodoro') {
       runPomodorosRef.current += 1;
       setRunPomodoros(runPomodorosRef.current);
+      void savePomodoroBreakChain(runPomodorosRef.current, dayRolloverHourRef.current).catch((error) => {
+        console.error('Failed to persist pomodoro break chain:', error);
+      });
     } else {
       runDeepWorkRef.current += 1;
       setRunDeepWork(runDeepWorkRef.current);
@@ -396,9 +402,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     setPomodoroPosture('sitting');
     setRunStartedAt(null);
     applyExerciseTotals(emptyExerciseTotals());
-    runPomodorosRef.current = 0;
     runDeepWorkRef.current = 0;
-    setRunPomodoros(0);
     setRunDeepWork(0);
     phasePlannedSecondsRef.current = 0;
     phaseEndsAtMsRef.current = 0;
@@ -426,9 +430,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     setWorkoutLogged(false);
     workoutLoggedRef.current = false;
     applyExerciseTotals(empty);
-    runPomodorosRef.current = 0;
     runDeepWorkRef.current = 0;
-    setRunPomodoros(0);
     setRunDeepWork(0);
     markPhaseStarted();
     const secs = SESSION_DURATIONS_MINUTES.break * 60;
@@ -454,9 +456,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       lastPomodoroPostureRef.current = null;
       if (sessionType === 'pomodoro') setPomodoroPosture('sitting');
       applyExerciseTotals(empty);
-      runPomodorosRef.current = 0;
       runDeepWorkRef.current = 0;
-      setRunPomodoros(0);
       setRunDeepWork(0);
       const secs = SESSION_DURATIONS_MINUTES[sessionType] * 60;
       markPhaseStarted();
@@ -564,26 +564,17 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   }, [finishFlow, setPhaseTimer, markPhaseStarted]);
 
   useEffect(() => {
-    let cancelled = false;
-    void loadDayRolloverHourPref()
-      .then((hour) => {
-        if (!cancelled) {
-          setDayRolloverHourState(hour);
-          setStatsDayWindowStart(getStatsDayWindow(Date.now(), hour).startTs);
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to load day rollover hour:', error);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
     const tick = () => {
       const { startTs } = getStatsDayWindow(Date.now(), dayRolloverHour);
-      setStatsDayWindowStart((prev) => (prev === startTs ? prev : startTs));
+      setStatsDayWindowStart((prev) => {
+        if (prev === startTs) return prev;
+        runPomodorosRef.current = 0;
+        setRunPomodoros(0);
+        void savePomodoroBreakChain(0, dayRolloverHour).catch((error) => {
+          console.error('Failed to reset pomodoro break chain on day rollover:', error);
+        });
+        return startTs;
+      });
     };
     tick();
     const id = window.setInterval(tick, 60_000);
@@ -592,11 +583,14 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadSessionStorage(), isCantExerciseModeEnabled()])
-      .then(([snapshot, cantExerciseEnabled]) => {
+    Promise.all([loadSessionStorage(), isCantExerciseModeEnabled(), loadDayRolloverHourPref()])
+      .then(async ([snapshot, cantExerciseEnabled, rolloverHour]) => {
         if (cancelled) return;
         cantExerciseModeRef.current = cantExerciseEnabled;
         setCantExerciseModeState(cantExerciseEnabled);
+        dayRolloverHourRef.current = rolloverHour;
+        setDayRolloverHourState(rolloverHour);
+        setStatsDayWindowStart(getStatsDayWindow(Date.now(), rolloverHour).startTs);
         workoutCustomizePrefsRef.current = snapshot.workoutCustomizePrefs;
         setWorkoutCustomizePrefs(snapshot.workoutCustomizePrefs);
         setWorkoutLogs(snapshot.workoutLogs);
@@ -604,6 +598,11 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
         if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
           applyPersistedFlow(snapshot.activeFlow);
           if (snapshot.activeFlow.remainingSeconds === 0) prevRemainingForTimerEndRef.current = -1;
+        } else {
+          const chain = await loadPomodoroBreakChain(rolloverHour);
+          if (cancelled) return;
+          runPomodorosRef.current = chain;
+          setRunPomodoros(chain);
         }
       })
       .catch((error) => {

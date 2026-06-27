@@ -49,6 +49,12 @@ describe('resolvePomodoroBreakKind', () => {
     expect(resolvePomodoroBreakKind(2, true)).toBe('very_light');
     expect(resolvePomodoroBreakKind(3, true)).toBe('relax');
   });
+
+  it('schedules exercise after a resumed flow when one pomodoro was already completed today', () => {
+    const completedInChain = 1;
+    expect(resolvePomodoroBreakKind(completedInChain + 1, false)).toBe('exercise');
+    expect(resolvePomodoroBreakKind(completedInChain + 1, true)).toBe('very_light');
+  });
 });
 
 describe('resolveLongBreakExerciseStage', () => {
