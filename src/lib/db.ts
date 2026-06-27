@@ -1,6 +1,5 @@
 import type { SqlDatabase } from '@mgmt/storage';
 import { wrapWithDataSync } from '@mgmt/sync';
-import Database from '@tauri-apps/plugin-sql';
 
 export type { SqlDatabase };
 
@@ -9,7 +8,10 @@ export const DB_ID = 'sqlite:local.db';
 let registeredBackend: SqlDatabase | null = null;
 let tauriLoadPromise: Promise<SqlDatabase> | null = null;
 
-const wrapTauriDb = (db: Database): SqlDatabase => {
+const wrapTauriDb = (db: {
+  select: <T>(query: string, bind?: unknown[]) => Promise<T>;
+  execute: (query: string, bind?: unknown[]) => Promise<{ lastInsertId?: number; rowsAffected: number }>;
+}): SqlDatabase => {
   const base: SqlDatabase = {
     select: (query, bind) => db.select(query, bind),
     execute: async (query, bind) => {
@@ -30,6 +32,10 @@ export const registerSqlBackend = (backend: SqlDatabase): void => {
 
 export const getDb = async (): Promise<SqlDatabase> => {
   if (registeredBackend) return registeredBackend;
-  if (!tauriLoadPromise) tauriLoadPromise = Database.load(DB_ID).then(wrapTauriDb);
+  if (!tauriLoadPromise) {
+    tauriLoadPromise = import('@tauri-apps/plugin-sql').then(({ default: Database }) =>
+      Database.load(DB_ID).then(wrapTauriDb)
+    );
+  }
   return tauriLoadPromise;
 };
