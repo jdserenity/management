@@ -19,7 +19,8 @@
     "paths": {
       "@/*": ["src/*"],
       "@mgmt/core": ["packages/core/src/index.ts"],
-      "@mgmt/sync": ["packages/sync/src/index.ts"]
+      "@mgmt/sync": ["packages/sync/src/index.ts"],
+      "@mgmt/storage": ["packages/storage/src/index.ts"]
     }
   },
   "include": ["src"]
