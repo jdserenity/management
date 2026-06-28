@@ -4,15 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/context/SessionContext';
 import {
+  BUILTIN_MORNING_STRETCH_ID,
   isStretchCompletedToday,
   resolveMorningStretchExercises,
   shouldShowStretchSection,
   stretchCompletionRatio,
+  stretchSummaryMessage,
   STRETCH_GRADIENT_STYLES,
   type StretchDefinition
 } from '@/lib/stretchCreator/stretchCreator';
 import { formatClock, formatExerciseAmount } from '@/lib/workoutPlanner';
-import { Play } from 'lucide-react';
+import { Play, Sunrise } from 'lucide-react';
 
 type ViewMode = 'summary' | 'run';
 
@@ -46,7 +48,7 @@ export default function StretchSection({ stretch }: StretchSectionProps) {
     [stretch, workoutLogs, dayRolloverHour, nowMs]
   );
   const activeRun = viewMode === 'run';
-  const visible = shouldShowStretchSection({ stretch, completedToday: doneToday, nowTimestamp: nowMs, activeRun });
+  const visible = shouldShowStretchSection({ stretch, completedToday: doneToday, nowTimestamp: nowMs, activeRun, rolloverHour: dayRolloverHour });
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
@@ -108,9 +110,12 @@ export default function StretchSection({ stretch }: StretchSectionProps) {
       <div className={`overflow-hidden rounded-xl border p-4 shadow-sm ring-1 ${style.cardClass} ${style.ringClass}`}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <span className={style.iconClass} aria-hidden>{stretch.emoji}</span>
+            {stretch.id === BUILTIN_MORNING_STRETCH_ID ? (
+              <Sunrise className={`h-5 w-5 ${style.iconClass}`} aria-hidden />
+            ) : (
+              <span className={style.iconClass} aria-hidden>{stretch.emoji}</span>
+            )}
             {stretch.name}
-            {stretch.builtIn && <span className="text-xs font-normal text-muted-foreground">(built-in)</span>}
           </h2>
           {viewMode === 'summary' && resolvedExercises.length > 0 && (
             <Button size="sm" className={style.buttonClass} onClick={startRun}>
@@ -126,7 +131,7 @@ export default function StretchSection({ stretch }: StretchSectionProps) {
               <p className="text-sm text-muted-foreground">Add moves in Customize → Stretches.</p>
             ) : (
               <p className="pl-3 text-sm leading-relaxed text-foreground/65">
-                {stretch.exerciseRefs.length} move{stretch.exerciseRefs.length === 1 ? '' : 's'} · ~{stretch.durationMinutes} min
+                {stretchSummaryMessage(stretch)}
               </p>
             )}
           </div>

@@ -1,5 +1,4 @@
-import { isTimestampInStatsDay } from '@/lib/dayBoundary';
-import { clampDayRolloverHour } from '@/lib/dayBoundary';
+import { clampDayRolloverHour, DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow, isTimestampInStatsDay } from '@/lib/dayBoundary';
 import { scaleExercisesByRatio } from '@/lib/sessionProgress';
 import {
   DEFAULT_MORNING_STRETCH_EXERCISE_REFS,
@@ -17,6 +16,8 @@ import { defaultWorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 import { sumExerciseVolume, type ExerciseDefinition, type WorkoutLogEntry } from '@/lib/workoutPlanner';
 
 export const BUILTIN_MORNING_STRETCH_ID = 'morning-stretch';
+export const BUILTIN_MORNING_STRETCH_SUMMARY =
+  'Start your day off right with a preset routine of 6 stretches. (~5 min)';
 
 export type StretchExerciseRef = MorningStretchRef;
 
@@ -198,24 +199,43 @@ export const stretchHideCutoffMs = (nowTimestamp: number, hideAfterHour: number)
 export const isBeforeStretchHideCutoff = (nowTimestamp: number, hideAfterHour: number): boolean =>
   nowTimestamp < stretchHideCutoffMs(nowTimestamp, hideAfterHour);
 
+/** Scheduled stretches show from stats-day rollover until hide-after on that stats day's calendar date. */
+export const isWithinScheduledStretchWindow = (
+  nowTimestamp: number,
+  rolloverHour: number,
+  hideAfterHour: number
+): boolean => {
+  const { startTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
+  const hideCutoff = stretchHideCutoffMs(startTs, hideAfterHour);
+  return nowTimestamp >= startTs && nowTimestamp < hideCutoff;
+};
+
+export const stretchSummaryMessage = (stretch: StretchDefinition): string => {
+  if (stretch.id === BUILTIN_MORNING_STRETCH_ID) return BUILTIN_MORNING_STRETCH_SUMMARY;
+  const n = stretch.exerciseRefs.length;
+  return `${n} move${n === 1 ? '' : 's'} · ~${stretch.durationMinutes} min`;
+};
+
 export type StretchVisibilityInput = {
   stretch: StretchDefinition;
   completedToday: boolean;
   nowTimestamp?: number;
   activeRun?: boolean;
+  rolloverHour?: number;
 };
 
 export const shouldShowStretchSection = ({
   stretch,
   completedToday,
   nowTimestamp = Date.now(),
-  activeRun = false
+  activeRun = false,
+  rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR
 }: StretchVisibilityInput): boolean => {
   if (activeRun) return true;
   if (!stretch.enabled) return false;
   if (stretch.trigger.mode !== 'scheduled') return false;
   if (completedToday) return false;
-  return isBeforeStretchHideCutoff(nowTimestamp, stretch.trigger.hideAfterHour);
+  return isWithinScheduledStretchWindow(nowTimestamp, rolloverHour, stretch.trigger.hideAfterHour);
 };
 
 export const isStretchCompletedToday = (

@@ -160,6 +160,13 @@ describe('shouldShowMorningStretchSection', () => {
     const afternoon = new Date('2026-06-24T13:00:00').getTime();
     expect(shouldShowMorningStretchSection({ prefs, completedToday: false, nowTimestamp: afternoon, activeRun: true })).toBe(true);
   });
+
+  it('stays hidden at calendar midnight until stats day rolls over', () => {
+    const midnight = new Date('2026-06-28T00:00:00').getTime();
+    expect(shouldShowMorningStretchSection({ prefs, completedToday: false, nowTimestamp: midnight, rolloverHour: 4 })).toBe(false);
+    const afterRollover = new Date('2026-06-28T05:00:00').getTime();
+    expect(shouldShowMorningStretchSection({ prefs, completedToday: false, nowTimestamp: afterRollover, rolloverHour: 4 })).toBe(true);
+  });
 });
 
 describe('isBeforeMorningStretchHideCutoff', () => {

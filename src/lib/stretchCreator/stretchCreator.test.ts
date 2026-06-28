@@ -2,16 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { defaultWorkoutCustomizePrefs } from '@/lib/workoutCustomize';
 import {
   BUILTIN_MORNING_STRETCH_ID,
+  BUILTIN_MORNING_STRETCH_SUMMARY,
   buildStretchLogEntry,
   clampStretchDurationMinutes,
   createStretchId,
   defaultBuiltinMorningStretch,
   isStretchCompletedToday,
+  isWithinScheduledStretchWindow,
   listScheduledStretches,
   normalizeStretchDefinition,
   shouldShowStretchSection,
   stretchCompletionRatio,
   stretchHideCutoffMs,
+  stretchSummaryMessage,
   STRETCH_GRADIENT_IDS,
   type StretchDefinition
 } from '@/lib/stretchCreator/stretchCreator';
@@ -91,6 +94,13 @@ describe('shouldShowStretchSection', () => {
     const afternoon = new Date('2026-06-24T13:00:00').getTime();
     expect(shouldShowStretchSection({ stretch: morningStretch, completedToday: false, nowTimestamp: afternoon, activeRun: true })).toBe(true);
   });
+
+  it('stays hidden at calendar midnight until stats day rolls over', () => {
+    const midnight = new Date('2026-06-28T00:00:00').getTime();
+    expect(shouldShowStretchSection({ stretch: morningStretch, completedToday: false, nowTimestamp: midnight, rolloverHour: 4 })).toBe(false);
+    const afterRollover = new Date('2026-06-28T05:00:00').getTime();
+    expect(shouldShowStretchSection({ stretch: morningStretch, completedToday: false, nowTimestamp: afterRollover, rolloverHour: 4 })).toBe(true);
+  });
 });
 
 describe('isStretchCompletedToday', () => {
@@ -116,6 +126,31 @@ describe('stretchHideCutoffMs', () => {
     const after = new Date('2026-06-24T11:30:00').getTime();
     expect(before < stretchHideCutoffMs(before, 11)).toBe(true);
     expect(after < stretchHideCutoffMs(after, 11)).toBe(false);
+  });
+});
+
+describe('isWithinScheduledStretchWindow', () => {
+  it('opens at stats-day rollover, not calendar midnight', () => {
+    const midnight = new Date('2026-06-28T00:00:00').getTime();
+    expect(isWithinScheduledStretchWindow(midnight, 4, 11)).toBe(false);
+    const morning = new Date('2026-06-28T08:00:00').getTime();
+    expect(isWithinScheduledStretchWindow(morning, 4, 11)).toBe(true);
+    const afternoon = new Date('2026-06-28T13:00:00').getTime();
+    expect(isWithinScheduledStretchWindow(afternoon, 4, 11)).toBe(false);
+  });
+});
+
+describe('stretchSummaryMessage', () => {
+  it('uses the morning stretch welcome copy for the built-in routine', () => {
+    expect(stretchSummaryMessage(defaultBuiltinMorningStretch())).toBe(BUILTIN_MORNING_STRETCH_SUMMARY);
+  });
+
+  it('summarizes custom stretches with move count and duration', () => {
+    const custom = normalizeStretchDefinition(
+      { id: 'after-run', name: 'After run', gradientId: 'ocean', exerciseRefs: [{ kind: 'stretchPick', id: 'stretch-neck-roll' }, { kind: 'stretchPick', id: 'stretch-hip-roll' }] },
+      defaultWorkoutCustomizePrefs()
+    );
+    expect(stretchSummaryMessage(custom)).toBe('2 moves · ~5 min');
   });
 });
 

@@ -1,4 +1,4 @@
-import { isTimestampInStatsDay } from '@/lib/dayBoundary';
+import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow, isTimestampInStatsDay } from '@/lib/dayBoundary';
 import { scaleExercisesByRatio } from '@/lib/sessionProgress';
 import {
   applyExerciseOverride,
@@ -168,18 +168,22 @@ export type MorningStretchVisibilityInput = {
   nowTimestamp?: number;
   /** Keep visible while a timed block is running. */
   activeRun?: boolean;
+  rolloverHour?: number;
 };
 
 export const shouldShowMorningStretchSection = ({
   prefs,
   completedToday,
   nowTimestamp = Date.now(),
-  activeRun = false
+  activeRun = false,
+  rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR
 }: MorningStretchVisibilityInput): boolean => {
   if (activeRun) return true;
   if (!prefs.enabled) return false;
   if (completedToday) return false;
-  return isBeforeMorningStretchHideCutoff(nowTimestamp, prefs.hideAfterHour);
+  const { startTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
+  const hideCutoff = morningStretchHideCutoffMs(startTs, prefs.hideAfterHour);
+  return nowTimestamp >= startTs && nowTimestamp < hideCutoff;
 };
 
 export const morningStretchCompletionRatio = (
