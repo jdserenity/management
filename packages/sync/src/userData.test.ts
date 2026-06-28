@@ -133,21 +133,23 @@ describe('extractUserData', () => {
 // ── hydrateDb ────────────────────────────────────────────────────────────────
 
 describe('hydrateDb', () => {
-  it('executes no statements when data is empty', async () => {
+  it('clears synced tables when data is empty', async () => {
     const db = makeMockDb();
     await hydrateDb(db, emptyData());
-    expect(db.calls.filter((c) => c.startsWith('EXEC'))).toHaveLength(0);
+    const execs = db.calls.filter((c) => c.startsWith('EXEC'));
+    expect(execs.some((c) => c.includes('DELETE FROM streak_activities'))).toBe(true);
+    expect(execs.filter((c) => c.includes('INSERT INTO'))).toHaveLength(0);
   });
 
-  it('upserts one focus_log row', async () => {
+  it('replaces one focus_log row', async () => {
     const db = makeMockDb();
     await hydrateDb(db, {
       ...emptyData(),
       focusLog: [{ id: 'f1', session_type: 'pomodoro', completed_at: 1000, duration_minutes: 25, planned_duration_minutes: 25, completion_ratio: 1.0 }]
     });
     const execs = db.calls.filter((c) => c.startsWith('EXEC'));
-    expect(execs).toHaveLength(1);
-    expect(execs[0]).toContain('focus_log');
+    expect(execs.some((c) => c.includes('DELETE FROM focus_log'))).toBe(true);
+    expect(execs.some((c) => c.includes('INSERT INTO focus_log'))).toBe(true);
   });
 
   it('upserts nutritionConfig when present', async () => {
@@ -156,13 +158,25 @@ describe('hydrateDb', () => {
     expect(db.calls.some((c) => c.includes('nutrition_config'))).toBe(true);
   });
 
-  it('skips nutritionConfig when null', async () => {
+  it('clears nutritionConfig when null', async () => {
     const db = makeMockDb();
     await hydrateDb(db, { ...emptyData(), nutritionConfig: null });
-    expect(db.calls.filter((c) => c.includes('nutrition_config'))).toHaveLength(0);
+    expect(db.calls.some((c) => c.includes('DELETE FROM nutrition_config'))).toBe(true);
+    expect(db.calls.some((c) => c.includes('INSERT INTO nutrition_config'))).toBe(false);
   });
 
-  it('upserts multiple tables in one call', async () => {
+  it('replaces streak activities removed from the snapshot', async () => {
+    const row = { id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0 };
+    const db = makeMockDb();
+    await hydrateDb(db, { ...emptyData(), streakActivities: [row] });
+    await hydrateDb(db, { ...emptyData(), streakActivities: [] });
+    const deletes = db.calls.filter((c) => c.includes('DELETE FROM streak_activities'));
+    expect(deletes.length).toBeGreaterThanOrEqual(2);
+    const inserts = db.calls.filter((c) => c.includes('INSERT INTO streak_activities'));
+    expect(inserts).toHaveLength(1);
+  });
+
+  it('replaces multiple tables in one call', async () => {
     const db = makeMockDb();
     await hydrateDb(db, {
       ...emptyData(),
@@ -170,7 +184,8 @@ describe('hydrateDb', () => {
       streakActivities: [{ id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0 }]
     });
     const execs = db.calls.filter((c) => c.startsWith('EXEC'));
-    expect(execs).toHaveLength(2);
+    expect(execs.some((c) => c.includes('INSERT INTO app_kv'))).toBe(true);
+    expect(execs.some((c) => c.includes('INSERT INTO streak_activities'))).toBe(true);
   });
 });
 

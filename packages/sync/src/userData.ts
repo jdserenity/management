@@ -65,67 +65,78 @@ export const extractUserData = async (db: SqlDatabase): Promise<UserData> => ({
   streakActivityMeta: await db.select('SELECT activity_id,start_date,pause_since,unpaused_at,reset_count FROM streak_activity_meta'),
 });
 
-// ── Write a UserData snapshot into a local-schema db (upsert, never deletes) ──
+// ── Write a UserData snapshot into a local-schema db (replace tables to match snapshot) ──
 
 export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> => {
+  await db.execute('DELETE FROM focus_log');
+  await db.execute('DELETE FROM workout_log');
+  await db.execute('DELETE FROM app_kv');
+  await db.execute('DELETE FROM nutrition_config');
+  await db.execute('DELETE FROM nutrition_staples');
+  await db.execute('DELETE FROM nutrition_regulars');
+  await db.execute('DELETE FROM nutrition_entries');
+  await db.execute('DELETE FROM streak_activities');
+  await db.execute('DELETE FROM streak_log_cells');
+  await db.execute('DELETE FROM streak_activity_meta');
+
   for (const r of data.focusLog) {
     await db.execute(
-      'INSERT INTO focus_log (id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET session_type=excluded.session_type,completed_at=excluded.completed_at,duration_minutes=excluded.duration_minutes,planned_duration_minutes=excluded.planned_duration_minutes,completion_ratio=excluded.completion_ratio',
+      'INSERT INTO focus_log (id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio) VALUES (?,?,?,?,?,?)',
       [r.id, r.session_type, r.completed_at, r.duration_minutes, r.planned_duration_minutes ?? null, r.completion_ratio ?? null]
     );
   }
   for (const r of data.workoutLog) {
     await db.execute(
-      'INSERT INTO workout_log (id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET workout_id=excluded.workout_id,workout_name=excluded.workout_name,completed_at=excluded.completed_at,exercises_json=excluded.exercises_json,total_reps=excluded.total_reps,total_timed_seconds=excluded.total_timed_seconds,completion_ratio=excluded.completion_ratio',
+      'INSERT INTO workout_log (id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio) VALUES (?,?,?,?,?,?,?,?)',
       [r.id, r.workout_id, r.workout_name, r.completed_at, r.exercises_json, r.total_reps, r.total_timed_seconds, r.completion_ratio ?? null]
     );
   }
   for (const r of data.appKv) {
     await db.execute(
-      'INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at WHERE excluded.updated_at>=app_kv.updated_at',
+      'INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)',
       [r.key, r.value, r.updated_at]
     );
   }
   if (data.nutritionConfig) {
     const nc = data.nutritionConfig;
     await db.execute(
-      'INSERT INTO nutrition_config (id,tdee,protein,log_day) VALUES (1,?,?,?) ON CONFLICT(id) DO UPDATE SET tdee=excluded.tdee,protein=excluded.protein,log_day=excluded.log_day',
+      'INSERT INTO nutrition_config (id,tdee,protein,log_day) VALUES (1,?,?,?)',
       [nc.tdee, nc.protein, nc.log_day]
     );
   }
   for (const r of data.nutritionStaples) {
     await db.execute(
-      'INSERT INTO nutrition_staples (id,name,calories,protein,ingredients_json,sort_order) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,calories=excluded.calories,protein=excluded.protein,ingredients_json=excluded.ingredients_json,sort_order=excluded.sort_order',
+      'INSERT INTO nutrition_staples (id,name,calories,protein,ingredients_json,sort_order) VALUES (?,?,?,?,?,?)',
       [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order]
     );
   }
   for (const r of data.nutritionRegulars) {
     await db.execute(
-      'INSERT INTO nutrition_regulars (id,name,calories,protein,ingredients_json,sort_order) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,calories=excluded.calories,protein=excluded.protein,ingredients_json=excluded.ingredients_json,sort_order=excluded.sort_order',
+      'INSERT INTO nutrition_regulars (id,name,calories,protein,ingredients_json,sort_order) VALUES (?,?,?,?,?,?)',
       [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order]
     );
   }
   for (const r of data.nutritionEntries) {
     await db.execute(
-      'INSERT INTO nutrition_entries (id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id,log_day) DO UPDATE SET kind=excluded.kind,ref_id=excluded.ref_id,label=excluded.label,calories=excluded.calories,protein=excluded.protein,count=excluded.count,updated_at=excluded.updated_at,deleted=excluded.deleted WHERE excluded.updated_at>=nutrition_entries.updated_at',
+      'INSERT INTO nutrition_entries (id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted) VALUES (?,?,?,?,?,?,?,?,?,?)',
       [r.id, r.log_day, r.kind, r.ref_id ?? null, r.label, r.calories, r.protein, r.count, r.updated_at, r.deleted]
     );
   }
   for (const r of data.streakActivities) {
     await db.execute(
-      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,frequency=excluded.frequency,weekly_target=excluded.weekly_target,scheduled_days_json=excluded.scheduled_days_json,can_fail=excluded.can_fail,archived_at=excluded.archived_at,sort_order=excluded.sort_order',
+      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order) VALUES (?,?,?,?,?,?,?,?,?)',
       [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.archived_at ?? null, r.sort_order]
     );
   }
   for (const r of data.streakLogCells) {
     await db.execute(
-      'INSERT INTO streak_log_cells (log_date,activity_id,state,updated_at) VALUES (?,?,?,?) ON CONFLICT(log_date,activity_id) DO UPDATE SET state=excluded.state,updated_at=excluded.updated_at WHERE excluded.updated_at>=streak_log_cells.updated_at',
+      'INSERT INTO streak_log_cells (log_date,activity_id,state,updated_at) VALUES (?,?,?,?)',
       [r.log_date, r.activity_id, r.state, r.updated_at]
     );
   }
   for (const r of data.streakActivityMeta) {
     await db.execute(
-      'INSERT INTO streak_activity_meta (activity_id,start_date,pause_since,unpaused_at,reset_count) VALUES (?,?,?,?,?) ON CONFLICT(activity_id) DO UPDATE SET start_date=excluded.start_date,pause_since=excluded.pause_since,unpaused_at=excluded.unpaused_at,reset_count=excluded.reset_count',
+      'INSERT INTO streak_activity_meta (activity_id,start_date,pause_since,unpaused_at,reset_count) VALUES (?,?,?,?,?)',
       [r.activity_id, r.start_date ?? null, r.pause_since ?? null, r.unpaused_at ?? null, r.reset_count]
     );
   }
