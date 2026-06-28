@@ -39,9 +39,8 @@ const serverCreds = () => ({
 export const getCompanionSyncWarning = (): string | null => lastSyncWarning;
 
 const unreachableHint = (serverUrl: string): string =>
-  `Cannot reach ${serverUrl} from this device (browser reported the address is unreachable). ` +
-  'The desktop app may use a different server address (e.g. a Tailscale IP) that only works on your Mac. ' +
-  'The mobile app needs a public HTTPS URL with DNS pointing at your VPS and port 443 open — see docs/DEPLOY.md.';
+  `Cannot reach ${serverUrl} from this device. ` +
+  'If curl /health works on the VPS but not here, this network’s DNS probably cannot resolve the hostname — try DNS 1.1.1.1 on this device.';
 
 export const pullCompanionSnapshotFromServer = async (): Promise<boolean> => {
   if (!companionRawDb) {
