@@ -80,7 +80,7 @@ export const createSqlJsDatabase = async (initSqlJs: SqlJsInit, wasmUrl: string)
   const existing = await loadBytes();
   const db = existing ? new SQL.Database(existing) : new SQL.Database();
   const wrapped = new SqlJsDatabase(db);
-  await runSchemaMigrations(wrapped);
-  await wrapped.flush();
+  const migrated = await runSchemaMigrations(wrapped);
+  if (migrated) await wrapped.flush();
   return wrapped;
 };

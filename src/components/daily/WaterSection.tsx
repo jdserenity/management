@@ -6,7 +6,7 @@ import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDispla
 import type { WaterEntry, WaterFile } from '@/lib/water/types';
 import { addWaterEntry, loadWaterFile, removeWaterEntry } from '@/lib/waterDb';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { hasAppStorage, getAppKind } from '@/lib/appRuntime';
 import './water.css';
 
 const QUICK_AMOUNTS = [100, 250, 500, 750, 1000] as const;
@@ -35,7 +35,12 @@ export default function WaterSection({ refreshKey }: Props) {
   useEffect(() => {
     void refresh();
     const id = window.setInterval(() => void refresh(), 60_000);
-    return () => window.clearInterval(id);
+    const onRemoteRefresh = () => { void refresh(); };
+    if (getAppKind() === 'companion') window.addEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+    return () => {
+      window.clearInterval(id);
+      if (getAppKind() === 'companion') window.removeEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+    };
   }, [refresh]);
 
   useEffect(() => {
