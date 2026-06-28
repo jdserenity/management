@@ -77,10 +77,21 @@ sudo chown "$(whoami):$(whoami)" /var/lib/mgmt
 ```bash
 sudo systemctl status mgmt-server
 journalctl -u mgmt-server -n 50 --no-pager
-curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer YOUR_SERVER_TOKEN" http://127.0.0.1:8787/v1/data
+curl -s http://127.0.0.1:8787/health
 ```
 
-Expect HTTP `200`. Close SSH and run the same `curl` from your Mac (replace host/port if you use a reverse proxy).
+`/health` should return `{"ok":true}` with no token (proves the process is listening).
+
+Test auth (env file is root-only, so read the token with `sudo`):
+
+```bash
+TOKEN=$(sudo grep '^SERVER_TOKEN=' /etc/mgmt/server.env | cut -d= -f2- | tr -d '\r')
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:8787/v1/data
+```
+
+Expect HTTP `200`. A `400` here usually means `$TOKEN` is empty (permission denied on the env file) or the header is malformed. A `401` means the token in curl does not match `SERVER_TOKEN` in the file.
 
 Point clients at the same token: desktop `sync-server.json` (Settings or app config dir), companion `VITE_SERVER_URL` / `VITE_SERVER_TOKEN` at build time (`npm run deploy:companion`).
 
@@ -112,6 +123,7 @@ Use `npm run start:prod -w @mgmt/server` in production (env from `/etc/mgmt/serv
 | `curl` prints `000` | Server is not listening (service failed or not started) | `sudo systemctl status mgmt-server` and `journalctl -u mgmt-server -n 30 --no-pager` |
 | `curl: (2) no URL specified` | Missing URL at end of command | Add `http://127.0.0.1:8787/v1/data` after the headers |
 | `401` from curl | Wrong token | Use the same string as `SERVER_TOKEN` in `/etc/mgmt/server.env` |
+| `400` from curl on `/v1/data` | `Authorization: Bearer` with an empty or invalid token | Read token with `sudo grep '^SERVER_TOKEN=' /etc/mgmt/server.env` (file is chmod 600, root-owned) |
 | `SqliteError: unable to open database file` | `DB_PATH` points somewhere `linuxuser` cannot write (e.g. `/var/lib/mgmt` owned by root) | `chown` that dir to your user, or set `DB_PATH` under your home (e.g. `~/prod-apps/management/data/server.db`) and `mkdir -p` the parent |
 
 ### HTTPS / public URL (follow-up)
