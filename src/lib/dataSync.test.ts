@@ -11,13 +11,14 @@ vi.mock('@mgmt/sync', () => ({
   runBidirectionalInitialSync: vi.fn(),
   pullAndMergeUserData: vi.fn(),
   pushUserData: vi.fn(),
-  extractUserData: vi.fn()
+  extractUserData: vi.fn(),
+  startUserDataPolling: vi.fn(() => vi.fn())
 }));
 
 import { getAppKind } from '@/lib/appRuntime';
 import { getDb } from '@/lib/db';
-import { getBuildTimeSyncCreds, runBidirectionalInitialSync } from '@mgmt/sync';
-import { runDesktopInitialSync, resetDesktopDataSyncForTests } from './dataSync';
+import { getBuildTimeSyncCreds, runBidirectionalInitialSync, startUserDataPolling } from '@mgmt/sync';
+import { runDesktopInitialSync, resetDesktopDataSyncForTests, startDesktopForegroundPull } from './dataSync';
 
 describe('runDesktopInitialSync', () => {
   beforeEach(() => {
@@ -37,5 +38,13 @@ describe('runDesktopInitialSync', () => {
       serverUrl: 'https://mgmt.levier.cc',
       serverToken: 'tok'
     });
+  });
+
+  it('startDesktopForegroundPull registers periodic user-data polling', () => {
+    vi.stubGlobal('document', { visibilityState: 'visible', addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    const stop = startDesktopForegroundPull();
+    expect(startUserDataPolling).toHaveBeenCalledWith({ pull: expect.any(Function) });
+    stop();
   });
 });

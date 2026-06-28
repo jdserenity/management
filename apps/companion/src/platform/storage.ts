@@ -6,6 +6,7 @@ import {
   pullAndMergeUserData,
   pushUserData,
   runBidirectionalInitialSync,
+  startUserDataPolling,
   type BidirectionalSyncResult,
   wrapWithDataSync
 } from '@mgmt/sync';
@@ -18,6 +19,7 @@ export type CompanionSyncResult = BidirectionalSyncResult;
 
 let companionRawDb: SqlDatabase | null = null;
 let pullTimer: ReturnType<typeof setTimeout> | null = null;
+let stopDataPolling: (() => void) | null = null;
 let pullInFlight: Promise<boolean> | null = null;
 let initialSyncPromise: Promise<CompanionSyncResult> | null = null;
 let resolveSyncBootstrap: (() => void) | null = null;
@@ -105,11 +107,18 @@ export const startCompanionForegroundPull = (): (() => void) => {
   document.addEventListener('visibilitychange', onVisible);
   window.addEventListener('pageshow', onPageShow);
   window.addEventListener('focus', scheduleForegroundPull);
+  stopDataPolling?.();
+  stopDataPolling = startUserDataPolling({
+    pull: () => pullCompanionSnapshotFromServer(),
+    shouldPoll: () => companionRawDb !== null
+  });
   return () => {
     document.removeEventListener('visibilitychange', onVisible);
     window.removeEventListener('pageshow', onPageShow);
     window.removeEventListener('focus', scheduleForegroundPull);
     if (pullTimer) clearTimeout(pullTimer);
+    stopDataPolling?.();
+    stopDataPolling = null;
   };
 };
 
@@ -117,6 +126,8 @@ export const startCompanionForegroundPull = (): (() => void) => {
 export const resetCompanionStorageForTests = (): void => {
   companionRawDb = null;
   pullTimer = null;
+  stopDataPolling?.();
+  stopDataPolling = null;
   pullInFlight = null;
   initialSyncPromise = null;
   resetSyncBootstrapGate();

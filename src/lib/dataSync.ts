@@ -6,6 +6,7 @@ import {
   pushUserData,
   extractUserData,
   runBidirectionalInitialSync,
+  startUserDataPolling,
   type BidirectionalSyncResult
 } from '@mgmt/sync';
 import { notifyDataSyncError } from '@/lib/dataSyncNotify';
@@ -15,6 +16,7 @@ const PULL_DEBOUNCE_MS = 800;
 
 let initialSyncPromise: Promise<BidirectionalSyncResult | void> | null = null;
 let pullTimer: ReturnType<typeof setTimeout> | null = null;
+let stopDataPolling: (() => void) | null = null;
 
 const creds = () => getBuildTimeSyncCreds();
 
@@ -49,10 +51,14 @@ export const startDesktopForegroundPull = (): (() => void) => {
   };
   document.addEventListener('visibilitychange', onVisible);
   window.addEventListener('focus', scheduleForegroundPull);
+  stopDataPolling?.();
+  stopDataPolling = startUserDataPolling({ pull: () => pullAndMergeFromServer() });
   return () => {
     document.removeEventListener('visibilitychange', onVisible);
     window.removeEventListener('focus', scheduleForegroundPull);
     if (pullTimer) clearTimeout(pullTimer);
+    stopDataPolling?.();
+    stopDataPolling = null;
   };
 };
 
@@ -85,5 +91,7 @@ export const runDesktopInitialSync = async (): Promise<BidirectionalSyncResult |
 export const resetDesktopDataSyncForTests = (): void => {
   initialSyncPromise = null;
   pullTimer = null;
+  stopDataPolling?.();
+  stopDataPolling = null;
   resetDataSyncBootstrapForTests();
 };

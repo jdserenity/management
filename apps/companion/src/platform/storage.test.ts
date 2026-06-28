@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { runBidirectionalInitialSync, pullAndMergeUserData, pushUserData, extractUserData } = vi.hoisted(() => ({
+const { runBidirectionalInitialSync, pullAndMergeUserData, pushUserData, extractUserData, startUserDataPolling } = vi.hoisted(() => ({
   runBidirectionalInitialSync: vi.fn(),
   pullAndMergeUserData: vi.fn(),
   pushUserData: vi.fn(),
-  extractUserData: vi.fn()
+  extractUserData: vi.fn(),
+  startUserDataPolling: vi.fn(() => vi.fn())
 }));
 
 vi.mock('@mgmt/sync', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mgmt/sync')>();
-  return { ...actual, runBidirectionalInitialSync, pullAndMergeUserData, pushUserData, extractUserData };
+  return { ...actual, runBidirectionalInitialSync, pullAndMergeUserData, pushUserData, extractUserData, startUserDataPolling };
 });
 vi.mock('@/lib/db', () => ({ registerSqlBackend: vi.fn() }));
 vi.mock('./sqlJsStorage', () => ({
@@ -22,7 +23,8 @@ vi.mock('./sqlJsStorage', () => ({
 import {
   initCompanionStorage,
   resetCompanionStorageForTests,
-  runCompanionInitialSync
+  runCompanionInitialSync,
+  startCompanionForegroundPull
 } from './storage';
 
 describe('companion storage sync', () => {
@@ -37,6 +39,7 @@ describe('companion storage sync', () => {
     runBidirectionalInitialSync.mockResolvedValue({ pullOk: true, pushOk: true, skipped: false });
     pullAndMergeUserData.mockResolvedValue(true);
     pushUserData.mockResolvedValue(undefined);
+    startUserDataPolling.mockReturnValue(vi.fn());
     extractUserData.mockResolvedValue({
       focusLog: [], workoutLog: [], appKv: [{ key: 'k', value: 'v', updated_at: 1 }], nutritionConfig: null,
       nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
@@ -72,5 +75,17 @@ describe('companion storage sync', () => {
     releaseSync();
     await syncPromise;
     vi.useRealTimers();
+  });
+
+  it('startCompanionForegroundPull registers periodic user-data polling', async () => {
+    vi.stubGlobal('document', { visibilityState: 'visible', addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    await initCompanionStorage();
+    const stop = startCompanionForegroundPull();
+    expect(startUserDataPolling).toHaveBeenCalledWith({
+      pull: expect.any(Function),
+      shouldPoll: expect.any(Function)
+    });
+    stop();
   });
 });
