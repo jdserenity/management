@@ -109,6 +109,9 @@ const SCHEMA_SQL = `
     can_fail INTEGER NOT NULL DEFAULT 0,
     archived_at TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    extra_calories INTEGER,
+    extra_protein REAL,
+    extra_water_ml INTEGER,
     PRIMARY KEY (id, user_id)
   );
 
@@ -130,13 +133,45 @@ const SCHEMA_SQL = `
     reset_count INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (activity_id, user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS water_config (
+    user_id TEXT PRIMARY KEY REFERENCES users(id),
+    target_ml INTEGER NOT NULL DEFAULT 2500,
+    log_day TEXT NOT NULL DEFAULT ''
+  );
+
+  CREATE TABLE IF NOT EXISTS water_entries (
+    id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    log_day TEXT NOT NULL,
+    label TEXT NOT NULL,
+    ml INTEGER NOT NULL,
+    count INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id, user_id, log_day)
+  );
 `;
+
+const migrateServerSchema = (db: Database.Database): void => {
+  for (const sql of [
+    'ALTER TABLE streak_activities ADD COLUMN extra_calories INTEGER',
+    'ALTER TABLE streak_activities ADD COLUMN extra_protein REAL',
+    'ALTER TABLE streak_activities ADD COLUMN extra_water_ml INTEGER'
+  ]) {
+    try { db.exec(sql); } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (!msg.includes('duplicate column')) throw error;
+    }
+  }
+};
 
 export const openServerDb = (dbPath: string): Database.Database => {
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA_SQL);
+  migrateServerSchema(db);
   return db;
 };
 

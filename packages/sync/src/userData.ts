@@ -27,10 +27,16 @@ export interface NutritionEntry {
   label: string; calories: number; protein: number; count: number;
   updated_at: string; deleted: number;
 }
+export interface WaterConfig { target_ml: number; log_day: string; }
+export interface WaterEntry {
+  id: string; log_day: string; label: string; ml: number;
+  count: number; updated_at: string; deleted: number;
+}
 export interface StreakActivity {
   id: string; name: string; description: string | null; frequency: string;
   weekly_target: number | null; scheduled_days_json: string | null;
   can_fail: number; archived_at: string | null; sort_order: number;
+  extra_calories: number | null; extra_protein: number | null; extra_water_ml: number | null;
 }
 export interface StreakLogCell { log_date: string; activity_id: string; state: string; updated_at: string; }
 export interface StreakActivityMeta {
@@ -49,7 +55,11 @@ export interface UserData {
   streakActivities: StreakActivity[];
   streakLogCells: StreakLogCell[];
   streakActivityMeta: StreakActivityMeta[];
+  waterConfig: WaterConfig | null;
+  waterEntries: WaterEntry[];
 }
+
+const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml FROM streak_activities ORDER BY sort_order';
 
 // ── Read all data from a local-schema db (no user_id columns) ─────────────────
 
@@ -61,9 +71,11 @@ export const extractUserData = async (db: SqlDatabase): Promise<UserData> => ({
   nutritionStaples: await db.select('SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_staples ORDER BY sort_order'),
   nutritionRegulars: await db.select('SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_regulars ORDER BY sort_order'),
   nutritionEntries: await db.select('SELECT id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted FROM nutrition_entries'),
-  streakActivities: await db.select('SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order FROM streak_activities ORDER BY sort_order'),
+  streakActivities: await db.select(streakSelect),
   streakLogCells: await db.select('SELECT log_date,activity_id,state,updated_at FROM streak_log_cells'),
   streakActivityMeta: await db.select('SELECT activity_id,start_date,pause_since,unpaused_at,reset_count FROM streak_activity_meta'),
+  waterConfig: await db.select<WaterConfig[]>('SELECT target_ml,log_day FROM water_config WHERE id=1').then((r) => r[0] ?? null),
+  waterEntries: await db.select('SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries'),
 });
 
 // ── Write a UserData snapshot into a local-schema db (replace tables to match snapshot) ──
@@ -79,6 +91,8 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
   await db.execute('DELETE FROM streak_activities');
   await db.execute('DELETE FROM streak_log_cells');
   await db.execute('DELETE FROM streak_activity_meta');
+  await db.execute('DELETE FROM water_config');
+  await db.execute('DELETE FROM water_entries');
 
   for (const r of data.focusLog) {
     await db.execute(
@@ -125,8 +139,8 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
   }
   for (const r of data.streakActivities) {
     await db.execute(
-      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order) VALUES (?,?,?,?,?,?,?,?,?)',
-      [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.archived_at ?? null, r.sort_order]
+      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+      [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.archived_at ?? null, r.sort_order, r.extra_calories ?? null, r.extra_protein ?? null, r.extra_water_ml ?? null]
     );
   }
   for (const r of data.streakLogCells) {
@@ -139,6 +153,20 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
     await db.execute(
       'INSERT INTO streak_activity_meta (activity_id,start_date,pause_since,unpaused_at,reset_count) VALUES (?,?,?,?,?)',
       [r.activity_id, r.start_date ?? null, r.pause_since ?? null, r.unpaused_at ?? null, r.reset_count]
+    );
+  }
+  const waterEntries = data.waterEntries ?? [];
+  if (data.waterConfig) {
+    const wc = data.waterConfig;
+    await db.execute(
+      'INSERT OR REPLACE INTO water_config (id,target_ml,log_day) VALUES (1,?,?)',
+      [wc.target_ml, wc.log_day]
+    );
+  }
+  for (const r of waterEntries) {
+    await db.execute(
+      'INSERT INTO water_entries (id,log_day,label,ml,count,updated_at,deleted) VALUES (?,?,?,?,?,?,?)',
+      [r.id, r.log_day, r.label, r.ml, r.count, r.updated_at, r.deleted]
     );
   }
 };

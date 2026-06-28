@@ -18,7 +18,7 @@ describe('pushLocalDataToServerIfDesktop', () => {
   beforeEach(() => {
     vi.mocked(getAppKind).mockReturnValue('desktop');
     vi.mocked(getDb).mockResolvedValue({ select: vi.fn(), execute: vi.fn() });
-    vi.mocked(extractUserData).mockResolvedValue({ focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null, nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [], streakActivities: [], streakLogCells: [], streakActivityMeta: [] });
+    vi.mocked(extractUserData).mockResolvedValue({ focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null, nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [], streakActivities: [], streakLogCells: [], streakActivityMeta: [], waterConfig: null, waterEntries: [] });
     vi.mocked(pushUserData).mockResolvedValue(undefined);
     vi.mocked(loadSyncServerConfig).mockResolvedValue({ serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
   });

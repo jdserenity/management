@@ -53,9 +53,11 @@ const data = {
   nutritionStaples: local.prepare('SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_staples').all() as Parameters<typeof store.putData>[1]['nutritionStaples'],
   nutritionRegulars: local.prepare('SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_regulars').all() as Parameters<typeof store.putData>[1]['nutritionRegulars'],
   nutritionEntries: local.prepare('SELECT id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted FROM nutrition_entries').all() as Parameters<typeof store.putData>[1]['nutritionEntries'],
-  streakActivities: local.prepare('SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order FROM streak_activities').all() as Parameters<typeof store.putData>[1]['streakActivities'],
+  streakActivities: local.prepare('SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml FROM streak_activities').all() as Parameters<typeof store.putData>[1]['streakActivities'],
   streakLogCells: local.prepare('SELECT log_date,activity_id,state,updated_at FROM streak_log_cells').all() as Parameters<typeof store.putData>[1]['streakLogCells'],
   streakActivityMeta: local.prepare('SELECT activity_id,start_date,pause_since,unpaused_at,reset_count FROM streak_activity_meta').all() as Parameters<typeof store.putData>[1]['streakActivityMeta'],
+  waterConfig: (local.prepare('SELECT target_ml,log_day FROM water_config WHERE id=1').get() ?? null) as Parameters<typeof store.putData>[1]['waterConfig'],
+  waterEntries: local.prepare('SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries').all() as Parameters<typeof store.putData>[1]['waterEntries'],
 };
 
 store.putData(OWNER_USER_ID, data);
@@ -72,3 +74,4 @@ console.log(`  nutrition_entries:    ${data.nutritionEntries.length} rows`);
 console.log(`  streak_activities:    ${data.streakActivities.length} rows`);
 console.log(`  streak_log_cells:     ${data.streakLogCells.length} rows`);
 console.log(`  streak_activity_meta: ${data.streakActivityMeta.length} rows`);
+console.log(`  water_entries:        ${data.waterEntries.length} rows`);

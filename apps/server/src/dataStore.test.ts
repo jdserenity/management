@@ -5,12 +5,15 @@ import { SqliteDataStore } from './dataStore';
 const emptyData = () => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-  streakActivities: [], streakLogCells: [], streakActivityMeta: []
+  streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+  waterConfig: null, waterEntries: []
 });
 
-const streakRow = (id: string, name: string, archived_at: string | null = null) => ({
+const streakRow = (id: string, name: string, archived_at: string | null = null, extra: Partial<{ extra_calories: number; extra_protein: number; extra_water_ml: number }> = {}) => ({
   id, name, description: null, frequency: 'daily', weekly_target: null,
-  scheduled_days_json: null, can_fail: 0, archived_at, sort_order: 0
+  scheduled_days_json: null, can_fail: 0, archived_at, sort_order: 0,
+  extra_calories: null, extra_protein: null, extra_water_ml: null,
+  ...extra
 });
 
 describe('SqliteDataStore.putData', () => {
@@ -32,6 +35,24 @@ describe('SqliteDataStore.putData', () => {
     store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run')] });
     store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run', '2026-06-28')] });
     expect(store.getData('owner').streakActivities[0]?.archived_at).toBe('2026-06-28');
+    db.close();
+  });
+
+  it('round-trips water and streak cross-log fields', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', {
+      ...emptyData(),
+      waterConfig: { target_ml: 2800, log_day: '2026-06-28' },
+      waterEntries: [{ id: 'w1', log_day: '2026-06-28', label: 'Bottle', ml: 500, count: 1, updated_at: '2026-06-28T10:00:00Z', deleted: 0 }],
+      streakActivities: [streakRow('a1', 'Vitamins', null, { extra_calories: 50, extra_water_ml: 250 })]
+    });
+    const data = store.getData('owner');
+    expect(data.waterConfig?.target_ml).toBe(2800);
+    expect(data.waterEntries).toHaveLength(1);
+    expect(data.streakActivities[0]?.extra_calories).toBe(50);
+    expect(data.streakActivities[0]?.extra_water_ml).toBe(250);
     db.close();
   });
 });

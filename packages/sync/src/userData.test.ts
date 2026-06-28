@@ -15,7 +15,15 @@ import { setSyncFetchImpl } from './syncFetch';
 const emptyData = (): UserData => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-  streakActivities: [], streakLogCells: [], streakActivityMeta: []
+  streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+  waterConfig: null, waterEntries: []
+});
+
+const streakRow = (overrides: Partial<UserData['streakActivities'][0]> = {}) => ({
+  id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null,
+  scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0,
+  extra_calories: null, extra_protein: null, extra_water_ml: null,
+  ...overrides
 });
 
 const makeMockDb = (selectResults: Record<string, unknown[]> = {}): SqlDatabase & { calls: string[] } => {
@@ -119,8 +127,7 @@ describe('extractUserData', () => {
     const db = makeMockDb();
     await extractUserData(db);
     const selects = db.calls.filter((c) => c.startsWith('SELECT:'));
-    // 10 tables
-    expect(selects).toHaveLength(10);
+    expect(selects).toHaveLength(12);
   });
 
   it('returns nutritionConfig as null when table is empty', async () => {
@@ -174,7 +181,7 @@ describe('hydrateDb', () => {
   });
 
   it('replaces streak activities removed from the snapshot', async () => {
-    const row = { id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0 };
+    const row = streakRow();
     const db = makeMockDb();
     await hydrateDb(db, { ...emptyData(), streakActivities: [row] });
     await hydrateDb(db, { ...emptyData(), streakActivities: [] });
@@ -189,11 +196,31 @@ describe('hydrateDb', () => {
     await hydrateDb(db, {
       ...emptyData(),
       appKv: [{ key: 'k', value: 'v', updated_at: 1 }],
-      streakActivities: [{ id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0 }]
+      streakActivities: [streakRow({ id: 'a1', name: 'Run' })]
     });
     const execs = db.calls.filter((c) => c.startsWith('EXEC'));
     expect(execs.some((c) => c.includes('INSERT INTO app_kv'))).toBe(true);
     expect(execs.some((c) => c.includes('INSERT INTO streak_activities'))).toBe(true);
+  });
+
+  it('round-trips water config and entries', async () => {
+    const db = makeMockDb();
+    await hydrateDb(db, {
+      ...emptyData(),
+      waterConfig: { target_ml: 3000, log_day: '2026-06-28' },
+      waterEntries: [{ id: 'w1', log_day: '2026-06-28', label: 'Glass', ml: 250, count: 2, updated_at: '2026-06-28T12:00:00Z', deleted: 0 }]
+    });
+    expect(db.calls.some((c) => c.includes('water_config'))).toBe(true);
+    expect(db.calls.some((c) => c.includes('INSERT INTO water_entries'))).toBe(true);
+  });
+
+  it('persists streak cross-log fields', async () => {
+    const db = makeMockDb();
+    await hydrateDb(db, {
+      ...emptyData(),
+      streakActivities: [streakRow({ extra_calories: 100, extra_protein: 20, extra_water_ml: 500 })]
+    });
+    expect(db.calls.some((c) => c.includes('INSERT INTO streak_activities'))).toBe(true);
   });
 });
 

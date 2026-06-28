@@ -29,11 +29,17 @@ export interface StreakActivity {
   id: string; name: string; description: string | null; frequency: string;
   weekly_target: number | null; scheduled_days_json: string | null;
   can_fail: number; archived_at: string | null; sort_order: number;
+  extra_calories: number | null; extra_protein: number | null; extra_water_ml: number | null;
 }
 export interface StreakLogCell { log_date: string; activity_id: string; state: string; updated_at: string; }
 export interface StreakActivityMeta {
   activity_id: string; start_date: string | null; pause_since: string | null;
   unpaused_at: string | null; reset_count: number;
+}
+export interface WaterConfig { target_ml: number; log_day: string; }
+export interface WaterEntry {
+  id: string; log_day: string; label: string; ml: number;
+  count: number; updated_at: string; deleted: number;
 }
 
 export interface UserData {
@@ -47,6 +53,8 @@ export interface UserData {
   streakActivities: StreakActivity[];
   streakLogCells: StreakLogCell[];
   streakActivityMeta: StreakActivityMeta[];
+  waterConfig: WaterConfig | null;
+  waterEntries: WaterEntry[];
 }
 
 export class SqliteDataStore {
@@ -77,13 +85,19 @@ export class SqliteDataStore {
         'SELECT id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted FROM nutrition_entries WHERE user_id=?'
       ).all(uid),
       streakActivities: this.db.prepare<[string], StreakActivity>(
-        'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order FROM streak_activities WHERE user_id=? ORDER BY sort_order'
+        'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml FROM streak_activities WHERE user_id=? ORDER BY sort_order'
       ).all(uid),
       streakLogCells: this.db.prepare<[string], StreakLogCell>(
         'SELECT log_date,activity_id,state,updated_at FROM streak_log_cells WHERE user_id=?'
       ).all(uid),
       streakActivityMeta: this.db.prepare<[string], StreakActivityMeta>(
         'SELECT activity_id,start_date,pause_since,unpaused_at,reset_count FROM streak_activity_meta WHERE user_id=?'
+      ).all(uid),
+      waterConfig: (this.db.prepare<[string], WaterConfig>(
+        'SELECT target_ml,log_day FROM water_config WHERE user_id=?'
+      ).get(uid)) ?? null,
+      waterEntries: this.db.prepare<[string], WaterEntry>(
+        'SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries WHERE user_id=?'
       ).all(uid),
     };
   }
@@ -101,6 +115,8 @@ export class SqliteDataStore {
       this.db.prepare('DELETE FROM streak_activities WHERE user_id=?').run(uid);
       this.db.prepare('DELETE FROM streak_log_cells WHERE user_id=?').run(uid);
       this.db.prepare('DELETE FROM streak_activity_meta WHERE user_id=?').run(uid);
+      this.db.prepare('DELETE FROM water_config WHERE user_id=?').run(uid);
+      this.db.prepare('DELETE FROM water_entries WHERE user_id=?').run(uid);
 
       for (const row of data.focusLog) {
         this.db.prepare(`
@@ -152,9 +168,9 @@ export class SqliteDataStore {
 
       for (const row of data.streakActivities) {
         this.db.prepare(`
-          INSERT INTO streak_activities (id,user_id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order)
-          VALUES (?,?,?,?,?,?,?,?,?,?)
-        `).run(row.id, uid, row.name, row.description ?? null, row.frequency, row.weekly_target ?? null, row.scheduled_days_json ?? null, row.can_fail, row.archived_at ?? null, row.sort_order);
+          INSERT INTO streak_activities (id,user_id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(row.id, uid, row.name, row.description ?? null, row.frequency, row.weekly_target ?? null, row.scheduled_days_json ?? null, row.can_fail, row.archived_at ?? null, row.sort_order, row.extra_calories ?? null, row.extra_protein ?? null, row.extra_water_ml ?? null);
       }
 
       for (const row of data.streakLogCells) {
@@ -169,6 +185,21 @@ export class SqliteDataStore {
           INSERT INTO streak_activity_meta (activity_id,user_id,start_date,pause_since,unpaused_at,reset_count)
           VALUES (?,?,?,?,?,?)
         `).run(row.activity_id, uid, row.start_date ?? null, row.pause_since ?? null, row.unpaused_at ?? null, row.reset_count);
+      }
+
+      const waterEntries = data.waterEntries ?? [];
+      if (data.waterConfig) {
+        const wc = data.waterConfig;
+        this.db.prepare(`
+          INSERT INTO water_config (user_id,target_ml,log_day) VALUES (?,?,?)
+        `).run(uid, wc.target_ml, wc.log_day);
+      }
+
+      for (const row of waterEntries) {
+        this.db.prepare(`
+          INSERT INTO water_entries (id,user_id,log_day,label,ml,count,updated_at,deleted)
+          VALUES (?,?,?,?,?,?,?,?)
+        `).run(row.id, uid, row.log_day, row.label, row.ml, row.count, row.updated_at, row.deleted);
       }
     })();
   }
