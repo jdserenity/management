@@ -2,11 +2,13 @@ import { registerSqlBackend, type SqlDatabase } from '@/lib/db';
 import {
   extractUserData,
   fetchUserData,
-  hydrateDb,
+  hydrateDbFromServer,
+  isUserDataEmpty,
   logSyncError,
   logSyncInfo,
   pushUserData,
   summarizeUserDataCounts,
+  totalUserDataRows,
   wrapWithDataSync
 } from '@mgmt/sync';
 
@@ -27,8 +29,14 @@ export type CompanionSyncResult = {
 let companionRawDb: SqlDatabase | null = null;
 let pullTimer: ReturnType<typeof setTimeout> | null = null;
 let pullInFlight: Promise<boolean> | null = null;
-/** Resolves after runCompanionInitialSync finishes (pull + push). Gates debounced pushes. */
+/** Resolves after runCompanionInitialSync finishes (pull + optional push). Gates debounced pushes. */
 let initialSyncPromise: Promise<CompanionSyncResult> | null = null;
+let resolveSyncBootstrap: (() => void) | null = null;
+let syncBootstrapGate: Promise<void>;
+const resetSyncBootstrapGate = (): void => {
+  syncBootstrapGate = new Promise<void>((resolve) => { resolveSyncBootstrap = resolve; });
+};
+resetSyncBootstrapGate();
 let lastSyncWarning: string | null = null;
 
 const serverCreds = () => ({
@@ -58,8 +66,12 @@ export const pullCompanionSnapshotFromServer = async (): Promise<boolean> => {
   if (pullInFlight) return pullInFlight;
   pullInFlight = (async () => {
     try {
+      const localBefore = await extractUserData(companionRawDb!);
       const data = await fetchUserData(serverUrl, serverToken);
-      await hydrateDb(companionRawDb!, data);
+      const hydrateResult = await hydrateDbFromServer(companionRawDb!, data, localBefore);
+      if (hydrateResult === 'kept-local') {
+        logSyncInfo('companion pull kept local data (server snapshot was empty)', summarizeUserDataCounts(localBefore));
+      }
       if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMPANION_DATA_REFRESH));
       return true;
     } catch (err) {
@@ -92,43 +104,65 @@ export const pushCompanionSnapshotToServer = async (): Promise<boolean> => {
   }
 };
 
-/** Pull then push — same peer sync pattern as desktop startup. */
+/** Pull then optionally push — upload local data only when it would help, never wipe the server. */
 export const runCompanionInitialSync = async (): Promise<CompanionSyncResult> => {
   if (initialSyncPromise) return initialSyncPromise;
   initialSyncPromise = (async () => {
-    const { serverUrl, serverToken } = serverCreds();
-    if (!serverUrl || !serverToken) {
-      const msg = 'Sync is not configured in this build (missing server URL or token).';
-      lastSyncWarning = msg;
-      logSyncError('companion initial sync skipped', new Error('missing VITE_SERVER_URL or VITE_SERVER_TOKEN'), {
-        hasUrl: Boolean(serverUrl),
-        hasToken: Boolean(serverToken)
-      });
-      return { pullOk: false, pushOk: false, skipped: true, reason: 'no-creds', pullError: msg };
+    try {
+      const { serverUrl, serverToken } = serverCreds();
+      if (!serverUrl || !serverToken) {
+        const msg = 'Sync is not configured in this build (missing server URL or token).';
+        lastSyncWarning = msg;
+        logSyncError('companion initial sync skipped', new Error('missing VITE_SERVER_URL or VITE_SERVER_TOKEN'), {
+          hasUrl: Boolean(serverUrl),
+          hasToken: Boolean(serverToken)
+        });
+        return { pullOk: false, pushOk: false, skipped: true, reason: 'no-creds', pullError: msg };
+      }
+      if (!companionRawDb) {
+        const msg = 'Local storage is not ready yet.';
+        lastSyncWarning = msg;
+        return { pullOk: false, pushOk: false, skipped: true, reason: 'no-db', pullError: msg };
+      }
+      logSyncInfo('companion initial sync starting', { serverUrl });
+      const localBefore = await extractUserData(companionRawDb);
+      const localRows = totalUserDataRows(localBefore);
+      let serverData;
+      try {
+        serverData = await fetchUserData(serverUrl, serverToken);
+      } catch (err) {
+        const msg = unreachableHint(serverUrl);
+        lastSyncWarning = msg;
+        logSyncError('companion initial sync: pull failed', err, { serverUrl, localRows });
+        return { pullOk: false, pushOk: false, skipped: false, reason: 'pull-failed', pullError: msg };
+      }
+      const serverRows = totalUserDataRows(serverData);
+      const hydrateResult = await hydrateDbFromServer(companionRawDb, serverData, localBefore);
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMPANION_DATA_REFRESH));
+      const counts = summarizeUserDataCounts(await extractUserData(companionRawDb));
+      let pushOk = true;
+      if (serverRows === 0 && localRows > 0) {
+        logSyncInfo('companion initial sync: uploading local data (server was empty)', { localRows });
+        pushOk = await pushCompanionSnapshotToServer();
+      } else if (serverRows > 0 && localRows === 0) {
+        logSyncInfo('companion initial sync: pull only (local was empty)', { serverRows });
+      } else if (serverRows > 0 && hydrateResult === 'hydrated') {
+        logSyncInfo('companion initial sync: pull only (server is source of truth)', { serverRows, localRows });
+      } else if (isUserDataEmpty(await extractUserData(companionRawDb))) {
+        logSyncInfo('companion initial sync: both sides empty, no push');
+      }
+      if (!pushOk) {
+        const msg = 'Downloaded from server but upload failed. New changes on this device may not sync.';
+        lastSyncWarning = msg;
+        logSyncError('companion initial sync: pull ok, push failed', new Error(msg), { counts });
+        return { pullOk: true, pushOk: false, skipped: false, counts, pushError: msg };
+      }
+      lastSyncWarning = null;
+      logSyncInfo('companion initial sync complete', { counts, serverRows, localRows });
+      return { pullOk: true, pushOk, skipped: false, counts };
+    } finally {
+      resolveSyncBootstrap?.();
     }
-    if (!companionRawDb) {
-      const msg = 'Local storage is not ready yet.';
-      lastSyncWarning = msg;
-      return { pullOk: false, pushOk: false, skipped: true, reason: 'no-db', pullError: msg };
-    }
-    logSyncInfo('companion initial sync starting', { serverUrl });
-    const pullOk = await pullCompanionSnapshotFromServer();
-    if (!pullOk) {
-      const msg = unreachableHint(serverUrl);
-      lastSyncWarning = msg;
-      return { pullOk: false, pushOk: false, skipped: false, reason: 'pull-failed', pullError: msg };
-    }
-    const counts = summarizeUserDataCounts(await extractUserData(companionRawDb));
-    const pushOk = await pushCompanionSnapshotToServer();
-    if (!pushOk) {
-      const msg = 'Downloaded from server but upload failed. New changes on this device may not sync.';
-      lastSyncWarning = msg;
-      logSyncError('companion initial sync: pull ok, push failed', new Error(msg), { counts });
-      return { pullOk: true, pushOk: false, skipped: false, counts, pushError: msg };
-    }
-    lastSyncWarning = null;
-    logSyncInfo('companion initial sync complete', { counts });
-    return { pullOk: true, pushOk: true, skipped: false, counts };
   })();
   return initialSyncPromise;
 };
@@ -168,6 +202,7 @@ export const resetCompanionStorageForTests = (): void => {
   pullInFlight = null;
   initialSyncPromise = null;
   lastSyncWarning = null;
+  resetSyncBootstrapGate();
 };
 
 export const onCompanionDataRefresh = (listener: () => void): (() => void) => {
@@ -186,7 +221,7 @@ export const initCompanionStorage = async (): Promise<SqlDatabase> => {
     }),
     2000,
     (err) => { logSyncError('companion debounced push failed', err); },
-    async () => { if (initialSyncPromise) await initialSyncPromise; }
+    async () => { await syncBootstrapGate; }
   );
   registerSqlBackend(db);
   return db;

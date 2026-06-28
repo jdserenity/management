@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import { assertSafeSnapshotPush, DataWipeRefusedError, totalUserDataRows } from '@mgmt/sync';
 
 // ── Shape mirrors local.db columns exactly, just with user_id added ──────────
 
@@ -104,6 +105,8 @@ export class SqliteDataStore {
 
   putData(userId: string, data: UserData): void {
     const uid = userId;
+    const existingRows = totalUserDataRows(this.getData(uid));
+    assertSafeSnapshotPush(data, existingRows);
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM focus_log WHERE user_id=?').run(uid);
       this.db.prepare('DELETE FROM workout_log WHERE user_id=?').run(uid);

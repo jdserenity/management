@@ -21,10 +21,21 @@ describe('SqliteDataStore.putData', () => {
     const db = openServerDb(':memory:');
     seedOwnerUser(db, 'owner');
     const store = new SqliteDataStore(db);
-    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run')] });
+    const keepKv = [{ key: 'k', value: 'v', updated_at: 1 }];
+    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run')], appKv: keepKv });
     expect(store.getData('owner').streakActivities).toHaveLength(1);
-    store.putData('owner', { ...emptyData(), streakActivities: [] });
+    store.putData('owner', { ...emptyData(), streakActivities: [], appKv: keepKv });
     expect(store.getData('owner').streakActivities).toHaveLength(0);
+    db.close();
+  });
+
+  it('refuses a fully empty snapshot when data already exists', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', { ...emptyData(), appKv: [{ key: 'k', value: 'v', updated_at: 1 }] });
+    expect(() => store.putData('owner', emptyData())).toThrow();
+    expect(store.getData('owner').appKv).toHaveLength(1);
     db.close();
   });
 

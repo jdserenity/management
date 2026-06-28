@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { bearerAuth } from 'hono/bearer-auth';
 import type { ActiveFlowDocument } from '@mgmt/sync';
+import { DataWipeRefusedError } from '@mgmt/sync';
 import type { ActiveFlowStore } from './store';
 import type { SqliteDataStore, UserData } from './dataStore';
 
@@ -62,7 +63,14 @@ export const createSyncApp = (store: ActiveFlowStore, dataStore: SqliteDataStore
     if (!body?.data || typeof body.data !== 'object') {
       return c.json({ error: 'missing data payload' }, 400);
     }
-    dataStore.putData(ownerId, body.data);
+    try {
+      dataStore.putData(ownerId, body.data);
+    } catch (err) {
+      if (err instanceof DataWipeRefusedError) {
+        return c.json({ error: 'refusing empty snapshot over existing data' }, 409);
+      }
+      throw err;
+    }
     return c.json({ ok: true });
   });
 

@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fetchUserData, hydrateDb, pushUserData, extractUserData } = vi.hoisted(() => ({
+const { fetchUserData, hydrateDbFromServer, pushUserData, extractUserData } = vi.hoisted(() => ({
   fetchUserData: vi.fn(),
-  hydrateDb: vi.fn(),
+  hydrateDbFromServer: vi.fn(),
   pushUserData: vi.fn(),
   extractUserData: vi.fn()
 }));
 
 vi.mock('@mgmt/sync', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mgmt/sync')>();
-  return { ...actual, fetchUserData, hydrateDb, pushUserData, extractUserData };
+  return { ...actual, fetchUserData, hydrateDbFromServer, pushUserData, extractUserData };
 });
 vi.mock('@/lib/db', () => ({ registerSqlBackend: vi.fn() }));
 vi.mock('./sqlJsStorage', () => ({
@@ -40,27 +40,54 @@ import {
   runCompanionInitialSync
 } from './storage';
 
+const emptyUserData = () => ({
+  focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
+  nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
+  streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+  waterConfig: null, waterEntries: []
+});
+
 describe('companion storage sync', () => {
   beforeEach(() => {
     resetCompanionStorageForTests();
     vi.stubEnv('VITE_SERVER_URL', 'https://mgmt.levier.cc');
     vi.stubEnv('VITE_SERVER_TOKEN', 'tok');
     fetchUserData.mockReset();
-    hydrateDb.mockReset();
+    hydrateDbFromServer.mockReset();
     pushUserData.mockReset();
     extractUserData.mockReset();
-    fetchUserData.mockResolvedValue({ streakActivities: [] });
-    hydrateDb.mockResolvedValue(undefined);
+    fetchUserData.mockResolvedValue({ ...emptyUserData() });
+    hydrateDbFromServer.mockResolvedValue('hydrated');
     pushUserData.mockResolvedValue(undefined);
-    extractUserData.mockResolvedValue({ streakActivities: [] });
+    extractUserData.mockResolvedValue({ ...emptyUserData() });
   });
 
-  it('runCompanionInitialSync pulls then pushes', async () => {
+  it('runCompanionInitialSync pulls without push when server has data', async () => {
+    const server = { ...emptyUserData(), streakActivities: [{ id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0, extra_calories: null, extra_protein: null, extra_water_ml: null }] };
+    fetchUserData.mockResolvedValue(server);
+    extractUserData
+      .mockResolvedValueOnce({ ...emptyUserData() })
+      .mockResolvedValue(server);
     await initCompanionStorage();
     const result = await runCompanionInitialSync();
     expect(result.pullOk).toBe(true);
     expect(result.pushOk).toBe(true);
     expect(fetchUserData).toHaveBeenCalled();
+    expect(pushUserData).not.toHaveBeenCalled();
+  });
+
+  it('runCompanionInitialSync uploads local data when server snapshot is empty', async () => {
+    const local = {
+      ...emptyUserData(),
+      streakActivities: [{ id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0, extra_calories: null, extra_protein: null, extra_water_ml: null }],
+      appKv: [{ key: 'k', value: 'v', updated_at: 1 }]
+    };
+    fetchUserData.mockResolvedValue({ ...emptyUserData() });
+    extractUserData.mockResolvedValue(local);
+    hydrateDbFromServer.mockResolvedValue('kept-local');
+    await initCompanionStorage();
+    const result = await runCompanionInitialSync();
+    expect(result.pullOk).toBe(true);
     expect(pushUserData).toHaveBeenCalled();
   });
 
@@ -70,7 +97,11 @@ describe('companion storage sync', () => {
     const pullBlocked = new Promise<void>((r) => { releasePull = r; });
     fetchUserData.mockImplementation(async () => {
       await pullBlocked;
-      return { streakActivities: [] };
+      return { ...emptyUserData() };
+    });
+    extractUserData.mockResolvedValue({
+      ...emptyUserData(),
+      appKv: [{ key: 'k', value: 'v', updated_at: 1 }]
     });
     const db = await initCompanionStorage();
     const syncPromise = runCompanionInitialSync();

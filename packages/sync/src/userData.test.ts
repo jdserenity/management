@@ -5,6 +5,7 @@ import {
   pushUserData,
   extractUserData,
   hydrateDb,
+  hydrateDbFromServer,
   wrapWithDataSync,
   type UserData
 } from './userData';
@@ -40,6 +41,9 @@ const makeMockDb = (selectResults: Record<string, unknown[]> = {}): SqlDatabase 
     })
   };
 };
+
+const makeMockDbWithSyncData = (): SqlDatabase & { calls: string[] } =>
+  makeMockDb({ 'SELECT key,value,updated_at FROM app_kv': [{ key: 'k', value: 'v', updated_at: 1 }] });
 
 // ── fetchUserData ─────────────────────────────────────────────────────────────
 
@@ -88,8 +92,13 @@ describe('fetchUserData', () => {
 describe('pushUserData', () => {
   afterEach(() => { setSyncFetchImpl(null); });
 
+  const sampleData = (): UserData => ({
+    ...emptyData(),
+    appKv: [{ key: 'k', value: 'v', updated_at: 1 }]
+  });
+
   it('calls POST /v1/data with data body', async () => {
-    const data = emptyData();
+    const data = sampleData();
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
     await pushUserData('http://localhost:8787', 'tok', data);
@@ -103,16 +112,24 @@ describe('pushUserData', () => {
     vi.unstubAllGlobals();
   });
 
+  it('skips POST when snapshot is empty', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+    await pushUserData('http://localhost:8787', 'tok', emptyData());
+    expect(mockFetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('throws on non-ok response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'Error', text: async () => 'server error' }));
-    await expect(pushUserData('http://localhost:8787', 'tok', emptyData())).rejects.toThrow('HTTP 500');
+    await expect(pushUserData('http://localhost:8787', 'tok', sampleData())).rejects.toThrow('HTTP 500');
     vi.unstubAllGlobals();
   });
 
   it('uses setSyncFetchImpl when provided', async () => {
     const customFetch = vi.fn().mockResolvedValue({ ok: true });
     setSyncFetchImpl(customFetch as typeof fetch);
-    await pushUserData('http://localhost:8787', 'tok', emptyData());
+    await pushUserData('http://localhost:8787', 'tok', sampleData());
     expect(customFetch).toHaveBeenCalledWith(
       'http://localhost:8787/v1/data',
       expect.objectContaining({ method: 'POST' })
@@ -224,6 +241,26 @@ describe('hydrateDb', () => {
   });
 });
 
+// ── hydrateDbFromServer ───────────────────────────────────────────────────────
+
+describe('hydrateDbFromServer', () => {
+  it('keeps local data when server snapshot is empty', async () => {
+    const db = makeMockDb();
+    const local = { ...emptyData(), appKv: [{ key: 'k', value: 'v', updated_at: 1 }] };
+    const result = await hydrateDbFromServer(db, emptyData(), local);
+    expect(result).toBe('kept-local');
+    expect(db.calls.some((c) => c.includes('DELETE FROM'))).toBe(false);
+  });
+
+  it('hydrates when server has data', async () => {
+    const db = makeMockDb();
+    const server = { ...emptyData(), appKv: [{ key: 'k', value: 'v', updated_at: 1 }] };
+    const result = await hydrateDbFromServer(db, server, emptyData());
+    expect(result).toBe('hydrated');
+    expect(db.calls.some((c) => c.includes('DELETE FROM app_kv'))).toBe(true);
+  });
+});
+
 // ── wrapWithDataSync ──────────────────────────────────────────────────────────
 
 describe('wrapWithDataSync', () => {
@@ -255,7 +292,7 @@ describe('wrapWithDataSync', () => {
   it('schedules a debounced push after execute', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
-    const db = makeMockDb();
+    const db = makeMockDbWithSyncData();
     const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
     await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
     expect(mockFetch).not.toHaveBeenCalled();
@@ -271,7 +308,7 @@ describe('wrapWithDataSync', () => {
   it('debounces multiple rapid writes into one push', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
-    const db = makeMockDb();
+    const db = makeMockDbWithSyncData();
     const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
     await wrapped.execute('INSERT INTO a VALUES (?)', [1]);
     await wrapped.execute('INSERT INTO b VALUES (?)', [2]);
@@ -281,11 +318,22 @@ describe('wrapWithDataSync', () => {
     vi.unstubAllGlobals();
   });
 
+  it('does not push when extracted snapshot is empty', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+    const db = makeMockDb();
+    const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
+    await wrapped.execute('DELETE FROM foo', []);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(mockFetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
   it('calls onPushError when push fails', async () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Load failed'));
     vi.stubGlobal('fetch', mockFetch);
     const onPushError = vi.fn();
-    const db = makeMockDb();
+    const db = makeMockDbWithSyncData();
     const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500, onPushError);
     await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
     await vi.advanceTimersByTimeAsync(600);
@@ -296,7 +344,7 @@ describe('wrapWithDataSync', () => {
   it('waits for beforePush before pushing', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
-    const db = makeMockDb();
+    const db = makeMockDbWithSyncData();
     const callOrder: string[] = [];
     const beforePush = vi.fn(async () => { callOrder.push('beforePush'); });
     const wrapped = wrapWithDataSync(

@@ -2,6 +2,7 @@ import type { SqlDatabase } from '@mgmt/storage';
 import { normalizeApiUrl } from './apiUrl';
 import { logSyncError, logSyncHttpFailure, logSyncInfo, summarizeUserDataCounts } from './syncLog';
 import { syncFetch } from './syncFetch';
+import { assertSafeSnapshotPush, isUserDataEmpty } from './userDataSafety';
 
 // ── Row types — mirror local.db columns (no user_id) ──────────────────────────
 
@@ -80,6 +81,22 @@ export const extractUserData = async (db: SqlDatabase): Promise<UserData> => ({
 });
 
 // ── Write a UserData snapshot into a local-schema db (replace tables to match snapshot) ──
+
+/** Pull server data into local db unless that would wipe local rows with an empty server snapshot. */
+export const hydrateDbFromServer = async (
+  db: SqlDatabase,
+  serverData: UserData,
+  localData: UserData
+): Promise<'hydrated' | 'kept-local'> => {
+  if (!isUserDataEmpty(localData) && isUserDataEmpty(serverData)) {
+    logSyncInfo('hydrate skipped: server snapshot empty but local has data', {
+      local: summarizeUserDataCounts(localData)
+    });
+    return 'kept-local';
+  }
+  await hydrateDb(db, serverData);
+  return 'hydrated';
+};
 
 export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> => {
   await db.execute('DELETE FROM focus_log');
@@ -204,9 +221,19 @@ export const fetchUserData = async (baseUrl: string, token: string): Promise<Use
   return body.data;
 };
 
-export const pushUserData = async (baseUrl: string, token: string, data: UserData): Promise<void> => {
+export const pushUserData = async (
+  baseUrl: string,
+  token: string,
+  data: UserData,
+  opts?: { existingRowCount?: number }
+): Promise<void> => {
   const root = normalizeApiUrl(baseUrl);
   if (!root) throw new Error('pushUserData: missing server URL');
+  if (isUserDataEmpty(data)) {
+    logSyncInfo('POST /v1/data skipped: empty snapshot');
+    return;
+  }
+  if (opts?.existingRowCount != null) assertSafeSnapshotPush(data, opts.existingRowCount);
   const url = `${root}/v1/data`;
   logSyncInfo('POST /v1/data', { url, ...summarizeUserDataCounts(data) });
   let res: Response;
@@ -247,6 +274,7 @@ export const wrapWithDataSync = (
         if (!serverUrl || !token) return;
         if (beforePush) await beforePush();
         const data = await extractUserData(db);
+        if (isUserDataEmpty(data)) return;
         await pushUserData(serverUrl, token, data);
       }).catch((err) => {
         logSyncError('debounced push failed', err);
