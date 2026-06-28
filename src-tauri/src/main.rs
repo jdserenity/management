@@ -39,6 +39,7 @@ mod camera_capture;
 mod camera_watch;
 mod flow_lid_pause;
 mod posture_bridge;
+mod sync_http;
 use posture_bridge::{posture_recommendations, PostureDebouncer, PostureIngestPayload};
 
 pub struct Translations {
@@ -882,7 +883,8 @@ pub fn run() {
             set_session_tray_timer_enabled,
             set_tray_flow_active,
             notify_session_phase,
-            restart_app
+            restart_app,
+            sync_http::sync_http_fetch
         ])
         .run(tauri::generate_context!());
 

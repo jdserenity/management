@@ -1,4 +1,5 @@
 import type { SqlDatabase } from '@mgmt/storage';
+import { getSyncFetch } from './syncFetch';
 
 // ── Row types — mirror local.db columns (no user_id) ──────────────────────────
 
@@ -138,7 +139,7 @@ const authHeaders = (token: string): HeadersInit => ({
 });
 
 export const fetchUserData = async (baseUrl: string, token: string): Promise<UserData> => {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/data`, { headers: authHeaders(token) });
+  const res = await getSyncFetch()(`${baseUrl.replace(/\/$/, '')}/v1/data`, { headers: authHeaders(token) });
   if (!res.ok) throw new Error(`fetchUserData: HTTP ${res.status}`);
   const body = (await res.json()) as { data: UserData };
   return body.data;
@@ -148,7 +149,7 @@ export const pushUserData = async (baseUrl: string, token: string, data: UserDat
   const url = `${baseUrl.replace(/\/$/, '')}/v1/data`;
   let res: Response;
   try {
-    res = await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ data }) });
+    res = await getSyncFetch()(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ data }) });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(`pushUserData to ${url}: ${detail}`);

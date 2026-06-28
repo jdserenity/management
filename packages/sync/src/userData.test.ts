@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { SqlDatabase } from '@mgmt/storage';
 import {
   fetchUserData,
@@ -8,6 +8,7 @@ import {
   wrapWithDataSync,
   type UserData
 } from './userData';
+import { setSyncFetchImpl } from './syncFetch';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,8 @@ describe('fetchUserData', () => {
 // ── pushUserData ──────────────────────────────────────────────────────────────
 
 describe('pushUserData', () => {
+  afterEach(() => { setSyncFetchImpl(null); });
+
   it('calls POST /v1/data with data body', async () => {
     const data = emptyData();
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
@@ -88,6 +91,16 @@ describe('pushUserData', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
     await expect(pushUserData('http://localhost:8787', 'tok', emptyData())).rejects.toThrow('HTTP 500');
     vi.unstubAllGlobals();
+  });
+
+  it('uses setSyncFetchImpl when provided', async () => {
+    const customFetch = vi.fn().mockResolvedValue({ ok: true });
+    setSyncFetchImpl(customFetch as typeof fetch);
+    await pushUserData('http://localhost:8787', 'tok', emptyData());
+    expect(customFetch).toHaveBeenCalledWith(
+      'http://localhost:8787/v1/data',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });
 
