@@ -1,5 +1,6 @@
 import { createActiveFlowDocument, createSyncClient, liveRemainingSeconds, type ActiveFlowDocument, type SyncClient } from '@mgmt/sync';
 import type { PersistedFlowState } from '@/lib/flowState';
+import { loadSyncServerConfig } from '@/lib/syncServerConfig';
 
 const DEVICE_ID_KEY = 'mgmt_sync_device_id_v1';
 
@@ -15,14 +16,16 @@ export const getOrCreateSyncDeviceId = (): string => {
   }
 };
 
-export const createDesktopSyncClient = (): SyncClient =>
-  createSyncClient({
+export const createDesktopSyncClient = async (): Promise<SyncClient> => {
+  const { serverUrl, serverToken } = await loadSyncServerConfig();
+  return createSyncClient({
     role: 'viewer',
-    apiUrl: import.meta.env.VITE_SERVER_URL,
-    apiToken: import.meta.env.VITE_SERVER_TOKEN,
+    apiUrl: serverUrl,
+    apiToken: serverToken,
     deviceId: getOrCreateSyncDeviceId(),
     memoryBusKey: 'mgmt-desktop-local'
   });
+};
 
 export const buildActiveFlowDocument = (
   flow: PersistedFlowState,

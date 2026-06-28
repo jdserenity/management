@@ -617,9 +617,11 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   }, [applyPersistedFlow]);
 
   useEffect(() => {
-    const client = syncClientProp ?? createDesktopSyncClient();
-    syncClientRef.current = client;
-    return client.subscribeActiveFlow((doc) => {
+    let cancelled = false;
+    let unsub: (() => void) | undefined;
+    const attach = (client: SyncClient) => {
+      syncClientRef.current = client;
+      unsub = client.subscribeActiveFlow((doc) => {
       if (!doc) {
         const wasViewer = shouldFollowRemoteFlowClear(syncLeaderDeviceIdRef.current, client.deviceId, phaseRef.current);
         syncLeaderDeviceIdRef.current = null;
@@ -647,6 +649,13 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       applyPersistedFlow(applied.flow);
       if (applied.flow.workoutLogged && !wasLogged) logActiveWorkoutIfNeeded(1);
     });
+    };
+    if (syncClientProp) attach(syncClientProp);
+    else void createDesktopSyncClient().then((client) => { if (!cancelled) attach(client); });
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
   }, [applyPersistedFlow, logActiveWorkoutIfNeeded, resetToIdle, syncClientProp, syncMode]);
 
   useEffect(() => {

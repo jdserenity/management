@@ -161,21 +161,24 @@ export const pushUserData = async (baseUrl: string, token: string, data: UserDat
 // Wraps any SqlDatabase so that writes trigger a debounced push to the server.
 // If serverUrl/token are not provided the wrapper is a pass-through.
 
+export type SyncCreds = { serverUrl?: string; token?: string };
+export type SyncCredsProvider = () => SyncCreds | Promise<SyncCreds>;
+
 export const wrapWithDataSync = (
   db: SqlDatabase,
-  serverUrl: string | undefined,
-  token: string | undefined,
+  getCreds: SyncCredsProvider,
   debounceMs = 2000,
   onPushError?: (err: unknown) => void
 ): SqlDatabase => {
-  if (!serverUrl || !token) return db;
-  const url = serverUrl; const tok = token;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const scheduleSync = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
-      void extractUserData(db).then((data) => pushUserData(url, tok, data)).catch((err) => {
+      void Promise.resolve(getCreds()).then(({ serverUrl, token }) => {
+        if (!serverUrl || !token) return;
+        return extractUserData(db).then((data) => pushUserData(serverUrl, token, data));
+      }).catch((err) => {
         console.warn('[data-sync] push failed:', err);
         onPushError?.(err);
       });

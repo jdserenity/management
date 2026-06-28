@@ -180,24 +180,33 @@ describe('wrapWithDataSync', () => {
   beforeEach(() => { vi.useFakeTimers(); });
 
   it('is a pass-through when serverUrl is missing', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
     const db = makeMockDb();
-    const wrapped = wrapWithDataSync(db, undefined, 'tok');
+    const wrapped = wrapWithDataSync(db, () => ({ token: 'tok' }));
     await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    await vi.advanceTimersByTimeAsync(600);
     expect(db.execute).toHaveBeenCalledWith('INSERT INTO foo VALUES (?)', [1]);
-    expect(wrapped).toBe(db);
+    expect(mockFetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it('is a pass-through when token is missing', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
     const db = makeMockDb();
-    const wrapped = wrapWithDataSync(db, 'http://localhost:8787', undefined);
-    expect(wrapped).toBe(db);
+    const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787' }));
+    await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(mockFetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it('schedules a debounced push after execute', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
     const db = makeMockDb();
-    const wrapped = wrapWithDataSync(db, 'http://localhost:8787', 'tok', 500);
+    const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
     await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
     expect(mockFetch).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(600);
@@ -213,7 +222,7 @@ describe('wrapWithDataSync', () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
     const db = makeMockDb();
-    const wrapped = wrapWithDataSync(db, 'http://localhost:8787', 'tok', 500);
+    const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
     await wrapped.execute('INSERT INTO a VALUES (?)', [1]);
     await wrapped.execute('INSERT INTO b VALUES (?)', [2]);
     await wrapped.execute('INSERT INTO c VALUES (?)', [3]);
@@ -227,7 +236,7 @@ describe('wrapWithDataSync', () => {
     vi.stubGlobal('fetch', mockFetch);
     const onPushError = vi.fn();
     const db = makeMockDb();
-    const wrapped = wrapWithDataSync(db, 'http://localhost:8787', 'tok', 500, onPushError);
+    const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500, onPushError);
     await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
     await vi.advanceTimersByTimeAsync(600);
     expect(onPushError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Load failed') }));

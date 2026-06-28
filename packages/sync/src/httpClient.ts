@@ -1,13 +1,11 @@
 import { createActiveFlowDocument } from './flowSync';
 import type { ActiveFlowDocument, SyncClient, SyncConnectionStatus, SyncDeviceRole } from './types';
+import { getSyncFetch } from './syncFetch';
 
 const createDeviceId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   return `dev-${Date.now()}-${Math.round(Math.random() * 1_000_000)}`;
 };
-
-/** Bound fetch — assigning `window.fetch` to a variable breaks without `.bind()`. */
-const boundFetch: typeof fetch = (...args) => globalThis.fetch(...args);
 
 export interface HttpSyncClientOptions {
   baseUrl: string;
@@ -47,7 +45,7 @@ export class HttpSyncClient implements SyncClient {
     this.role = options.role ?? 'viewer';
     this.deviceId = options.deviceId ?? createDeviceId();
     this.pollIntervalMs = options.pollIntervalMs ?? 2000;
-    this.fetchImpl = options.fetchImpl ?? boundFetch;
+    this.fetchImpl = options.fetchImpl ?? getSyncFetch();
   }
 
   getStatus(): SyncConnectionStatus {

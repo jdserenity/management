@@ -18,7 +18,10 @@ export const initCompanionStorage = async (): Promise<SqlDatabase> => {
   }
 
   // Wrap the db so every write schedules a debounced push back to the server.
-  const db = wrapWithDataSync(rawDb, serverUrl, serverToken);
+  const db = wrapWithDataSync(rawDb, () => ({
+    serverUrl: import.meta.env.VITE_SERVER_URL as string | undefined,
+    token: import.meta.env.VITE_SERVER_TOKEN as string | undefined
+  }));
   registerSqlBackend(db);
   return db;
 };

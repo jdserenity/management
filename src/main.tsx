@@ -7,7 +7,10 @@ import { desktopNativeFetch } from "@/lib/desktopNativeFetch";
 import "./i18n";
 import App from "./App";
 
-if (getAppKind() === "desktop") setSyncFetchImpl(desktopNativeFetch);
+if (getAppKind() === "desktop") {
+  setSyncFetchImpl(desktopNativeFetch);
+  void import("@/lib/syncServerConfig").then(({ loadSyncServerConfig }) => loadSyncServerConfig());
+}
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
