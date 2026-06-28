@@ -25,6 +25,8 @@ vi.mock('./sqlJsStorage', () => ({
         if (q.includes('FROM streak_activities')) return [];
         if (q.includes('FROM streak_log_cells')) return [];
         if (q.includes('FROM streak_activity_meta')) return [];
+        if (q.includes('FROM water_config')) return [];
+        if (q.includes('FROM water_entries')) return [];
         return [];
       }),
       execute: vi.fn(async () => {
