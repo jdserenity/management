@@ -93,7 +93,31 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 Expect HTTP `200`. A `400` here usually means `$TOKEN` is empty (permission denied on the env file) or the header is malformed. A `401` means the token in curl does not match `SERVER_TOKEN` in the file.
 
-Point clients at the same token: set `VITE_SERVER_URL` and `VITE_SERVER_TOKEN` in the repo root `.env`, then rebuild desktop (`npm run tauri build`) and companion (`npm run deploy:companion`). Both apps read those values at build time — there is no separate sync config file to edit after install.
+Point clients at the same token as `SERVER_TOKEN` on the VPS (`/etc/mgmt/server.env`). Values are fixed at **build time** — changing them requires a new build/deploy, not an app restart alone.
+
+| Client | Where to set `VITE_SERVER_URL` / `VITE_SERVER_TOKEN` | Redeploy |
+| --- | --- | --- |
+| **Companion (production)** | Cloudflare Pages dashboard → project **mgmt-companion** → Settings → Environment variables (Production) | Push to Git (auto-build) or **Retry deployment** in Cloudflare after editing vars |
+| **Desktop** | Repo root `.env` on your Mac | `npm run tauri build` then `npm run app:deploy` |
+| **Local dev** | Repo root `.env` | Restart `npm run dev:companion` or `npm run tauri dev` |
+
+`VITE_SERVER_URL` must be a public HTTPS URL (e.g. `https://mgmt.levier.cc`), not a Tailscale-only IP. `VITE_SERVER_TOKEN` must match `SERVER_TOKEN` on the VPS.
+
+### Companion on Cloudflare Pages (Git build)
+
+Production companion is a static PWA on Cloudflare Pages. Cloudflare runs the build on each Git push; Vite reads `VITE_*` from the **Cloudflare dashboard env vars** (not from a `.env` file in the repo — that file is gitignored and not present on Cloudflare’s builders).
+
+Typical Pages settings (monorepo root as project root):
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm ci && npm run build:companion` |
+| Build output directory | `apps/companion/dist` |
+| Production env vars | `VITE_SERVER_URL`, `VITE_SERVER_TOKEN` |
+
+After changing dashboard env vars, trigger a new deployment (push a commit or **Retry deployment**) so the new values are baked into the JS bundle.
+
+Optional manual deploy from your Mac (uses local `.env` instead of dashboard): `npm run deploy:companion` (`scripts/deploy-companion.mjs` builds locally then `wrangler pages deploy`).
 
 ### Update server code on the VPS
 

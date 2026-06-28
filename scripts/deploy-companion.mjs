@@ -1,4 +1,5 @@
-import { execSync } from 'node:child_process';
+#!/usr/bin/env node
+/** Manual companion deploy: build with local root `.env`, upload via wrangler. Production uses Cloudflare Pages Git build + dashboard env vars instead. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
