@@ -618,7 +618,7 @@ const AppPresenceSettings = () => {
                         <p className="text-sm text-muted-foreground">
                             {t(
                                 'settings.hideToMenuBarOnCloseDesc',
-                                'When off, closing the window quits the app (Dock mode). When on, the red close button hides the window and removes the Dock icon; the app keeps running in the menu bar until you choose Quit there.'
+                                'When off, closing the window quits the app (Dock mode). When on, the red close button hides the window and removes the Dock icon; use the menu bar icon to reopen or quit.'
                             )}
                         </p>
                     </div>
@@ -722,7 +722,7 @@ const SessionAlertSettings = () => {
                         <p className="text-sm text-muted-foreground">
                             {t(
                                 'settings.sessionTrayTimerDesc',
-                                'While a focus flow is running, show a menu bar icon with a live countdown (e.g. 🍅 24:59). macOS only.'
+                                'While a focus flow is running, show a live countdown next to the menu bar icon (e.g. 🍅 24:59). The menu bar icon is always visible; this only toggles the timer label. macOS only.'
                             )}
                         </p>
                     </div>

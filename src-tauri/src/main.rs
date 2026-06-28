@@ -119,7 +119,6 @@ pub(crate) struct AppState {
     menu_bar_only: Arc<Mutex<bool>>,
     hide_to_menu_bar_on_close: Arc<Mutex<bool>>,
     hidden_to_menu_bar: Arc<Mutex<bool>>,
-    session_tray_timer: Arc<Mutex<bool>>,
     flow_active: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
 }
@@ -501,8 +500,8 @@ fn set_tray_session_label(app: AppHandle, state: State<'_, AppState>, label: Str
 }
 
 #[tauri::command]
-fn set_session_tray_timer_enabled(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
-    app_presence::apply_session_tray_timer(&app, &state, enabled)
+fn set_session_tray_timer_enabled(_enabled: bool) -> Result<(), String> {
+    Ok(())
 }
 
 #[tauri::command]
@@ -828,11 +827,14 @@ pub fn run() {
                 menu_bar_only: Arc::new(Mutex::new(false)),
                 hide_to_menu_bar_on_close: Arc::new(Mutex::new(false)),
                 hidden_to_menu_bar: Arc::new(Mutex::new(false)),
-                session_tray_timer: Arc::new(Mutex::new(false)),
                 flow_active: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
             };
             app.manage(app_state.clone());
+
+            if let Err(e) = app_presence::install_tray(app.handle(), &app_state) {
+                error!("Failed to install menu bar tray on startup: {e}");
+            }
 
             camera_watch::start_camera_watch(app.handle().clone(), app_state.clone());
             flow_lid_pause::start_flow_lid_pause_watch(app.handle().clone());
