@@ -265,4 +265,25 @@ describe('wrapWithDataSync', () => {
     expect(onPushError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Load failed') }));
     vi.unstubAllGlobals();
   });
+
+  it('waits for beforePush before pushing', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+    const db = makeMockDb();
+    const callOrder: string[] = [];
+    const beforePush = vi.fn(async () => { callOrder.push('beforePush'); });
+    const wrapped = wrapWithDataSync(
+      db,
+      () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }),
+      500,
+      undefined,
+      beforePush
+    );
+    mockFetch.mockImplementation(async () => { callOrder.push('fetch'); return { ok: true }; });
+    await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(beforePush).toHaveBeenCalled();
+    expect(callOrder).toEqual(['beforePush', 'fetch']);
+    vi.unstubAllGlobals();
+  });
 });

@@ -190,16 +190,19 @@ export const wrapWithDataSync = (
   db: SqlDatabase,
   getCreds: SyncCredsProvider,
   debounceMs = 2000,
-  onPushError?: (err: unknown) => void
+  onPushError?: (err: unknown) => void,
+  beforePush?: () => void | Promise<void>
 ): SqlDatabase => {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const scheduleSync = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
-      void Promise.resolve(getCreds()).then(({ serverUrl, token }) => {
+      void Promise.resolve(getCreds()).then(async ({ serverUrl, token }) => {
         if (!serverUrl || !token) return;
-        return extractUserData(db).then((data) => pushUserData(serverUrl, token, data));
+        if (beforePush) await beforePush();
+        const data = await extractUserData(db);
+        await pushUserData(serverUrl, token, data);
       }).catch((err) => {
         console.warn('[data-sync] push failed:', err);
         onPushError?.(err);

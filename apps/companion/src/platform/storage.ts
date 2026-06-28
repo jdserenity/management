@@ -8,6 +8,8 @@ const PULL_DEBOUNCE_MS = 800;
 let companionRawDb: SqlDatabase | null = null;
 let pullTimer: ReturnType<typeof setTimeout> | null = null;
 let pullInFlight: Promise<boolean> | null = null;
+/** Resolves after the first server pull attempt on this boot (success, failure, or skipped). */
+let initialPullPromise: Promise<boolean> | null = null;
 
 const serverCreds = () => ({
   serverUrl: import.meta.env.VITE_SERVER_URL as string | undefined,
@@ -63,6 +65,14 @@ export const startCompanionForegroundPull = (): (() => void) => {
   };
 };
 
+/** @internal test hook */
+export const resetCompanionStorageForTests = (): void => {
+  companionRawDb = null;
+  pullTimer = null;
+  pullInFlight = null;
+  initialPullPromise = null;
+};
+
 export const onCompanionDataRefresh = (listener: () => void): (() => void) => {
   window.addEventListener(COMPANION_DATA_REFRESH, listener);
   return () => window.removeEventListener(COMPANION_DATA_REFRESH, listener);
@@ -71,11 +81,17 @@ export const onCompanionDataRefresh = (listener: () => void): (() => void) => {
 export const initCompanionStorage = async (): Promise<SqlDatabase> => {
   const rawDb = await import('./sqlJsStorage').then((m) => m.createCompanionSqlJsDatabase());
   companionRawDb = rawDb;
-  const db = wrapWithDataSync(rawDb, () => ({
-    serverUrl: serverCreds().serverUrl,
-    token: serverCreds().serverToken
-  }));
+  initialPullPromise = pullCompanionSnapshotFromServer();
+  const db = wrapWithDataSync(
+    rawDb,
+    () => ({
+      serverUrl: serverCreds().serverUrl,
+      token: serverCreds().serverToken
+    }),
+    2000,
+    undefined,
+    async () => { if (initialPullPromise) await initialPullPromise; }
+  );
   registerSqlBackend(db);
-  void pullCompanionSnapshotFromServer();
   return db;
 };
