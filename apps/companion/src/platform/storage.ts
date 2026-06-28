@@ -38,6 +38,11 @@ const serverCreds = () => ({
 
 export const getCompanionSyncWarning = (): string | null => lastSyncWarning;
 
+const unreachableHint = (serverUrl: string): string =>
+  `Cannot reach ${serverUrl} from this device (browser reported the address is unreachable). ` +
+  'The desktop app may use a different server address (e.g. a Tailscale IP) that only works on your Mac. ' +
+  'The mobile app needs a public HTTPS URL with DNS pointing at your VPS and port 443 open — see docs/DEPLOY.md.';
+
 export const pullCompanionSnapshotFromServer = async (): Promise<boolean> => {
   if (!companionRawDb) {
     logSyncError('companion pull skipped: local database not open', new Error('no companion db'));
@@ -110,7 +115,7 @@ export const runCompanionInitialSync = async (): Promise<CompanionSyncResult> =>
     logSyncInfo('companion initial sync starting', { serverUrl });
     const pullOk = await pullCompanionSnapshotFromServer();
     if (!pullOk) {
-      const msg = `Could not download data from ${serverUrl}. Check the browser console for details.`;
+      const msg = unreachableHint(serverUrl);
       lastSyncWarning = msg;
       return { pullOk: false, pushOk: false, skipped: false, reason: 'pull-failed', pullError: msg };
     }

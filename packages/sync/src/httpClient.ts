@@ -34,6 +34,7 @@ export class HttpSyncClient implements SyncClient {
   private activeFlow: ActiveFlowDocument | null = null;
   private readonly listeners = new Set<(doc: ActiveFlowDocument | null) => void>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private pollBackoffMs = 0;
   private readonly fetchImpl: typeof fetch;
   private readonly baseUrl: string;
   private readonly token: string;
@@ -60,12 +61,14 @@ export class HttpSyncClient implements SyncClient {
   private fail(err: unknown, context: string): void {
     this.lastError = err instanceof Error ? err.message : String(err);
     console.error(`[data-sync] ${context}`, { url: `${this.baseUrl}/v1/active-flow`, error: this.lastError, raw: err });
+    this.pollBackoffMs = Math.min(this.pollBackoffMs ? this.pollBackoffMs * 2 : 4000, 60_000);
     this.setStatus('error');
     this.notify();
   }
 
   private succeed(): void {
     this.lastError = null;
+    this.pollBackoffMs = 0;
     this.setStatus('online');
     this.notify();
   }
@@ -106,10 +109,12 @@ export class HttpSyncClient implements SyncClient {
   subscribeActiveFlow(listener: (doc: ActiveFlowDocument | null) => void): () => void {
     this.listeners.add(listener);
     listener(this.activeFlow);
-    void this.pull();
-    if (!this.pollTimer) {
-      this.pollTimer = setInterval(() => void this.pull(), this.pollIntervalMs);
-    }
+    const schedulePoll = () => {
+      if (this.pollTimer) clearInterval(this.pollTimer);
+      const ms = this.pollBackoffMs || this.pollIntervalMs;
+      this.pollTimer = setInterval(() => void this.pull(), ms);
+    };
+    void this.pull().finally(schedulePoll);
     return () => {
       this.listeners.delete(listener);
       if (this.listeners.size === 0 && this.pollTimer) {

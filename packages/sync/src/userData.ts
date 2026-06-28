@@ -188,7 +188,10 @@ export const fetchUserData = async (baseUrl: string, token: string): Promise<Use
   try {
     res = await syncFetch(url, { headers: authHeaders(token) });
   } catch (err) {
-    logSyncError('GET /v1/data network error', err, { url });
+    logSyncError('GET /v1/data network error', err, {
+      url,
+      hint: 'If the browser shows ERR_ADDRESS_UNREACHABLE, this device cannot route to the server host (DNS/VPS/firewall/Tailscale-only URL).'
+    });
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(`fetchUserData: ${detail}`);
   }
