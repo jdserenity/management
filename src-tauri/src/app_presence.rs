@@ -52,7 +52,8 @@ pub fn is_menu_bar_only_mode(mode: &str) -> bool {
   normalize_app_presence_mode(mode) == MODE_MENU_BAR
 }
 
-fn show_main_window(app: &AppHandle) {
+fn show_main_window(app: &AppHandle, state: &AppState) {
+  let _ = exit_hidden_to_menu_bar_if_needed(app, state);
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.unminimize();
     let _ = window.show();
@@ -66,7 +67,8 @@ pub fn hide_main_window(app: &AppHandle) {
   }
 }
 
-pub fn focus_main_window(app: &AppHandle, dock_bounce: bool) {
+pub fn focus_main_window(app: &AppHandle, state: &AppState, dock_bounce: bool) {
+  let _ = exit_hidden_to_menu_bar_if_needed(app, state);
   if let Some(window) = app.get_webview_window("main") {
     let _ = window.unminimize();
     let _ = window.show();
@@ -120,14 +122,14 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
   let state = app.state::<AppState>();
   match event_id {
     "quit" => app.exit(0),
-    "show" => show_main_window(app),
+    "show" => show_main_window(app, state.inner()),
     "start_focus_flow" => {
       let _ = app.emit("tray-start-focus-flow", ());
       let app = app.clone();
       let flow_state = state.inner().clone();
       tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-        if menu_bar_only_from_state(&flow_state) {
+        if menu_bar_only_from_state(&flow_state) || hidden_to_menu_bar_from_state(&flow_state) {
           hide_main_window(&app);
         }
       });
@@ -189,9 +191,12 @@ pub fn remove_tray(app: &AppHandle, state: &AppState) {
 pub fn apply_app_presence_mode(app: &AppHandle, state: &AppState, mode: &str) -> Result<(), String> {
   let menu_bar_only = is_menu_bar_only_mode(mode);
   *lock_or_recover(&state.menu_bar_only) = menu_bar_only;
+  if menu_bar_only {
+    *lock_or_recover(&state.hidden_to_menu_bar) = false;
+  }
   #[cfg(target_os = "macos")]
   {
-    let policy = if menu_bar_only {
+    let policy = if menu_bar_only || hidden_to_menu_bar_from_state(state) {
       tauri::ActivationPolicy::Accessory
     } else {
       tauri::ActivationPolicy::Regular
@@ -199,7 +204,7 @@ pub fn apply_app_presence_mode(app: &AppHandle, state: &AppState, mode: &str) ->
     app.set_activation_policy(policy).map_err(|e| e.to_string())?;
   }
   sync_tray_installation(app, state)?;
-  if !menu_bar_only && !session_tray_timer_from_state(state) {
+  if !menu_bar_only && !hidden_to_menu_bar_from_state(state) && !session_tray_timer_from_state(state) {
     if let Some(window) = app.get_webview_window("main") {
       let _ = window.unminimize();
       let _ = window.show();
@@ -213,20 +218,89 @@ pub fn menu_bar_only_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.menu_bar_only)
 }
 
+pub fn hide_to_menu_bar_on_close_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.hide_to_menu_bar_on_close)
+}
+
+pub fn hidden_to_menu_bar_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.hidden_to_menu_bar)
+}
+
 pub fn session_tray_timer_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.session_tray_timer)
 }
 
-pub fn sync_tray_installation(app: &AppHandle, state: &AppState) -> Result<(), String> {
-  let menu_bar_only = menu_bar_only_from_state(state);
-  let session_tray_timer = session_tray_timer_from_state(state);
-  remove_tray(app, state);
-  if menu_bar_only {
-    install_tray(app, state, false)?;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrayInstallPlan {
+  None,
+  Full,
+  TimerOnly,
+}
+
+pub fn tray_install_plan(menu_bar_only: bool, hidden_to_menu_bar: bool, session_tray_timer: bool) -> TrayInstallPlan {
+  if menu_bar_only || hidden_to_menu_bar {
+    TrayInstallPlan::Full
   } else if session_tray_timer {
-    install_tray(app, state, true)?;
+    TrayInstallPlan::TimerOnly
+  } else {
+    TrayInstallPlan::None
+  }
+}
+
+pub fn sync_tray_installation(app: &AppHandle, state: &AppState) -> Result<(), String> {
+  let plan = tray_install_plan(
+    menu_bar_only_from_state(state),
+    hidden_to_menu_bar_from_state(state),
+    session_tray_timer_from_state(state),
+  );
+  remove_tray(app, state);
+  match plan {
+    TrayInstallPlan::Full => install_tray(app, state, false)?,
+    TrayInstallPlan::TimerOnly => install_tray(app, state, true)?,
+    TrayInstallPlan::None => {}
   }
   Ok(())
+}
+
+pub fn enter_hidden_to_menu_bar(app: &AppHandle, state: &AppState) -> Result<(), String> {
+  *lock_or_recover(&state.hidden_to_menu_bar) = true;
+  #[cfg(target_os = "macos")]
+  app.set_activation_policy(tauri::ActivationPolicy::Accessory).map_err(|e| e.to_string())?;
+  sync_tray_installation(app, state)
+}
+
+pub fn exit_hidden_to_menu_bar_if_needed(app: &AppHandle, state: &AppState) -> Result<(), String> {
+  if !hidden_to_menu_bar_from_state(state) || menu_bar_only_from_state(state) {
+    return Ok(());
+  }
+  *lock_or_recover(&state.hidden_to_menu_bar) = false;
+  #[cfg(target_os = "macos")]
+  app.set_activation_policy(tauri::ActivationPolicy::Regular).map_err(|e| e.to_string())?;
+  sync_tray_installation(app, state)
+}
+
+pub fn apply_hide_to_menu_bar_on_close(app: &AppHandle, state: &AppState, enabled: bool) -> Result<(), String> {
+  *lock_or_recover(&state.hide_to_menu_bar_on_close) = enabled;
+  if !enabled {
+    exit_hidden_to_menu_bar_if_needed(app, state)?;
+  }
+  Ok(())
+}
+
+/// Returns true when the close event was handled (window hidden, app kept running).
+pub fn handle_window_close_requested(app: &AppHandle, state: &AppState) -> bool {
+  if menu_bar_only_from_state(state) {
+    hide_main_window(app);
+    return true;
+  }
+  if hide_to_menu_bar_on_close_from_state(state) {
+    hide_main_window(app);
+    if let Err(e) = enter_hidden_to_menu_bar(app, state) {
+      error!("Failed to enter hidden-to-menu-bar mode: {e}");
+    }
+    return true;
+  }
+  false
 }
 
 pub fn apply_session_tray_timer(app: &AppHandle, state: &AppState, enabled: bool) -> Result<(), String> {
@@ -249,5 +323,18 @@ mod tests {
     assert_eq!(normalize_app_presence_mode("menu_bar"), MODE_MENU_BAR);
     assert_eq!(normalize_app_presence_mode("Menu-Bar"), MODE_MENU_BAR);
     assert_eq!(normalize_app_presence_mode(" menubar "), MODE_MENU_BAR);
+  }
+
+  #[test]
+  fn tray_install_plan_prefers_full_tray_for_menu_bar_or_hidden() {
+    assert_eq!(tray_install_plan(true, false, false), TrayInstallPlan::Full);
+    assert_eq!(tray_install_plan(false, true, false), TrayInstallPlan::Full);
+    assert_eq!(tray_install_plan(false, false, true), TrayInstallPlan::TimerOnly);
+    assert_eq!(tray_install_plan(false, false, false), TrayInstallPlan::None);
+  }
+
+  #[test]
+  fn tray_install_plan_hidden_beats_timer_only() {
+    assert_eq!(tray_install_plan(false, true, true), TrayInstallPlan::Full);
   }
 }

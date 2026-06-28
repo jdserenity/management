@@ -117,6 +117,8 @@ pub(crate) struct AppState {
     current_language: Arc<Mutex<String>>,
     battery_saving_mode: Arc<Mutex<bool>>,
     menu_bar_only: Arc<Mutex<bool>>,
+    hide_to_menu_bar_on_close: Arc<Mutex<bool>>,
+    hidden_to_menu_bar: Arc<Mutex<bool>>,
     session_tray_timer: Arc<Mutex<bool>>,
     flow_active: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
@@ -482,9 +484,14 @@ fn get_app_presence_mode(state: State<'_, AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn focus_main_window(app: AppHandle, dock_bounce: bool) -> Result<(), String> {
-    app_presence::focus_main_window(&app, dock_bounce);
+fn focus_main_window(app: AppHandle, state: State<'_, AppState>, dock_bounce: bool) -> Result<(), String> {
+    app_presence::focus_main_window(&app, &state, dock_bounce);
     Ok(())
+}
+
+#[tauri::command]
+fn set_hide_to_menu_bar_on_close(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
+    app_presence::apply_hide_to_menu_bar_on_close(&app, &state, enabled)
 }
 
 #[tauri::command]
@@ -819,6 +826,8 @@ pub fn run() {
                 current_language: Arc::new(Mutex::new("en".to_string())),
                 battery_saving_mode: Arc::new(Mutex::new(false)),
                 menu_bar_only: Arc::new(Mutex::new(false)),
+                hide_to_menu_bar_on_close: Arc::new(Mutex::new(false)),
+                hidden_to_menu_bar: Arc::new(Mutex::new(false)),
                 session_tray_timer: Arc::new(Mutex::new(false)),
                 flow_active: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
@@ -847,9 +856,8 @@ pub fn run() {
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 let state = window.state::<AppState>();
-                if app_presence::menu_bar_only_from_state(&state) {
+                if app_presence::handle_window_close_requested(window.app_handle(), &state) {
                     api.prevent_close();
-                    let _ = window.hide();
                 }
             }
             tauri::WindowEvent::Destroyed => {
@@ -878,6 +886,7 @@ pub fn run() {
             set_battery_saving_mode,
             set_app_presence_mode,
             get_app_presence_mode,
+            set_hide_to_menu_bar_on_close,
             focus_main_window,
             set_tray_session_label,
             set_session_tray_timer_enabled,
