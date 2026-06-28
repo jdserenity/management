@@ -1,6 +1,7 @@
+import { normalizeApiUrl } from './apiUrl';
 import { createActiveFlowDocument } from './flowSync';
 import type { ActiveFlowDocument, SyncClient, SyncConnectionStatus, SyncDeviceRole } from './types';
-import { getSyncFetch } from './syncFetch';
+import { syncFetch } from './syncFetch';
 
 const createDeviceId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -40,12 +41,12 @@ export class HttpSyncClient implements SyncClient {
   private lastError: string | null = null;
 
   constructor(options: HttpSyncClientOptions) {
-    this.baseUrl = options.baseUrl.replace(/\/$/, '');
+    this.baseUrl = normalizeApiUrl(options.baseUrl) ?? options.baseUrl.replace(/\/$/, '');
     this.token = options.token;
     this.role = options.role ?? 'viewer';
     this.deviceId = options.deviceId ?? createDeviceId();
     this.pollIntervalMs = options.pollIntervalMs ?? 2000;
-    this.fetchImpl = options.fetchImpl ?? getSyncFetch();
+    this.fetchImpl = options.fetchImpl ?? syncFetch;
   }
 
   getStatus(): SyncConnectionStatus {

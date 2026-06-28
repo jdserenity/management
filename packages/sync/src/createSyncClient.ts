@@ -1,3 +1,4 @@
+import { normalizeApiUrl } from './apiUrl';
 import { HttpSyncClient } from './httpClient';
 import { MemorySyncClient } from './memoryClient';
 import type { SyncClient, SyncDeviceRole } from './types';
@@ -11,7 +12,7 @@ export interface CreateSyncClientOptions {
 }
 
 export const createSyncClient = (options: CreateSyncClientOptions): SyncClient => {
-  const url = options.apiUrl?.trim();
+  const url = normalizeApiUrl(options.apiUrl);
   const token = options.apiToken?.trim();
   if (url && token) {
     if (import.meta.env?.DEV) console.info(`[sync] HTTP client → ${url}`);

@@ -1,5 +1,6 @@
 import type { SqlDatabase } from '@mgmt/storage';
-import { getSyncFetch } from './syncFetch';
+import { normalizeApiUrl } from './apiUrl';
+import { syncFetch } from './syncFetch';
 
 // ── Row types — mirror local.db columns (no user_id) ──────────────────────────
 
@@ -100,7 +101,7 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
   if (data.nutritionConfig) {
     const nc = data.nutritionConfig;
     await db.execute(
-      'INSERT INTO nutrition_config (id,tdee,protein,log_day) VALUES (1,?,?,?)',
+      'INSERT OR REPLACE INTO nutrition_config (id,tdee,protein,log_day) VALUES (1,?,?,?)',
       [nc.tdee, nc.protein, nc.log_day]
     );
   }
@@ -150,17 +151,27 @@ const authHeaders = (token: string): HeadersInit => ({
 });
 
 export const fetchUserData = async (baseUrl: string, token: string): Promise<UserData> => {
-  const res = await getSyncFetch()(`${baseUrl.replace(/\/$/, '')}/v1/data`, { headers: authHeaders(token) });
+  const root = normalizeApiUrl(baseUrl);
+  if (!root) throw new Error('fetchUserData: missing server URL');
+  let res: Response;
+  try {
+    res = await syncFetch(`${root}/v1/data`, { headers: authHeaders(token) });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`fetchUserData: ${detail}`);
+  }
   if (!res.ok) throw new Error(`fetchUserData: HTTP ${res.status}`);
   const body = (await res.json()) as { data: UserData };
   return body.data;
 };
 
 export const pushUserData = async (baseUrl: string, token: string, data: UserData): Promise<void> => {
-  const url = `${baseUrl.replace(/\/$/, '')}/v1/data`;
+  const root = normalizeApiUrl(baseUrl);
+  if (!root) throw new Error('pushUserData: missing server URL');
+  const url = `${root}/v1/data`;
   let res: Response;
   try {
-    res = await getSyncFetch()(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ data }) });
+    res = await syncFetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ data }) });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(`pushUserData to ${url}: ${detail}`);

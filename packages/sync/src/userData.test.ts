@@ -65,6 +65,14 @@ describe('fetchUserData', () => {
     expect(mockFetch.mock.calls[0][0]).toBe('http://localhost:8787/v1/data');
     vi.unstubAllGlobals();
   });
+
+  it('normalizes bare host:port to http://', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: emptyData() }) });
+    vi.stubGlobal('fetch', mockFetch);
+    await fetchUserData('100.93.97.83:8787', 'tok');
+    expect(mockFetch.mock.calls[0][0]).toBe('http://100.93.97.83:8787/v1/data');
+    vi.unstubAllGlobals();
+  });
 });
 
 // ── pushUserData ──────────────────────────────────────────────────────────────
