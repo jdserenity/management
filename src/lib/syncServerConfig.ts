@@ -39,6 +39,15 @@ export const loadSyncServerConfig = async (): Promise<SyncServerConfig> => {
           serverToken: trimOpt(await store.get('serverToken'))
         };
         if (fromStore.serverUrl && fromStore.serverToken) {
+          const env = fromBuildEnv();
+          if (env.serverUrl && env.serverToken &&
+            (env.serverUrl !== fromStore.serverUrl || env.serverToken !== fromStore.serverToken)) {
+            await store.set('serverUrl', env.serverUrl);
+            await store.set('serverToken', env.serverToken);
+            await store.save();
+            cached = env;
+            return cached;
+          }
           cached = fromStore;
           return cached;
         }

@@ -13,7 +13,7 @@ import { applyPostureMonitoringFromPref } from '@/lib/postureMonitoringPref';
 import { applyAppPresenceFromPref } from '@/lib/appPresencePref';
 import { loadSessionAlertsPrefs } from '@/lib/sessionAlertsPref';
 import { primeSessionAudio } from '@/lib/sessionSounds';
-import { pushLocalDataToServerIfDesktop } from '@/lib/dataSync';
+import { runDesktopInitialSync, startDesktopForegroundPull } from '@/lib/dataSync';
 
 function App() {
 
@@ -63,7 +63,10 @@ function App() {
     }).catch(console.error);
   }, []);
 
-  useEffect(() => { void pushLocalDataToServerIfDesktop(); }, []);
+  useEffect(() => {
+    void runDesktopInitialSync();
+    return startDesktopForegroundPull();
+  }, []);
 
   return (
     <SessionProvider>

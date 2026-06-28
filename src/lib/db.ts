@@ -1,6 +1,7 @@
 import type { SqlDatabase } from '@mgmt/storage';
 import { wrapWithDataSync } from '@mgmt/sync';
 import { notifyDataSyncError } from '@/lib/dataSyncNotify';
+import { awaitDataSyncBootstrap } from '@/lib/dataSyncBootstrap';
 import { getSyncServerCreds } from '@/lib/syncServerConfig';
 
 export type { SqlDatabase };
@@ -28,7 +29,8 @@ const wrapTauriDb = (db: {
       return { serverUrl, token: serverToken };
     },
     2000,
-    (err) => { void notifyDataSyncError('habit/data push', err); }
+    (err) => { void notifyDataSyncError('habit/data push', err); },
+    async () => { await awaitDataSyncBootstrap(); }
   );
 };
 
