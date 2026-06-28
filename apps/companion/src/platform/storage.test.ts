@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fetchUserData, hydrateDbFromServer, pushUserData, extractUserData } = vi.hoisted(() => ({
+const { fetchUserData, hydrateDbFromServer, hydrateDb, mergeUserData, pushUserData, extractUserData } = vi.hoisted(() => ({
   fetchUserData: vi.fn(),
   hydrateDbFromServer: vi.fn(),
+  hydrateDb: vi.fn(),
+  mergeUserData: vi.fn(),
   pushUserData: vi.fn(),
   extractUserData: vi.fn()
 }));
 
 vi.mock('@mgmt/sync', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mgmt/sync')>();
-  return { ...actual, fetchUserData, hydrateDbFromServer, pushUserData, extractUserData };
+  return { ...actual, fetchUserData, hydrateDbFromServer, hydrateDb, mergeUserData, pushUserData, extractUserData };
 });
 vi.mock('@/lib/db', () => ({ registerSqlBackend: vi.fn() }));
 vi.mock('./sqlJsStorage', () => ({
@@ -54,26 +56,32 @@ describe('companion storage sync', () => {
     vi.stubEnv('VITE_SERVER_TOKEN', 'tok');
     fetchUserData.mockReset();
     hydrateDbFromServer.mockReset();
+    hydrateDb.mockReset();
+    mergeUserData.mockReset();
     pushUserData.mockReset();
     extractUserData.mockReset();
     fetchUserData.mockResolvedValue({ ...emptyUserData() });
     hydrateDbFromServer.mockResolvedValue('hydrated');
+    hydrateDb.mockResolvedValue(undefined);
+    mergeUserData.mockImplementation((_local, server) => server);
     pushUserData.mockResolvedValue(undefined);
     extractUserData.mockResolvedValue({ ...emptyUserData() });
   });
 
-  it('runCompanionInitialSync pulls without push when server has data', async () => {
-    const server = { ...emptyUserData(), streakActivities: [{ id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0, extra_calories: null, extra_protein: null, extra_water_ml: null }] };
+  it('runCompanionInitialSync merges and uploads when both sides have data', async () => {
+    const local = { ...emptyUserData(), appKv: [{ key: 'k', value: 'v', updated_at: 1 }] };
+    const server = {
+      ...emptyUserData(),
+      streakActivities: [{ id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null, scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0, extra_calories: null, extra_protein: null, extra_water_ml: null }]
+    };
     fetchUserData.mockResolvedValue(server);
-    extractUserData
-      .mockResolvedValueOnce({ ...emptyUserData() })
-      .mockResolvedValue(server);
+    extractUserData.mockResolvedValue(local);
     await initCompanionStorage();
     const result = await runCompanionInitialSync();
     expect(result.pullOk).toBe(true);
-    expect(result.pushOk).toBe(true);
-    expect(fetchUserData).toHaveBeenCalled();
-    expect(pushUserData).not.toHaveBeenCalled();
+    expect(mergeUserData).toHaveBeenCalledWith(local, server);
+    expect(hydrateDb).toHaveBeenCalled();
+    expect(pushUserData).toHaveBeenCalled();
   });
 
   it('runCompanionInitialSync uploads local data when server snapshot is empty', async () => {

@@ -6,7 +6,8 @@ import { StreakDailyHeatmap, StreakWeeklyHeatmap } from '@/components/daily/Stre
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { fireDayCompleteConfetti } from '@/lib/streak/confetti';
 import { isDayComplete } from '@/lib/streak/heatmapHelpers';
-import { hasAppStorage, getAppKind } from '@/lib/appRuntime';
+import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
+import { hasAppStorage } from '@/lib/appRuntime';
 import { loadStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import {
@@ -49,10 +50,10 @@ export default function StreakSection({ onCrossLog }: Props) {
     void refresh();
     const id = window.setInterval(() => void refresh(), 60_000);
     const onRemoteRefresh = () => { void refresh(); };
-    if (getAppKind() === 'companion') window.addEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
     return () => {
       window.clearInterval(id);
-      if (getAppKind() === 'companion') window.removeEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+      window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
     };
   }, [refresh]);
 

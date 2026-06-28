@@ -24,6 +24,7 @@ import {
   removeTdeeEntry
 } from '@/lib/tdeeDb';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
+import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { hasAppStorage } from '@/lib/appRuntime';
 import './tdee.css';
 
@@ -112,7 +113,12 @@ export default function TdeeSection({ refreshKey }: Props) {
   useEffect(() => {
     void refresh();
     const id = window.setInterval(() => void refresh(), 60_000);
-    return () => window.clearInterval(id);
+    const onRemoteRefresh = () => { void refresh(); };
+    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
+    };
   }, [refresh]);
 
   useEffect(() => {

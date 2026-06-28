@@ -17,6 +17,7 @@ import {
   type SessionAlertsPrefs
 } from '@/lib/sessionAlertsPref';
 import { useSession } from '@/context/SessionContext';
+import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { getAppKind, hasAppStorage } from '@/lib/appRuntime';
 import { BUILTIN_MORNING_STRETCH_ID, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
 import { loadStretchDefinitions, upsertStretchDefinition } from '@/lib/stretchCreator/stretchCreatorDb';
@@ -51,8 +52,8 @@ export default function CompanionSettingsPage() {
   useEffect(() => {
     if (getAppKind() !== 'companion') return;
     const onRemoteRefresh = () => { void refreshMorningStretch().catch(console.error); };
-    window.addEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
-    return () => window.removeEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
+    return () => window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
   }, [refreshMorningStretch]);
 
   const patchAlert = (key: keyof SessionAlertsPrefs, value: boolean) => {

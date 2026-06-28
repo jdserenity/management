@@ -1,11 +1,13 @@
 import { registerSqlBackend, type SqlDatabase } from '@/lib/db';
 import {
+  dispatchDataSyncRefresh,
   extractUserData,
   fetchUserData,
+  hydrateDb,
   hydrateDbFromServer,
-  isUserDataEmpty,
   logSyncError,
   logSyncInfo,
+  mergeUserData,
   pushUserData,
   summarizeUserDataCounts,
   totalUserDataRows,
@@ -15,6 +17,11 @@ import {
 export const COMPANION_DATA_REFRESH = 'mgmt-companion-data-refresh';
 
 const PULL_DEBOUNCE_MS = 800;
+
+const notifyDataRefresh = (): void => {
+  dispatchDataSyncRefresh();
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMPANION_DATA_REFRESH));
+};
 
 export type CompanionSyncResult = {
   pullOk: boolean;
@@ -67,12 +74,20 @@ export const pullCompanionSnapshotFromServer = async (): Promise<boolean> => {
   pullInFlight = (async () => {
     try {
       const localBefore = await extractUserData(companionRawDb!);
-      const data = await fetchUserData(serverUrl, serverToken);
-      const hydrateResult = await hydrateDbFromServer(companionRawDb!, data, localBefore);
-      if (hydrateResult === 'kept-local') {
-        logSyncInfo('companion pull kept local data (server snapshot was empty)', summarizeUserDataCounts(localBefore));
+      const serverData = await fetchUserData(serverUrl, serverToken);
+      const localRows = totalUserDataRows(localBefore);
+      const serverRows = totalUserDataRows(serverData);
+      if (localRows === 0 && serverRows === 0) return true;
+      if (localRows === 0 && serverRows > 0) {
+        await hydrateDbFromServer(companionRawDb!, serverData, localBefore);
+      } else if (serverRows === 0 && localRows > 0) {
+        return true;
+      } else {
+        const merged = mergeUserData(localBefore, serverData);
+        await hydrateDb(companionRawDb!, merged);
+        await pushUserData(serverUrl, serverToken, merged);
       }
-      if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMPANION_DATA_REFRESH));
+      notifyDataRefresh();
       return true;
     } catch (err) {
       logSyncError('companion pull failed', err, { serverUrl });
@@ -137,20 +152,29 @@ export const runCompanionInitialSync = async (): Promise<CompanionSyncResult> =>
         return { pullOk: false, pushOk: false, skipped: false, reason: 'pull-failed', pullError: msg };
       }
       const serverRows = totalUserDataRows(serverData);
-      const hydrateResult = await hydrateDbFromServer(companionRawDb, serverData, localBefore);
-      if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMPANION_DATA_REFRESH));
-      const counts = summarizeUserDataCounts(await extractUserData(companionRawDb));
       let pushOk = true;
-      if (serverRows === 0 && localRows > 0) {
+      if (localRows === 0 && serverRows === 0) {
+        logSyncInfo('companion initial sync: both sides empty');
+      } else if (localRows === 0 && serverRows > 0) {
+        await hydrateDbFromServer(companionRawDb, serverData, localBefore);
+        notifyDataRefresh();
+        logSyncInfo('companion initial sync: pulled server data', { serverRows });
+      } else if (serverRows === 0 && localRows > 0) {
         logSyncInfo('companion initial sync: uploading local data (server was empty)', { localRows });
         pushOk = await pushCompanionSnapshotToServer();
-      } else if (serverRows > 0 && localRows === 0) {
-        logSyncInfo('companion initial sync: pull only (local was empty)', { serverRows });
-      } else if (serverRows > 0 && hydrateResult === 'hydrated') {
-        logSyncInfo('companion initial sync: pull only (server is source of truth)', { serverRows, localRows });
-      } else if (isUserDataEmpty(await extractUserData(companionRawDb))) {
-        logSyncInfo('companion initial sync: both sides empty, no push');
+      } else {
+        const merged = mergeUserData(localBefore, serverData);
+        await hydrateDb(companionRawDb, merged);
+        try {
+          await pushUserData(serverUrl, serverToken, merged);
+        } catch (err) {
+          pushOk = false;
+          logSyncError('companion initial sync: merge push failed', err, { serverUrl });
+        }
+        notifyDataRefresh();
+        logSyncInfo('companion initial sync: merged and uploaded', { localRows, serverRows, merged: summarizeUserDataCounts(merged) });
       }
+      const counts = summarizeUserDataCounts(await extractUserData(companionRawDb));
       if (!pushOk) {
         const msg = 'Downloaded from server but upload failed. New changes on this device may not sync.';
         lastSyncWarning = msg;
