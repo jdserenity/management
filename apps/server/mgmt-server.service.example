@@ -1,11 +1,16 @@
 # Example systemd unit for the Management sync server (@mgmt/server).
 #
-# 1. Edit REPO_ROOT, User, and paths below.
-# 2. sudo cp mgmt-server.service.example /etc/systemd/system/mgmt-server.service
+# REQUIRED edits before install:
+#   User / Group     → your VPS login (e.g. linuxuser), NOT root
+#   WorkingDirectory → absolute path to the repo clone on the VPS
+#
+# 1. sudo cp mgmt-server.service.example /etc/systemd/system/mgmt-server.service
+# 2. sudo nano /etc/systemd/system/mgmt-server.service   # fix User + WorkingDirectory
 # 3. Create /etc/mgmt/server.env from server.env.example (chmod 600).
 # 4. sudo systemctl daemon-reload && sudo systemctl enable --now mgmt-server
 #
 # Logs: journalctl -u mgmt-server -f
+# If status=217/USER: User= does not match a real account — use `whoami`.
 
 [Unit]
 Description=Management sync server
@@ -13,9 +18,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=mgmt
-Group=mgmt
-WorkingDirectory=/home/mgmt/management
+User=linuxuser
+Group=linuxuser
+WorkingDirectory=/home/linuxuser/prod-apps/management
 EnvironmentFile=/etc/mgmt/server.env
 ExecStart=/usr/bin/npm run start:prod -w @mgmt/server
 Restart=on-failure
