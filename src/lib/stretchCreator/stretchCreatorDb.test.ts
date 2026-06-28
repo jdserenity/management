@@ -13,7 +13,8 @@ import type { StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
 import {
   KV_STRETCH_DEFINITIONS,
   loadStretchDefinitions,
-  saveStretchDefinitions
+  saveStretchDefinitions,
+  upsertStretchDefinition
 } from '@/lib/stretchCreator/stretchCreatorDb';
 
 const { kvStore } = vi.hoisted(() => ({ kvStore: new Map<string, string>() }));
@@ -78,5 +79,25 @@ describe('stretchCreatorDb', () => {
     expect(morning?.exerciseRefs).toHaveLength(6);
     const persisted = JSON.parse(kvStore.get(KV_STRETCH_DEFINITIONS)!) as StretchDefinition[];
     expect(persisted.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID)?.exerciseRefs).toHaveLength(6);
+  });
+
+  it('upsertStretchDefinition keeps legacy morning_stretch keys in sync for companion sync', async () => {
+    await loadStretchDefinitions(defaultWorkoutCustomizePrefs());
+    const patched = {
+      ...defaultBuiltinMorningStretch(),
+      enabled: false,
+      durationMinutes: 7,
+      trigger: { mode: 'scheduled' as const, hideAfterHour: 9 },
+      exerciseRefs: [{ kind: 'stretchPick' as const, id: 'stretch-neck-roll' }]
+    };
+    await upsertStretchDefinition(patched, defaultWorkoutCustomizePrefs());
+    expect(kvStore.get(KV_MORNING_STRETCH_ENABLED)).toBe('false');
+    expect(kvStore.get(KV_MORNING_STRETCH_DURATION_MINUTES)).toBe('7');
+    expect(kvStore.get(KV_MORNING_STRETCH_HIDE_AFTER_HOUR)).toBe('9');
+    expect(JSON.parse(kvStore.get(KV_MORNING_STRETCH_ROUTINE)!)).toEqual({
+      exerciseRefs: [{ kind: 'stretchPick', id: 'stretch-neck-roll' }]
+    });
+    const loaded = JSON.parse(kvStore.get(KV_STRETCH_DEFINITIONS)!) as StretchDefinition[];
+    expect(loaded.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID)?.durationMinutes).toBe(7);
   });
 });

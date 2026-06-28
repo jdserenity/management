@@ -7,18 +7,8 @@ import { formatDayRolloverHourLabel } from '@/lib/dayBoundary';
 import {
   listMorningStretchCatalog,
   labelForMorningStretchRef,
-  type MorningStretchRef,
-  type MorningStretchRoutine
+  type MorningStretchRef
 } from '@/lib/morningStretch/morningStretch';
-import { loadMorningStretchRoutine, saveMorningStretchRoutine } from '@/lib/morningStretch/morningStretchDb';
-import {
-  formatMorningStretchHideAfterLabel,
-  loadMorningStretchPrefs,
-  saveMorningStretchDurationMinutes,
-  saveMorningStretchEnabled,
-  saveMorningStretchHideAfterHour,
-  type MorningStretchPrefs
-} from '@/lib/morningStretch/morningStretchPref';
 import { loadStreakHeatmapColorPref, saveStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 import {
   loadSessionAlertsPrefs,
@@ -27,15 +17,25 @@ import {
   type SessionAlertsPrefs
 } from '@/lib/sessionAlertsPref';
 import { useSession } from '@/context/SessionContext';
+import { getAppKind, hasAppStorage } from '@/lib/appRuntime';
+import { BUILTIN_MORNING_STRETCH_ID, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
+import { loadStretchDefinitions, upsertStretchDefinition } from '@/lib/stretchCreator/stretchCreatorDb';
+
+const durationOptions = [3, 5, 7, 10, 15, 20, 30].map((m) => ({ value: String(m), label: `${m} min` }));
 
 export default function CompanionSettingsPage() {
   const { dayRolloverHour, setDayRolloverHour, workoutCustomizePrefs } = useSession();
   const [alertPrefs, setAlertPrefs] = useState<SessionAlertsPrefs | null>(null);
   const [heatmapColor, setHeatmapColor] = useState('');
   const [heatmapLoaded, setHeatmapLoaded] = useState(false);
-  const [stretchPrefs, setStretchPrefs] = useState<MorningStretchPrefs | null>(null);
-  const [routine, setRoutine] = useState<MorningStretchRoutine | null>(null);
+  const [morningStretch, setMorningStretch] = useState<StretchDefinition | null>(null);
   const [savingRoutine, setSavingRoutine] = useState(false);
+
+  const refreshMorningStretch = useCallback(async () => {
+    if (!hasAppStorage()) { setMorningStretch(null); return; }
+    const stretches = await loadStretchDefinitions(workoutCustomizePrefs);
+    setMorningStretch(stretches.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID) ?? null);
+  }, [workoutCustomizePrefs]);
 
   useEffect(() => {
     void loadSessionAlertsPrefs().then(setAlertPrefs).catch(console.error);
@@ -45,13 +45,15 @@ export default function CompanionSettingsPage() {
         setHeatmapLoaded(true);
       })
       .catch(console.error);
-    void Promise.all([loadMorningStretchPrefs(), loadMorningStretchRoutine(workoutCustomizePrefs)])
-      .then(([prefs, nextRoutine]) => {
-        setStretchPrefs(prefs);
-        setRoutine(nextRoutine);
-      })
-      .catch(console.error);
-  }, [workoutCustomizePrefs]);
+    void refreshMorningStretch().catch(console.error);
+  }, [refreshMorningStretch]);
+
+  useEffect(() => {
+    if (getAppKind() !== 'companion') return;
+    const onRemoteRefresh = () => { void refreshMorningStretch().catch(console.error); };
+    window.addEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+    return () => window.removeEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+  }, [refreshMorningStretch]);
 
   const patchAlert = (key: keyof SessionAlertsPrefs, value: boolean) => {
     if (!alertPrefs) return;
@@ -70,15 +72,15 @@ export default function CompanionSettingsPage() {
 
   const refKey = (ref: MorningStretchRef) => `${ref.kind}:${ref.id}`;
   const catalog = listMorningStretchCatalog(workoutCustomizePrefs);
-  const availableToAdd = routine
-    ? catalog.filter((row) => !routine.exerciseRefs.some((r) => refKey(r) === refKey(row.ref)))
+  const availableToAdd = morningStretch
+    ? catalog.filter((row) => !morningStretch.exerciseRefs.some((r) => refKey(r) === refKey(row.ref)))
     : [];
 
-  const persistRoutine = async (next: MorningStretchRoutine) => {
+  const persistMorningStretch = async (next: StretchDefinition) => {
     setSavingRoutine(true);
     try {
-      await saveMorningStretchRoutine(next);
-      setRoutine(next);
+      const updated = await upsertStretchDefinition(next, workoutCustomizePrefs);
+      setMorningStretch(updated.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID) ?? null);
     } catch (e) {
       console.error(e);
     } finally {
@@ -86,15 +88,19 @@ export default function CompanionSettingsPage() {
     }
   };
 
-  const hourOptions = Array.from({ length: 24 }, (_, hour) => ({
+  const patchMorningStretch = (patch: Partial<StretchDefinition>) => {
+    if (!morningStretch) return;
+    const next = { ...morningStretch, ...patch };
+    setMorningStretch(next);
+    void persistMorningStretch(next);
+  };
+
+  const hideAfterHour = morningStretch?.trigger.mode === 'scheduled' ? morningStretch.trigger.hideAfterHour : 11;
+  const stretchHourOptions = Array.from({ length: 24 }, (_, hour) => ({
     value: String(hour),
     label: formatDayRolloverHourLabel(hour)
   }));
-  const stretchHourOptions = Array.from({ length: 24 }, (_, hour) => ({
-    value: String(hour),
-    label: formatMorningStretchHideAfterLabel(hour)
-  }));
-  const durationOptions = [3, 5, 7, 10, 15, 20, 30].map((m) => ({ value: String(m), label: `${m} min` }));
+  const hourOptions = stretchHourOptions;
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -152,27 +158,20 @@ export default function CompanionSettingsPage() {
         </CardContent>
       </Card>
 
-      {stretchPrefs && routine ? (
+      {morningStretch ? (
         <Card>
           <CardHeader><CardTitle>Morning stretch</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm font-medium">Show on Daily tab</span>
               <Switch
-                checked={stretchPrefs.enabled}
-                onCheckedChange={(checked) => {
-                  setStretchPrefs({ ...stretchPrefs, enabled: checked });
-                  void saveMorningStretchEnabled(checked).catch(console.error);
-                }}
+                checked={morningStretch.enabled}
+                onCheckedChange={(checked) => patchMorningStretch({ enabled: checked })}
               />
             </div>
             <Select
-              value={String(stretchPrefs.durationMinutes)}
-              onValueChange={(v) => {
-                void saveMorningStretchDurationMinutes(Number(v))
-                  .then((saved) => setStretchPrefs({ ...stretchPrefs, durationMinutes: saved }))
-                  .catch(console.error);
-              }}
+              value={String(morningStretch.durationMinutes)}
+              onValueChange={(v) => patchMorningStretch({ durationMinutes: Number(v) })}
             >
               <SelectTrigger><SelectValue placeholder="Duration" /></SelectTrigger>
               <SelectContent>
@@ -182,12 +181,8 @@ export default function CompanionSettingsPage() {
               </SelectContent>
             </Select>
             <Select
-              value={String(stretchPrefs.hideAfterHour)}
-              onValueChange={(v) => {
-                void saveMorningStretchHideAfterHour(Number(v))
-                  .then((saved) => setStretchPrefs({ ...stretchPrefs, hideAfterHour: saved }))
-                  .catch(console.error);
-              }}
+              value={String(hideAfterHour)}
+              onValueChange={(v) => patchMorningStretch({ trigger: { mode: 'scheduled', hideAfterHour: Number(v) } })}
             >
               <SelectTrigger><SelectValue placeholder="Hide after" /></SelectTrigger>
               <SelectContent>
@@ -197,21 +192,21 @@ export default function CompanionSettingsPage() {
               </SelectContent>
             </Select>
             <MorningStretchRoutineEditor
-              routine={routine}
+              routine={{ exerciseRefs: morningStretch.exerciseRefs }}
               availableToAdd={availableToAdd}
               saving={savingRoutine}
               labelForRef={labelForMorningStretchRef}
               onAdd={(ref) => {
-                if (routine.exerciseRefs.some((r) => refKey(r) === refKey(ref))) return;
-                void persistRoutine({ exerciseRefs: [...routine.exerciseRefs, ref] });
+                if (morningStretch.exerciseRefs.some((r) => refKey(r) === refKey(ref))) return;
+                void persistMorningStretch({ ...morningStretch, exerciseRefs: [...morningStretch.exerciseRefs, ref] });
               }}
-              onRemove={(index) => void persistRoutine({ exerciseRefs: routine.exerciseRefs.filter((_, i) => i !== index) })}
+              onRemove={(index) => void persistMorningStretch({ ...morningStretch, exerciseRefs: morningStretch.exerciseRefs.filter((_, i) => i !== index) })}
               onMove={(index, dir) => {
-                const next = [...routine.exerciseRefs];
+                const next = [...morningStretch.exerciseRefs];
                 const target = index + dir;
                 if (target < 0 || target >= next.length) return;
                 [next[index], next[target]] = [next[target], next[index]];
-                void persistRoutine({ exerciseRefs: next });
+                void persistMorningStretch({ ...morningStretch, exerciseRefs: next });
               }}
             />
           </CardContent>
