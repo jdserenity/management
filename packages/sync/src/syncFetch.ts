@@ -15,6 +15,11 @@ export const syncFetch = async (input: RequestInfo | URL, init?: RequestInit): P
   const timer = setTimeout(() => ctrl.abort(), SYNC_FETCH_TIMEOUT_MS);
   try {
     return await fetchFn(input, { ...init, signal: ctrl.signal });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.error('[data-sync] request timed out', { url: String(input), timeoutMs: SYNC_FETCH_TIMEOUT_MS });
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }

@@ -5,3 +5,4 @@ export * from './memoryClient';
 export * from './httpClient';
 export * from './createSyncClient';
 export * from './userData';
+export { logSyncError, logSyncInfo, logSyncHttpFailure, summarizeUserDataCounts } from './syncLog';

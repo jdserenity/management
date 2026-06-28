@@ -57,8 +57,9 @@ export class HttpSyncClient implements SyncClient {
     return this.lastError;
   }
 
-  private fail(err: unknown): void {
+  private fail(err: unknown, context: string): void {
     this.lastError = err instanceof Error ? err.message : String(err);
+    console.error(`[data-sync] ${context}`, { url: `${this.baseUrl}/v1/active-flow`, error: this.lastError, raw: err });
     this.setStatus('error');
     this.notify();
   }
@@ -86,14 +87,19 @@ export class HttpSyncClient implements SyncClient {
   }
 
   private async pull(): Promise<void> {
+    const url = `${this.baseUrl}/v1/active-flow`;
     try {
-      const res = await this.fetchImpl(`${this.baseUrl}/v1/active-flow`, { headers: this.headers() });
-      if (!res.ok) throw new Error(`sync pull failed: HTTP ${res.status}`);
+      const res = await this.fetchImpl(url, { headers: this.headers() });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        console.error('[data-sync] GET /v1/active-flow HTTP error', { url, status: res.status, body: body.slice(0, 500) });
+        throw new Error(`sync pull failed: HTTP ${res.status}`);
+      }
       const body = (await res.json()) as unknown;
       this.activeFlow = parseActiveFlowResponse(body);
       this.succeed();
     } catch (err) {
-      this.fail(err);
+      this.fail(err, 'GET /v1/active-flow failed');
     }
   }
 
@@ -118,17 +124,22 @@ export class HttpSyncClient implements SyncClient {
       const payload = doc
         ? createActiveFlowDocument(doc.flow, this.deviceId, doc.phaseEndsAtMs, doc.updatedAtMs ?? Date.now())
         : null;
-      const res = await this.fetchImpl(`${this.baseUrl}/v1/active-flow`, {
+      const url = `${this.baseUrl}/v1/active-flow`;
+      const res = await this.fetchImpl(url, {
         method: 'PUT',
         headers: this.headers(),
         body: JSON.stringify({ doc: payload })
       });
-      if (!res.ok) throw new Error(`sync publish failed: HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        console.error('[data-sync] PUT /v1/active-flow HTTP error', { url, status: res.status, body: body.slice(0, 500) });
+        throw new Error(`sync publish failed: HTTP ${res.status}`);
+      }
       const body = (await res.json()) as unknown;
       this.activeFlow = parseActiveFlowResponse(body);
       this.succeed();
     } catch (err) {
-      this.fail(err);
+      this.fail(err, 'PUT /v1/active-flow failed');
       throw err;
     }
   }

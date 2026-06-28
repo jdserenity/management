@@ -1,5 +1,6 @@
 import type { SqlDatabase } from '@mgmt/storage';
 import { normalizeApiUrl } from './apiUrl';
+import { logSyncError, logSyncHttpFailure, logSyncInfo, summarizeUserDataCounts } from './syncLog';
 import { syncFetch } from './syncFetch';
 
 // ── Row types — mirror local.db columns (no user_id) ──────────────────────────
@@ -181,15 +182,22 @@ const authHeaders = (token: string): HeadersInit => ({
 export const fetchUserData = async (baseUrl: string, token: string): Promise<UserData> => {
   const root = normalizeApiUrl(baseUrl);
   if (!root) throw new Error('fetchUserData: missing server URL');
+  const url = `${root}/v1/data`;
+  logSyncInfo('GET /v1/data', { url });
   let res: Response;
   try {
-    res = await syncFetch(`${root}/v1/data`, { headers: authHeaders(token) });
+    res = await syncFetch(url, { headers: authHeaders(token) });
   } catch (err) {
+    logSyncError('GET /v1/data network error', err, { url });
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(`fetchUserData: ${detail}`);
   }
-  if (!res.ok) throw new Error(`fetchUserData: HTTP ${res.status}`);
+  if (!res.ok) {
+    await logSyncHttpFailure('GET', url, res);
+    throw new Error(`fetchUserData: HTTP ${res.status}`);
+  }
   const body = (await res.json()) as { data: UserData };
+  logSyncInfo('GET /v1/data ok', summarizeUserDataCounts(body.data));
   return body.data;
 };
 
@@ -197,14 +205,20 @@ export const pushUserData = async (baseUrl: string, token: string, data: UserDat
   const root = normalizeApiUrl(baseUrl);
   if (!root) throw new Error('pushUserData: missing server URL');
   const url = `${root}/v1/data`;
+  logSyncInfo('POST /v1/data', { url, ...summarizeUserDataCounts(data) });
   let res: Response;
   try {
     res = await syncFetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ data }) });
   } catch (err) {
+    logSyncError('POST /v1/data network error', err, { url });
     const detail = err instanceof Error ? err.message : String(err);
     throw new Error(`pushUserData to ${url}: ${detail}`);
   }
-  if (!res.ok) throw new Error(`pushUserData to ${url}: HTTP ${res.status}`);
+  if (!res.ok) {
+    await logSyncHttpFailure('POST', url, res);
+    throw new Error(`pushUserData to ${url}: HTTP ${res.status}`);
+  }
+  logSyncInfo('POST /v1/data ok', { url });
 };
 
 // ── Sync-aware db wrapper ──────────────────────────────────────────────────────
@@ -232,7 +246,7 @@ export const wrapWithDataSync = (
         const data = await extractUserData(db);
         await pushUserData(serverUrl, token, data);
       }).catch((err) => {
-        console.warn('[data-sync] push failed:', err);
+        logSyncError('debounced push failed', err);
         onPushError?.(err);
       });
     }, debounceMs);

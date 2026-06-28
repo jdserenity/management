@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fetchUserData, hydrateDb } = vi.hoisted(() => ({
+const { fetchUserData, hydrateDb, pushUserData, extractUserData } = vi.hoisted(() => ({
   fetchUserData: vi.fn(),
-  hydrateDb: vi.fn()
+  hydrateDb: vi.fn(),
+  pushUserData: vi.fn(),
+  extractUserData: vi.fn()
 }));
 
 vi.mock('@mgmt/sync', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mgmt/sync')>();
-  return { ...actual, fetchUserData, hydrateDb };
+  return { ...actual, fetchUserData, hydrateDb, pushUserData, extractUserData };
 });
 vi.mock('@/lib/db', () => ({ registerSqlBackend: vi.fn() }));
 vi.mock('./sqlJsStorage', () => ({
@@ -31,36 +33,39 @@ vi.mock('./sqlJsStorage', () => ({
   }))
 }));
 
-import { initCompanionStorage, pullCompanionSnapshotFromServer, resetCompanionStorageForTests } from './storage';
+import {
+  initCompanionStorage,
+  pullCompanionSnapshotFromServer,
+  resetCompanionStorageForTests,
+  runCompanionInitialSync
+} from './storage';
 
-describe('companion storage pull', () => {
+describe('companion storage sync', () => {
   beforeEach(() => {
     resetCompanionStorageForTests();
     vi.stubEnv('VITE_SERVER_URL', 'https://mgmt.levier.cc');
     vi.stubEnv('VITE_SERVER_TOKEN', 'tok');
     fetchUserData.mockReset();
     hydrateDb.mockReset();
+    pushUserData.mockReset();
+    extractUserData.mockReset();
     fetchUserData.mockResolvedValue({ streakActivities: [] });
     hydrateDb.mockResolvedValue(undefined);
+    pushUserData.mockResolvedValue(undefined);
+    extractUserData.mockResolvedValue({ streakActivities: [] });
   });
 
-  it('initCompanionStorage registers db without awaiting server pull', async () => {
-    let pullDone = false;
-    fetchUserData.mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-      pullDone = true;
-      return { streakActivities: [] };
-    });
+  it('runCompanionInitialSync pulls then pushes', async () => {
     await initCompanionStorage();
-    expect(pullDone).toBe(false);
-    await vi.waitFor(() => expect(pullDone).toBe(true));
+    const result = await runCompanionInitialSync();
+    expect(result.pullOk).toBe(true);
+    expect(result.pushOk).toBe(true);
     expect(fetchUserData).toHaveBeenCalled();
+    expect(pushUserData).toHaveBeenCalled();
   });
 
-  it('defers push until initial pull completes', async () => {
+  it('defers debounced push until initial sync completes', async () => {
     vi.useFakeTimers();
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal('fetch', mockFetch);
     let releasePull: () => void = () => {};
     const pullBlocked = new Promise<void>((r) => { releasePull = r; });
     fetchUserData.mockImplementation(async () => {
@@ -68,15 +73,15 @@ describe('companion storage pull', () => {
       return { streakActivities: [] };
     });
     const db = await initCompanionStorage();
+    const syncPromise = runCompanionInitialSync();
     await db.execute('INSERT INTO app_kv (key, value, updated_at) VALUES (?, ?, ?)', ['k', 'v', Date.now()]);
     await vi.advanceTimersByTimeAsync(2500);
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(pushUserData).not.toHaveBeenCalled();
     releasePull();
-    await Promise.resolve();
+    await syncPromise;
     await vi.advanceTimersByTimeAsync(2500);
-    expect(mockFetch).toHaveBeenCalled();
+    expect(pushUserData).toHaveBeenCalled();
     vi.useRealTimers();
-    vi.unstubAllGlobals();
   });
 
   it('pullCompanionSnapshotFromServer returns false without server creds', async () => {

@@ -1,10 +1,10 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import './companionBoot.css';
 
-type BootState = 'loading' | 'ready' | 'error';
+type BootPhase = 'local' | 'sync' | 'ready' | 'error';
 
 export default function CompanionBoot() {
-  const [state, setState] = useState<BootState>('loading');
+  const [phase, setPhase] = useState<BootPhase>('local');
   const [error, setError] = useState<string | null>(null);
   const [App, setApp] = useState<ComponentType | null>(null);
 
@@ -18,21 +18,29 @@ export default function CompanionBoot() {
           import('./App')
         ]);
         if (cancelled) return;
+        setPhase('local');
         await storage.initCompanionStorage();
+        if (cancelled) return;
+        setPhase('sync');
+        const syncResult = await storage.runCompanionInitialSync();
+        if (cancelled) return;
+        if (!syncResult.pullOk && !syncResult.skipped) {
+          console.error('[data-sync] companion initial sync failed', syncResult);
+        }
         storage.startCompanionForegroundPull();
         setApp(() => appMod.App);
-        setState('ready');
+        setPhase('ready');
       } catch (e) {
         if (cancelled) return;
         console.error('[companion] boot failed:', e);
         setError(e instanceof Error ? e.message : String(e));
-        setState('error');
+        setPhase('error');
       }
     })();
     return () => { cancelled = true; };
   }, []);
 
-  if (state === 'error') {
+  if (phase === 'error') {
     return (
       <div className="companion-boot companion-boot--error" role="alert">
         <p className="companion-boot__title">Could not start</p>
@@ -41,15 +49,16 @@ export default function CompanionBoot() {
     );
   }
 
-  if (state !== 'ready' || !App) {
+  if (phase !== 'ready' || !App) {
+    const detail = phase === 'sync' ? 'Getting data from server…' : 'Opening local storage…';
     return (
       <div className="companion-boot" aria-busy="true" aria-live="polite">
         <div className="companion-boot__spinner" aria-hidden="true" />
-        <p className="companion-boot__title">Management Companion</p>
-        <p className="companion-boot__detail">Loading your data…</p>
+        <p className="companion-boot__title">Management</p>
+        <p className="companion-boot__detail">{detail}</p>
       </div>
     );
   }
 
   return <App />;
-}
+};

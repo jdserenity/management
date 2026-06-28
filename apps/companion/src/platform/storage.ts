@@ -1,25 +1,56 @@
 import { registerSqlBackend, type SqlDatabase } from '@/lib/db';
-import { fetchUserData, hydrateDb, wrapWithDataSync } from '@mgmt/sync';
+import {
+  extractUserData,
+  fetchUserData,
+  hydrateDb,
+  logSyncError,
+  logSyncInfo,
+  pushUserData,
+  summarizeUserDataCounts,
+  wrapWithDataSync
+} from '@mgmt/sync';
 
 export const COMPANION_DATA_REFRESH = 'mgmt-companion-data-refresh';
 
 const PULL_DEBOUNCE_MS = 800;
 
+export type CompanionSyncResult = {
+  pullOk: boolean;
+  pushOk: boolean;
+  skipped: boolean;
+  reason?: 'no-creds' | 'no-db' | 'pull-failed';
+  pullError?: string;
+  pushError?: string;
+  counts?: Record<string, number>;
+};
+
 let companionRawDb: SqlDatabase | null = null;
 let pullTimer: ReturnType<typeof setTimeout> | null = null;
 let pullInFlight: Promise<boolean> | null = null;
-/** Resolves after the first server pull attempt on this boot (success, failure, or skipped). */
-let initialPullPromise: Promise<boolean> | null = null;
+/** Resolves after runCompanionInitialSync finishes (pull + push). Gates debounced pushes. */
+let initialSyncPromise: Promise<CompanionSyncResult> | null = null;
+let lastSyncWarning: string | null = null;
 
 const serverCreds = () => ({
   serverUrl: import.meta.env.VITE_SERVER_URL as string | undefined,
   serverToken: import.meta.env.VITE_SERVER_TOKEN as string | undefined
 });
 
+export const getCompanionSyncWarning = (): string | null => lastSyncWarning;
+
 export const pullCompanionSnapshotFromServer = async (): Promise<boolean> => {
-  if (!companionRawDb) return false;
+  if (!companionRawDb) {
+    logSyncError('companion pull skipped: local database not open', new Error('no companion db'));
+    return false;
+  }
   const { serverUrl, serverToken } = serverCreds();
-  if (!serverUrl || !serverToken) return false;
+  if (!serverUrl || !serverToken) {
+    logSyncError('companion pull skipped: missing build-time sync credentials', new Error('no VITE_SERVER_URL or VITE_SERVER_TOKEN'), {
+      hasUrl: Boolean(serverUrl),
+      hasToken: Boolean(serverToken)
+    });
+    return false;
+  }
   if (pullInFlight) return pullInFlight;
   pullInFlight = (async () => {
     try {
@@ -28,13 +59,74 @@ export const pullCompanionSnapshotFromServer = async (): Promise<boolean> => {
       if (typeof window !== 'undefined') window.dispatchEvent(new Event(COMPANION_DATA_REFRESH));
       return true;
     } catch (err) {
-      console.warn('[data-sync] companion pull failed:', err);
+      logSyncError('companion pull failed', err, { serverUrl });
       return false;
     } finally {
       pullInFlight = null;
     }
   })();
   return pullInFlight;
+};
+
+export const pushCompanionSnapshotToServer = async (): Promise<boolean> => {
+  if (!companionRawDb) {
+    logSyncError('companion push skipped: local database not open', new Error('no companion db'));
+    return false;
+  }
+  const { serverUrl, serverToken } = serverCreds();
+  if (!serverUrl || !serverToken) {
+    logSyncError('companion push skipped: missing build-time sync credentials', new Error('no VITE_SERVER_URL or VITE_SERVER_TOKEN'));
+    return false;
+  }
+  try {
+    const data = await extractUserData(companionRawDb);
+    await pushUserData(serverUrl, serverToken, data);
+    return true;
+  } catch (err) {
+    logSyncError('companion push failed', err, { serverUrl });
+    return false;
+  }
+};
+
+/** Pull then push — same peer sync pattern as desktop startup. */
+export const runCompanionInitialSync = async (): Promise<CompanionSyncResult> => {
+  if (initialSyncPromise) return initialSyncPromise;
+  initialSyncPromise = (async () => {
+    const { serverUrl, serverToken } = serverCreds();
+    if (!serverUrl || !serverToken) {
+      const msg = 'Sync is not configured in this build (missing server URL or token).';
+      lastSyncWarning = msg;
+      logSyncError('companion initial sync skipped', new Error('missing VITE_SERVER_URL or VITE_SERVER_TOKEN'), {
+        hasUrl: Boolean(serverUrl),
+        hasToken: Boolean(serverToken)
+      });
+      return { pullOk: false, pushOk: false, skipped: true, reason: 'no-creds', pullError: msg };
+    }
+    if (!companionRawDb) {
+      const msg = 'Local storage is not ready yet.';
+      lastSyncWarning = msg;
+      return { pullOk: false, pushOk: false, skipped: true, reason: 'no-db', pullError: msg };
+    }
+    logSyncInfo('companion initial sync starting', { serverUrl });
+    const pullOk = await pullCompanionSnapshotFromServer();
+    if (!pullOk) {
+      const msg = `Could not download data from ${serverUrl}. Check the browser console for details.`;
+      lastSyncWarning = msg;
+      return { pullOk: false, pushOk: false, skipped: false, reason: 'pull-failed', pullError: msg };
+    }
+    const counts = summarizeUserDataCounts(await extractUserData(companionRawDb));
+    const pushOk = await pushCompanionSnapshotToServer();
+    if (!pushOk) {
+      const msg = 'Downloaded from server but upload failed. New changes on this device may not sync.';
+      lastSyncWarning = msg;
+      logSyncError('companion initial sync: pull ok, push failed', new Error(msg), { counts });
+      return { pullOk: true, pushOk: false, skipped: false, counts, pushError: msg };
+    }
+    lastSyncWarning = null;
+    logSyncInfo('companion initial sync complete', { counts });
+    return { pullOk: true, pushOk: true, skipped: false, counts };
+  })();
+  return initialSyncPromise;
 };
 
 const scheduleForegroundPull = (): void => {
@@ -70,7 +162,8 @@ export const resetCompanionStorageForTests = (): void => {
   companionRawDb = null;
   pullTimer = null;
   pullInFlight = null;
-  initialPullPromise = null;
+  initialSyncPromise = null;
+  lastSyncWarning = null;
 };
 
 export const onCompanionDataRefresh = (listener: () => void): (() => void) => {
@@ -81,7 +174,6 @@ export const onCompanionDataRefresh = (listener: () => void): (() => void) => {
 export const initCompanionStorage = async (): Promise<SqlDatabase> => {
   const rawDb = await import('./sqlJsStorage').then((m) => m.createCompanionSqlJsDatabase());
   companionRawDb = rawDb;
-  initialPullPromise = pullCompanionSnapshotFromServer();
   const db = wrapWithDataSync(
     rawDb,
     () => ({
@@ -89,8 +181,8 @@ export const initCompanionStorage = async (): Promise<SqlDatabase> => {
       token: serverCreds().serverToken
     }),
     2000,
-    undefined,
-    async () => { if (initialPullPromise) await initialPullPromise; }
+    (err) => { logSyncError('companion debounced push failed', err); },
+    async () => { if (initialSyncPromise) await initialSyncPromise; }
   );
   registerSqlBackend(db);
   return db;

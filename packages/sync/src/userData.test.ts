@@ -61,7 +61,7 @@ describe('fetchUserData', () => {
   });
 
   it('throws on non-ok response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401, statusText: 'Unauthorized', text: async () => 'unauthorized' }));
     await expect(fetchUserData('http://localhost:8787', 'bad')).rejects.toThrow('HTTP 401');
     vi.unstubAllGlobals();
   });
@@ -104,7 +104,7 @@ describe('pushUserData', () => {
   });
 
   it('throws on non-ok response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, statusText: 'Error', text: async () => 'server error' }));
     await expect(pushUserData('http://localhost:8787', 'tok', emptyData())).rejects.toThrow('HTTP 500');
     vi.unstubAllGlobals();
   });
