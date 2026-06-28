@@ -5,7 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const SERVER_ENV_PATH = '/etc/mgmt/server.env';
-export const DEFAULT_DB_REL = 'apps/server/data/server.db';
+/** Repo-root VPS path first; apps/server path for local dev when DB_PATH is unset. */
+export const DEFAULT_DB_CANDIDATES = ['data/server.db', 'apps/server/data/server.db'];
 
 /** @param {string} contents */
 export function parseEnvFileDbPath(contents) {
@@ -20,9 +21,10 @@ export function parseEnvFileDbPath(contents) {
   return null;
 }
 
-/** @param {{ cwd?: string, argvPath?: string, envDbPath?: string, envFileContents?: string | null, defaultRel?: string }} [opts] */
+/** @param {{ cwd?: string, argvPath?: string, envDbPath?: string, envFileContents?: string | null, candidates?: string[], existsSync?: (p: string) => boolean }} [opts] */
 export function resolveOverviewDbPath(opts = {}) {
   const cwd = opts.cwd ?? process.cwd();
+  const exists = opts.existsSync ?? existsSync;
   const argvPath = opts.argvPath?.trim();
   if (argvPath) return path.isAbsolute(argvPath) ? argvPath : path.resolve(cwd, argvPath);
   const envDbPath = opts.envDbPath?.trim();
@@ -31,7 +33,12 @@ export function resolveOverviewDbPath(opts = {}) {
     const fromFile = parseEnvFileDbPath(opts.envFileContents);
     if (fromFile) return path.isAbsolute(fromFile) ? fromFile : path.resolve(cwd, fromFile);
   }
-  return path.resolve(cwd, opts.defaultRel ?? DEFAULT_DB_REL);
+  const candidates = opts.candidates ?? DEFAULT_DB_CANDIDATES;
+  for (const rel of candidates) {
+    const abs = path.resolve(cwd, rel);
+    if (exists(abs)) return abs;
+  }
+  return path.resolve(cwd, candidates[0]);
 }
 
 /** @param {import('better-sqlite3').Database} db */

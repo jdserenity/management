@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DB_REL,
+  DEFAULT_DB_CANDIDATES,
   formatByteSize,
   formatOverview,
   listTableRowCounts,
@@ -15,12 +15,20 @@ describe('db-server-overview', () => {
     expect(parseEnvFileDbPath('DB_PATH=./data/server.db\r\n')).toBe('./data/server.db');
   });
 
-  it('resolves path from argv, env, env file, then default', () => {
+  it('resolves path from argv, env, env file, then first existing candidate', () => {
     const cwd = '/repo';
     expect(resolveOverviewDbPath({ cwd, argvPath: '/abs/server.db' })).toBe('/abs/server.db');
     expect(resolveOverviewDbPath({ cwd, envDbPath: 'data/x.db' })).toBe('/repo/data/x.db');
     expect(resolveOverviewDbPath({ cwd, envFileContents: 'DB_PATH=/etc/mgmt/server.db\n' })).toBe('/etc/mgmt/server.db');
-    expect(resolveOverviewDbPath({ cwd })).toBe(`/repo/${DEFAULT_DB_REL}`);
+    expect(resolveOverviewDbPath({
+      cwd,
+      existsSync: (p) => p === '/repo/data/server.db'
+    })).toBe('/repo/data/server.db');
+    expect(resolveOverviewDbPath({
+      cwd,
+      existsSync: (p) => p === '/repo/apps/server/data/server.db'
+    })).toBe('/repo/apps/server/data/server.db');
+    expect(resolveOverviewDbPath({ cwd, existsSync: () => false })).toBe(`/repo/${DEFAULT_DB_CANDIDATES[0]}`);
   });
 
   it('lists row counts for every user table', () => {

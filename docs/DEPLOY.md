@@ -112,7 +112,7 @@ sudo systemctl restart mgmt-server
 | `journalctl -u mgmt-server -f` | Live logs |
 | `sudo systemctl restart mgmt-server` | After config or code change |
 | `sudo systemctl stop mgmt-server` | Stop (e.g. before manual DB work) |
-| `npm run db:server-overview` | Table list + row counts for `server.db` (reads `DB_PATH` env, `/etc/mgmt/server.env`, or `apps/server/data/server.db`) |
+| `npm run db:server-overview` | Table list + row counts for `server.db` (reads `DB_PATH` env, `/etc/mgmt/server.env`, then `data/server.db` or `apps/server/data/server.db`) |
 
 Use `npm run start:prod -w @mgmt/server` in production (env from `/etc/mgmt/server.env`). Do not use `dev:server` on the VPS — that watches files for local development.
 
