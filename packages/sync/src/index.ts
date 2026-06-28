@@ -6,4 +6,6 @@ export * from './httpClient';
 export * from './createSyncClient';
 export * from './userData';
 export * from './userDataSafety';
+export * from './mergeUserData';
+export * from './dataSyncEvents';
 export { logSyncError, logSyncInfo, logSyncHttpFailure, summarizeUserDataCounts } from './syncLog';
