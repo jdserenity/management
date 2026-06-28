@@ -8,4 +8,6 @@ export * from './userData';
 export * from './userDataSafety';
 export * from './mergeUserData';
 export * from './dataSyncEvents';
+export * from './syncCreds';
+export * from './initialSync';
 export { logSyncError, logSyncInfo, logSyncHttpFailure, summarizeUserDataCounts } from './syncLog';

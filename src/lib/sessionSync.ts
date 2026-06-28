@@ -1,6 +1,5 @@
-import { createActiveFlowDocument, createSyncClient, liveRemainingSeconds, type ActiveFlowDocument, type SyncClient } from '@mgmt/sync';
+import { createActiveFlowDocument, createSyncClient, getBuildTimeSyncCreds, liveRemainingSeconds, type ActiveFlowDocument, type SyncClient } from '@mgmt/sync';
 import type { PersistedFlowState } from '@/lib/flowState';
-import { loadSyncServerConfig } from '@/lib/syncServerConfig';
 
 const DEVICE_ID_KEY = 'mgmt_sync_device_id_v1';
 
@@ -17,7 +16,7 @@ export const getOrCreateSyncDeviceId = (): string => {
 };
 
 export const createDesktopSyncClient = async (): Promise<SyncClient> => {
-  const { serverUrl, serverToken } = await loadSyncServerConfig();
+  const { serverUrl, serverToken } = getBuildTimeSyncCreds();
   return createSyncClient({
     role: 'viewer',
     apiUrl: serverUrl,

@@ -1,7 +1,9 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import SyncBootScreen, { type SyncBootPhase } from '@/components/SyncBootScreen';
+import { getDb } from '@/lib/db';
+import { runDesktopInitialSync, startDesktopForegroundPull } from '@/lib/dataSync';
 
-export default function CompanionBoot() {
+export default function DesktopBoot() {
   const [phase, setPhase] = useState<SyncBootPhase>('local');
   const [error, setError] = useState<string | null>(null);
   const [App, setApp] = useState<ComponentType | null>(null);
@@ -10,27 +12,20 @@ export default function CompanionBoot() {
     let cancelled = false;
     void (async () => {
       try {
-        const [storage, , appMod] = await Promise.all([
-          import('./platform/storage'),
-          import('@/i18n'),
-          import('./App')
-        ]);
-        if (cancelled) return;
         setPhase('local');
-        await storage.initCompanionStorage();
+        await getDb();
         if (cancelled) return;
         setPhase('sync');
-        const syncResult = await storage.runCompanionInitialSync();
+        await runDesktopInitialSync();
         if (cancelled) return;
-        if (!syncResult.pullOk && !syncResult.skipped) {
-          console.error('[data-sync] companion initial sync failed', syncResult);
-        }
-        storage.startCompanionForegroundPull();
-        setApp(() => appMod.App);
+        startDesktopForegroundPull();
+        const appMod = await import('./App');
+        if (cancelled) return;
+        setApp(() => appMod.default);
         setPhase('ready');
       } catch (e) {
         if (cancelled) return;
-        console.error('[companion] boot failed:', e);
+        console.error('[desktop] boot failed:', e);
         setError(e instanceof Error ? e.message : String(e));
         setPhase('error');
       }

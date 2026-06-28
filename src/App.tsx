@@ -13,7 +13,7 @@ import { applyPostureMonitoringFromPref } from '@/lib/postureMonitoringPref';
 import { applyAppPresenceFromPref } from '@/lib/appPresencePref';
 import { loadSessionAlertsPrefs } from '@/lib/sessionAlertsPref';
 import { primeSessionAudio } from '@/lib/sessionSounds';
-import { runDesktopInitialSync, startDesktopForegroundPull } from '@/lib/dataSync';
+import SyncWarningBanner from '@/components/SyncWarningBanner';
 
 function App() {
 
@@ -63,13 +63,9 @@ function App() {
     }).catch(console.error);
   }, []);
 
-  useEffect(() => {
-    void runDesktopInitialSync();
-    return startDesktopForegroundPull();
-  }, []);
-
   return (
     <SessionProvider>
+      <SyncWarningBanner />
       <SessionAlerts />
       <PostureSessionProvider>
       <PosturePipeline />

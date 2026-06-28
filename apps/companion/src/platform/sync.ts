@@ -1,4 +1,4 @@
-import { createSyncClient, type SyncClient } from '@mgmt/sync';
+import { getBuildTimeSyncCreds, createSyncClient, type SyncClient } from '@mgmt/sync';
 
 const DEVICE_ID_KEY = 'mgmt_companion_device_id_v1';
 
@@ -14,11 +14,13 @@ export const getOrCreateCompanionDeviceId = (): string => {
   }
 };
 
-export const createCompanionSyncClient = (): SyncClient =>
-  createSyncClient({
+export const createCompanionSyncClient = (): SyncClient => {
+  const { serverUrl, serverToken } = getBuildTimeSyncCreds();
+  return createSyncClient({
     role: 'leader',
-    apiUrl: import.meta.env.VITE_SERVER_URL,
-    apiToken: import.meta.env.VITE_SERVER_TOKEN,
+    apiUrl: serverUrl,
+    apiToken: serverToken,
     deviceId: getOrCreateCompanionDeviceId(),
     memoryBusKey: 'mgmt-companion-local'
   });
+};

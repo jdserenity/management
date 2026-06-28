@@ -93,7 +93,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 Expect HTTP `200`. A `400` here usually means `$TOKEN` is empty (permission denied on the env file) or the header is malformed. A `401` means the token in curl does not match `SERVER_TOKEN` in the file.
 
-Point clients at the same token: desktop `sync-server.json` (Settings or app config dir), companion `VITE_SERVER_URL` / `VITE_SERVER_TOKEN` at build time (`npm run deploy:companion`).
+Point clients at the same token: set `VITE_SERVER_URL` and `VITE_SERVER_TOKEN` in the repo root `.env`, then rebuild desktop (`npm run tauri build`) and companion (`npm run deploy:companion`). Both apps read those values at build time — there is no separate sync config file to edit after install.
 
 ### Update server code on the VPS
 

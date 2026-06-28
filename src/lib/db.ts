@@ -2,7 +2,7 @@ import type { SqlDatabase } from '@mgmt/storage';
 import { wrapWithDataSync } from '@mgmt/sync';
 import { notifyDataSyncError } from '@/lib/dataSyncNotify';
 import { awaitDataSyncBootstrap } from '@/lib/dataSyncBootstrap';
-import { getSyncServerCreds } from '@/lib/syncServerConfig';
+import { getBuildTimeSyncCreds } from '@mgmt/sync';
 
 export type { SqlDatabase };
 
@@ -25,7 +25,7 @@ const wrapTauriDb = (db: {
   return wrapWithDataSync(
     base,
     async () => {
-      const { serverUrl, serverToken } = await getSyncServerCreds();
+      const { serverUrl, serverToken } = getBuildTimeSyncCreds();
       return { serverUrl, token: serverToken };
     },
     2000,

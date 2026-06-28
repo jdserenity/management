@@ -1,4 +1,4 @@
-.companion-boot {
+.sync-boot {
   display: flex;
   min-height: 100dvh;
   flex-direction: column;
@@ -12,31 +12,31 @@
   text-align: center;
 }
 
-.companion-boot--error .companion-boot__detail {
+.sync-boot--error .sync-boot__detail {
   color: #f87171;
 }
 
-.companion-boot__spinner {
+.sync-boot__spinner {
   width: 2.25rem;
   height: 2.25rem;
   border: 3px solid rgba(229, 229, 229, 0.2);
   border-top-color: #4169e1;
   border-radius: 50%;
-  animation: companion-boot-spin 0.8s linear infinite;
+  animation: sync-boot-spin 0.8s linear infinite;
 }
 
-.companion-boot__title {
+.sync-boot__title {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
 }
 
-.companion-boot__detail {
+.sync-boot__detail {
   margin: 0;
   font-size: 0.875rem;
   color: #a3a3a3;
 }
 
-@keyframes companion-boot-spin {
+@keyframes sync-boot-spin {
   to { transform: rotate(360deg); }
 }
