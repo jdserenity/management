@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType } from 'react';
+import { Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { Button } from '@/components/ui/button';
 import FlowHeaderControl from '@/components/FlowHeaderControl';
 import { cn } from '@/lib/utils';
@@ -77,7 +77,9 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
         </div>
       </header>
       <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <ActiveComponent />
+        <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+          <ActiveComponent />
+        </Suspense>
       </main>
       <nav
         className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90 pb-[env(safe-area-inset-bottom)]"

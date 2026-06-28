@@ -1,10 +1,5 @@
-import type { ComponentType } from 'react';
+import { lazy, type ComponentType } from 'react';
 import { Sun, LayoutDashboard, BarChart3, SlidersHorizontal, Settings } from 'lucide-react';
-import DailyPage from '@/components/DailyPage';
-import Dashboard from '@/components/Dashboard';
-import StatsPage from '@/components/StatsPage';
-import CustomizePage from '@/components/CustomizePage';
-import CompanionSettingsPage from '@/components/CompanionSettingsPage';
 
 export type NavItemDef = {
   id: string;
@@ -12,6 +7,12 @@ export type NavItemDef = {
   icon: ComponentType<{ className?: string }>;
   component: ComponentType;
 };
+
+const DailyPage = lazy(() => import('@/components/DailyPage'));
+const Dashboard = lazy(() => import('@/components/Dashboard'));
+const StatsPage = lazy(() => import('@/components/StatsPage'));
+const CustomizePage = lazy(() => import('@/components/CustomizePage'));
+const CompanionSettingsPage = lazy(() => import('@/components/CompanionSettingsPage'));
 
 export const companionNavItems = (): NavItemDef[] => [
   { id: 'daily', label: 'Daily', icon: Sun, component: DailyPage },

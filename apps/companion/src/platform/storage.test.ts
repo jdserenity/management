@@ -27,10 +27,17 @@ describe('companion storage pull', () => {
     hydrateDb.mockResolvedValue(undefined);
   });
 
-  it('initCompanionStorage pulls on boot', async () => {
+  it('initCompanionStorage registers db without awaiting server pull', async () => {
+    let pullDone = false;
+    fetchUserData.mockImplementation(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+      pullDone = true;
+      return { streakActivities: [] };
+    });
     await initCompanionStorage();
+    expect(pullDone).toBe(false);
+    await vi.waitFor(() => expect(pullDone).toBe(true));
     expect(fetchUserData).toHaveBeenCalled();
-    expect(hydrateDb).toHaveBeenCalled();
   });
 
   it('pullCompanionSnapshotFromServer returns false without server creds', async () => {

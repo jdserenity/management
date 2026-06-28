@@ -71,11 +71,11 @@ export const onCompanionDataRefresh = (listener: () => void): (() => void) => {
 export const initCompanionStorage = async (): Promise<SqlDatabase> => {
   const rawDb = await import('./sqlJsStorage').then((m) => m.createCompanionSqlJsDatabase());
   companionRawDb = rawDb;
-  await pullCompanionSnapshotFromServer();
   const db = wrapWithDataSync(rawDb, () => ({
     serverUrl: serverCreds().serverUrl,
     token: serverCreds().serverToken
   }));
   registerSqlBackend(db);
+  void pullCompanionSnapshotFromServer();
   return db;
 };

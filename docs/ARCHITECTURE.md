@@ -32,7 +32,7 @@
 - `src-tauri/src/posture_bridge.rs`: posture debouncer and ingest payload types used from `main.rs`.
 
 ## Mobile companion
-- PWA in `apps/companion` (`npm run dev:companion`, port 5173).
+- PWA in `apps/companion` (`npm run dev:companion`, port 5173). Production build lazy-loads tab pages, precaches only the HTML shell/icons (large JS/wasm use runtime cache), and opens local sql.js storage before background server pull so first paint is not blocked on the network.
 - Remote sync goes through `apps/server` (`npm run dev:server`, default `http://localhost:8787`). Clients authenticate with `SERVER_TOKEN` / `VITE_SERVER_TOKEN` (see `.env.example`).
 - Phone is the intended **leader** during exercise breaks; companion auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
 - Shared session logic lives in `@mgmt/core`; desktop `src/lib/flowState.ts` and `src/lib/sessionProgress.ts` re-export from there.

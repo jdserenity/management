@@ -12,6 +12,21 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'],
+      workbox: {
+        // Precache only the shell — large JS/wasm load on demand so deploy updates do not block on ~1.7MB install.
+        globPatterns: ['**/*.{html,webmanifest}', '**/*.{png,svg,ico}'],
+        globIgnores: ['**/assets/**'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.+\.(js|css|wasm)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'companion-assets-v1',
+              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 30 }
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'Management Companion',
         short_name: 'Mgmt',
