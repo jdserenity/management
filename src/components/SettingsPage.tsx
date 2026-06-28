@@ -20,6 +20,10 @@ import {
   type AppPresenceMode,
 } from '@/lib/appPresencePref';
 import {
+  getHideToMenuBarOnClosePref,
+  setHideToMenuBarOnClosePref,
+} from '@/lib/hideToMenuBarOnClosePref';
+import {
   loadSessionAlertsPrefs,
   notifySessionAlertsPrefsChanged,
   saveSessionAlertsPref,
@@ -551,12 +555,14 @@ const HabitsSettings = () => {
 const AppPresenceSettings = () => {
     const { t } = useTranslation();
     const [menuBarOnly, setMenuBarOnly] = useState(false);
+    const [hideToMenuBarOnClose, setHideToMenuBarOnClose] = useState(false);
     const [loaded, setLoaded] = useState(false);
 
     useEffect(() => {
-        getAppPresenceModePref()
-            .then((mode) => {
+        Promise.all([getAppPresenceModePref(), getHideToMenuBarOnClosePref()])
+            .then(([mode, hideOnClose]) => {
                 setMenuBarOnly(mode === 'menu_bar');
+                setHideToMenuBarOnClose(hideOnClose);
                 setLoaded(true);
             })
             .catch(console.error);
@@ -567,10 +573,20 @@ const AppPresenceSettings = () => {
         await invoke('set_app_presence_mode', { mode });
     }, []);
 
-    const handleToggle = (checked: boolean) => {
+    const applyHideOnClose = useCallback(async (enabled: boolean) => {
+        await setHideToMenuBarOnClosePref(enabled);
+        await invoke('set_hide_to_menu_bar_on_close', { enabled });
+    }, []);
+
+    const handleMenuBarToggle = (checked: boolean) => {
         const mode: AppPresenceMode = checked ? 'menu_bar' : 'dock';
         setMenuBarOnly(checked);
         applyMode(mode).catch(console.error);
+    };
+
+    const handleHideOnCloseToggle = (checked: boolean) => {
+        setHideToMenuBarOnClose(checked);
+        applyHideOnClose(checked).catch(console.error);
     };
 
     return (
@@ -591,9 +607,26 @@ const AppPresenceSettings = () => {
                     </div>
                     <Switch
                         checked={menuBarOnly}
-                        onCheckedChange={handleToggle}
+                        onCheckedChange={handleMenuBarToggle}
                         disabled={!loaded}
                         aria-label={t('settings.menuBarOnly', 'Menu bar only')}
+                    />
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <span className="font-medium">{t('settings.hideToMenuBarOnClose', 'Hide to menu bar on close')}</span>
+                        <p className="text-sm text-muted-foreground">
+                            {t(
+                                'settings.hideToMenuBarOnCloseDesc',
+                                'When off, closing the window quits the app (Dock mode). When on, the red close button hides the window and removes the Dock icon; the app keeps running in the menu bar until you choose Quit there.'
+                            )}
+                        </p>
+                    </div>
+                    <Switch
+                        checked={hideToMenuBarOnClose}
+                        onCheckedChange={handleHideOnCloseToggle}
+                        disabled={!loaded || menuBarOnly}
+                        aria-label={t('settings.hideToMenuBarOnClose', 'Hide to menu bar on close')}
                     />
                 </div>
             </CardContent>

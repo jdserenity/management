@@ -11,6 +11,7 @@ import './App.css';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
 import { applyPostureMonitoringFromPref } from '@/lib/postureMonitoringPref';
 import { applyAppPresenceFromPref } from '@/lib/appPresencePref';
+import { applyHideToMenuBarOnCloseFromPref } from '@/lib/hideToMenuBarOnClosePref';
 import { loadSessionAlertsPrefs } from '@/lib/sessionAlertsPref';
 import { primeSessionAudio } from '@/lib/sessionSounds';
 import SyncWarningBanner from '@/components/SyncWarningBanner';
@@ -32,6 +33,7 @@ function App() {
     void (async () => {
       try {
         await applyAppPresenceFromPref((mode) => invoke('set_app_presence_mode', { mode }));
+        await applyHideToMenuBarOnCloseFromPref((enabled) => invoke('set_hide_to_menu_bar_on_close', { enabled }));
         const alerts = await loadSessionAlertsPrefs();
         await invoke('set_session_tray_timer_enabled', { enabled: alerts.trayTimer });
       } catch (e) {
