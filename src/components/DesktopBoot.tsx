@@ -19,7 +19,7 @@ export default function DesktopBoot() {
         await runDesktopInitialSync();
         if (cancelled) return;
         startDesktopForegroundPull();
-        const appMod = await import('./App');
+        const appMod = await import('@/App');
         if (cancelled) return;
         setApp(() => appMod.default);
         setPhase('ready');
