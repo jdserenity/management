@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; media-src 'self' blob: data: mediastream:; connect-src 'self' ws://localhost:1430 ws://127.0.0.1:1430 https://cdn.jsdelivr.net https://storage.googleapis.com https://mgmt.levier.cc https: http://100.64.0.0/10; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline';",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; media-src 'self' blob: data: mediastream:; connect-src 'self' ws://localhost:1430 ws://127.0.0.1:1430 https://cdn.jsdelivr.net https://storage.googleapis.com https://mgmt.levier.cc https: http:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline';",
       "assetProtocol": {
         "enable": true,
         "scope": [

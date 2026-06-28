@@ -1,6 +1,7 @@
 import { getAppKind } from '@/lib/appRuntime';
 import { getDb } from '@/lib/db';
 import { extractUserData, pushUserData } from '@mgmt/sync';
+import { notifyDataSyncError } from '@/lib/dataSyncNotify';
 
 const serverUrl = (): string | undefined => {
   const raw = import.meta.env.VITE_SERVER_URL as string | undefined;
@@ -29,11 +30,6 @@ export const pushLocalDataToServerIfDesktop = async (): Promise<void> => {
     await pushLocalDataToServer();
     console.info('[data-sync] startup push ok');
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('[data-sync] startup push failed:', msg);
-    try {
-      const { sendNotification } = await import('@tauri-apps/plugin-notification');
-      await sendNotification({ title: 'Sync failed', body: msg });
-    } catch { /* notification optional */ }
+    await notifyDataSyncError('startup push', err);
   }
 };

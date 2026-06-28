@@ -145,12 +145,15 @@ export const fetchUserData = async (baseUrl: string, token: string): Promise<Use
 };
 
 export const pushUserData = async (baseUrl: string, token: string, data: UserData): Promise<void> => {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/data`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify({ data })
-  });
-  if (!res.ok) throw new Error(`pushUserData: HTTP ${res.status}`);
+  const url = `${baseUrl.replace(/\/$/, '')}/v1/data`;
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'POST', headers: authHeaders(token), body: JSON.stringify({ data }) });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`pushUserData to ${url}: ${detail}`);
+  }
+  if (!res.ok) throw new Error(`pushUserData to ${url}: HTTP ${res.status}`);
 };
 
 // ── Sync-aware db wrapper ──────────────────────────────────────────────────────
@@ -161,7 +164,8 @@ export const wrapWithDataSync = (
   db: SqlDatabase,
   serverUrl: string | undefined,
   token: string | undefined,
-  debounceMs = 2000
+  debounceMs = 2000,
+  onPushError?: (err: unknown) => void
 ): SqlDatabase => {
   if (!serverUrl || !token) return db;
   const url = serverUrl; const tok = token;
@@ -172,6 +176,7 @@ export const wrapWithDataSync = (
       timer = null;
       void extractUserData(db).then((data) => pushUserData(url, tok, data)).catch((err) => {
         console.warn('[data-sync] push failed:', err);
+        onPushError?.(err);
       });
     }, debounceMs);
   };

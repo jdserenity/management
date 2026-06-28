@@ -208,4 +208,16 @@ describe('wrapWithDataSync', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
   });
+
+  it('calls onPushError when push fails', async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new Error('Load failed'));
+    vi.stubGlobal('fetch', mockFetch);
+    const onPushError = vi.fn();
+    const db = makeMockDb();
+    const wrapped = wrapWithDataSync(db, 'http://localhost:8787', 'tok', 500, onPushError);
+    await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(onPushError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Load failed') }));
+    vi.unstubAllGlobals();
+  });
 });
