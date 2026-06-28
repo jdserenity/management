@@ -56,7 +56,7 @@ const ensureConfigRow = async (): Promise<void> => {
   const db = await getDb();
   const rows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day FROM nutrition_config WHERE id = 1');
   if (rows.length) return;
-  await db.execute('INSERT INTO nutrition_config (id, tdee, protein, log_day) VALUES (1, 0, 0, \'\')');
+  await db.execute('INSERT OR IGNORE INTO nutrition_config (id, tdee, protein, log_day) VALUES (1, 0, 0, \'\')');
 };
 
 export const loadTdeeFile = async (): Promise<TdeeFile> => {

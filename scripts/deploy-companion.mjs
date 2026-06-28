@@ -22,7 +22,7 @@ const loadEnv = (file) => {
 };
 
 const env = { ...process.env, ...loadEnv(envPath) };
-const url = env.VITE_SERVER_URL?.trim();
+let url = env.VITE_SERVER_URL?.trim();
 const token = env.VITE_SERVER_TOKEN?.trim();
 
 if (!url || !token) {
@@ -30,6 +30,12 @@ if (!url || !token) {
   console.error('Example:');
   console.error('  VITE_SERVER_URL=https://mgmt.levier.cc');
   console.error('  VITE_SERVER_TOKEN=<same as SERVER_TOKEN on VPS>');
+  process.exit(1);
+}
+
+if (!/^https?:\/\//i.test(url)) {
+  console.error(`VITE_SERVER_URL must start with http:// or https:// (got "${url}").`);
+  console.error('Companion on a phone needs https://mgmt.levier.cc (not a bare Tailscale IP).');
   process.exit(1);
 }
 

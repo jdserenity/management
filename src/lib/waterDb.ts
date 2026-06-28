@@ -30,7 +30,7 @@ const ensureConfigRow = async (): Promise<void> => {
   const db = await getDb();
   const rows = await db.select<ConfigRow[]>('SELECT target_ml, log_day FROM water_config WHERE id = 1');
   if (rows.length) return;
-  await db.execute('INSERT INTO water_config (id, target_ml, log_day) VALUES (1, 2500, \'\')');
+  await db.execute('INSERT OR IGNORE INTO water_config (id, target_ml, log_day) VALUES (1, 2500, \'\')');
 };
 
 export const loadWaterFile = async (): Promise<WaterFile> => {
