@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { getAppKind, hasAppStorage } from '@/lib/appRuntime';
 import { resetButtonLabel } from '@/lib/streak/resetDisplay';
 import type { StreakActivity, StreakState } from '@/lib/streak/types';
 import { archiveStreakActivity, loadStreakState, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
@@ -26,6 +26,13 @@ export default function CustomizeHabitsPanel() {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (getAppKind() !== 'companion') return;
+    const onRemoteRefresh = () => { void refresh(); };
+    window.addEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+    return () => window.removeEventListener('mgmt-companion-data-refresh', onRemoteRefresh);
+  }, [refresh]);
 
   if (!hasAppStorage()) {
     return <p className="text-sm text-muted-foreground">Storage is not ready yet.</p>;

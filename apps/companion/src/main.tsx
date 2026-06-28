@@ -8,6 +8,8 @@ const boot = async () => {
   markCompanionApp();
   const { initCompanionStorage } = await import('./platform/storage');
   await initCompanionStorage();
+  const { startCompanionForegroundPull } = await import('./platform/storage');
+  startCompanionForegroundPull();
   const { App } = await import('./App');
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
