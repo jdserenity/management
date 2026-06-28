@@ -1,0 +1,25 @@
+# Example systemd unit for the Management sync server (@mgmt/server).
+#
+# 1. Edit REPO_ROOT, User, and paths below.
+# 2. sudo cp mgmt-server.service.example /etc/systemd/system/mgmt-server.service
+# 3. Create /etc/mgmt/server.env from server.env.example (chmod 600).
+# 4. sudo systemctl daemon-reload && sudo systemctl enable --now mgmt-server
+#
+# Logs: journalctl -u mgmt-server -f
+
+[Unit]
+Description=Management sync server
+After=network.target
+
+[Service]
+Type=simple
+User=mgmt
+Group=mgmt
+WorkingDirectory=/home/mgmt/management
+EnvironmentFile=/etc/mgmt/server.env
+ExecStart=/usr/bin/npm run start:prod -w @mgmt/server
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
