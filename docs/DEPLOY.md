@@ -42,39 +42,34 @@ Templates: `apps/server/mgmt-server.service.example`, `apps/server/server.env.ex
 
 ### One-time VPS setup
 
-On the VPS (Ubuntu/Debian-style; adjust package names if needed):
+Assumes you already cloned the repo (e.g. `/home/linuxuser/prod-apps/management`) and ran `npm install` once by hand.
+
+Create secrets (edit `SERVER_TOKEN`; `DB_PATH` must be a path **your Linux user can write**):
 
 ```bash
-# Node 20+ (example via NodeSource; use nvm or distro packages if you prefer)
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs git
-
-# App user + data dir (keeps DB outside the git clone)
-sudo useradd --system --create-home --home-dir /home/mgmt --shell /bin/bash mgmt || true
-sudo mkdir -p /var/lib/mgmt
-sudo chown mgmt:mgmt /var/lib/mgmt
-
-# Clone repo (as mgmt)
-sudo -u mgmt git clone https://github.com/YOUR_ORG/management.git /home/mgmt/management
-cd /home/mgmt/management && sudo -u mgmt npm install
-```
-
-Create secrets and paths (edit values; use a long random `SERVER_TOKEN`):
-
-```bash
+mkdir -p ~/prod-apps/management/data
 sudo mkdir -p /etc/mgmt
-sudo cp /home/mgmt/management/apps/server/server.env.example /etc/mgmt/server.env
+sudo cp ~/prod-apps/management/apps/server/server.env.example /etc/mgmt/server.env
 sudo chmod 600 /etc/mgmt/server.env
-sudo nano /etc/mgmt/server.env   # SERVER_TOKEN, DB_PATH=/var/lib/mgmt/server.db, PORT=8787
+sudo nano /etc/mgmt/server.env
 ```
 
-Install the unit (edit `User`, `WorkingDirectory`, and `ExecStart` if your paths differ):
+If you already have a `server.db` from running the server manually, point `DB_PATH` at that file (or copy it into `data/server.db`).
+
+Install the unit (`User`, `Group`, and `WorkingDirectory` must match your VPS — see `mgmt-server.service.example`):
 
 ```bash
-sudo cp /home/mgmt/management/apps/server/mgmt-server.service.example /etc/systemd/system/mgmt-server.service
+sudo cp ~/prod-apps/management/apps/server/mgmt-server.service.example /etc/systemd/system/mgmt-server.service
 sudo nano /etc/systemd/system/mgmt-server.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now mgmt-server
+```
+
+If you prefer `DB_PATH=/var/lib/mgmt/server.db`, create the dir and give ownership to your login user:
+
+```bash
+sudo mkdir -p /var/lib/mgmt
+sudo chown "$(whoami):$(whoami)" /var/lib/mgmt
 ```
 
 ### Verify
@@ -92,9 +87,9 @@ Point clients at the same token: desktop `sync-server.json` (Settings or app con
 ### Update server code on the VPS
 
 ```bash
-cd /home/mgmt/management
-sudo -u mgmt git pull
-sudo -u mgmt npm install
+cd ~/prod-apps/management
+git pull
+npm install
 sudo systemctl restart mgmt-server
 ```
 
@@ -108,6 +103,16 @@ sudo systemctl restart mgmt-server
 | `sudo systemctl stop mgmt-server` | Stop (e.g. before manual DB work) |
 
 Use `npm run start:prod -w @mgmt/server` in production (env from `/etc/mgmt/server.env`). Do not use `dev:server` on the VPS — that watches files for local development.
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| `status=217/USER` in `systemctl status` | `User=` in the unit file is not a real Linux account (e.g. left as `mgmt`) | Set `User=` and `Group=` to `whoami` on the VPS; set `WorkingDirectory=` to the repo path (`pwd` inside the clone) |
+| `curl` prints `000` | Server is not listening (service failed or not started) | `sudo systemctl status mgmt-server` and `journalctl -u mgmt-server -n 30 --no-pager` |
+| `curl: (2) no URL specified` | Missing URL at end of command | Add `http://127.0.0.1:8787/v1/data` after the headers |
+| `401` from curl | Wrong token | Use the same string as `SERVER_TOKEN` in `/etc/mgmt/server.env` |
+| `SqliteError: unable to open database file` | `DB_PATH` points somewhere `linuxuser` cannot write (e.g. `/var/lib/mgmt` owned by root) | `chown` that dir to your user, or set `DB_PATH` under your home (e.g. `~/prod-apps/management/data/server.db`) and `mkdir -p` the parent |
 
 ### HTTPS / public URL (follow-up)
 
