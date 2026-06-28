@@ -21,6 +21,7 @@
     "db:backup": "node scripts/backup-db.mjs",
     "import:vault": "tsx scripts/import-vault-once.ts",
     "sync:to-server": "tsx scripts/sync-to-server.ts",
+    "test:push": "node scripts/test-push.mjs",
     "app:deploy": "node scripts/install-app.mjs"
   },
   "dependencies": {

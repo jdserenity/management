@@ -13,6 +13,7 @@ import { applyPostureMonitoringFromPref } from '@/lib/postureMonitoringPref';
 import { applyAppPresenceFromPref } from '@/lib/appPresencePref';
 import { loadSessionAlertsPrefs } from '@/lib/sessionAlertsPref';
 import { primeSessionAudio } from '@/lib/sessionSounds';
+import { pushLocalDataToServerIfDesktop } from '@/lib/dataSync';
 
 function App() {
 
@@ -61,6 +62,8 @@ function App() {
       shoulderSensitivity: parseInt(localStorage.getItem(MGMT_LS.shoulderSensitivity) || '2', 10),
     }).catch(console.error);
   }, []);
+
+  useEffect(() => { void pushLocalDataToServerIfDesktop(); }, []);
 
   return (
     <SessionProvider>
