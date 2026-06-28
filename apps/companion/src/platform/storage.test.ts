@@ -11,29 +11,24 @@ vi.mock('@mgmt/sync', async (importOriginal) => {
 });
 vi.mock('@/lib/db', () => ({ registerSqlBackend: vi.fn() }));
 vi.mock('./sqlJsStorage', () => ({
-  createCompanionSqlJsDatabase: vi.fn(async () => {
-    const rows: Record<string, unknown>[] = [];
-    return {
-      select: vi.fn(async (q: string) => {
-        if (q.includes('FROM focus_log')) return [];
-        if (q.includes('FROM workout_log')) return [];
-        if (q.includes('FROM app_kv')) return rows.filter((r) => Object.hasOwn(r, 'key'));
-        if (q.includes('FROM nutrition_config')) return [];
-        if (q.includes('FROM nutrition_staples')) return [];
-        if (q.includes('FROM nutrition_regulars')) return [];
-        if (q.includes('FROM nutrition_entries')) return [];
-        if (q.includes('FROM streak_activities')) return [];
-        if (q.includes('FROM streak_log_cells')) return [];
-        if (q.includes('FROM streak_activity_meta')) return [];
-        if (q.includes('FROM water_config')) return [];
-        if (q.includes('FROM water_entries')) return [];
-        return [];
-      }),
-      execute: vi.fn(async () => {
-        return { lastInsertId: 0, rowsAffected: 1 };
-      })
-    };
-  })
+  createCompanionSqlJsDatabase: vi.fn(async () => ({
+    select: vi.fn(async (q: string) => {
+      if (q.includes('FROM focus_log')) return [];
+      if (q.includes('FROM workout_log')) return [];
+      if (q.includes('FROM app_kv')) return [];
+      if (q.includes('FROM nutrition_config')) return [];
+      if (q.includes('FROM nutrition_staples')) return [];
+      if (q.includes('FROM nutrition_regulars')) return [];
+      if (q.includes('FROM nutrition_entries')) return [];
+      if (q.includes('FROM streak_activities')) return [];
+      if (q.includes('FROM streak_log_cells')) return [];
+      if (q.includes('FROM streak_activity_meta')) return [];
+      if (q.includes('FROM water_config')) return [];
+      if (q.includes('FROM water_entries')) return [];
+      return [];
+    }),
+    execute: vi.fn(async () => ({ lastInsertId: 0, rowsAffected: 1 }))
+  }))
 }));
 
 import { initCompanionStorage, pullCompanionSnapshotFromServer, resetCompanionStorageForTests } from './storage';
