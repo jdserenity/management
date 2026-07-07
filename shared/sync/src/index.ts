@@ -1,3 +1,4 @@
+export * from './syncRegistry';
 export * from './syncFetch';
 export * from './types';
 export * from './flowSync';

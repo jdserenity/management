@@ -42,9 +42,9 @@ Layout overview: `docs/KNOWLEDGE.md` § Repository folder layout.
 
 ### Step 1 — Sync registry + boundaries
 
-- [ ] Add `shared/sync/src/syncRegistry.ts`: table, row key, `updated_at` column, sync yes/no
-- [ ] List desktop-only tables/keys explicitly
-- [ ] Export from `shared/sync/src/index.ts`
+- [x] Add `shared/sync/src/syncRegistry.ts`: table, row key, `updated_at` column, sync yes/no
+- [x] List desktop-only tables/keys explicitly
+- [x] Export from `shared/sync/src/index.ts`
 - **Done when:** one file answers “does X sync?” for every table/key
 - **Tests:** `syncRegistry.test.ts` (every production table classified)
 
