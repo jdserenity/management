@@ -5,7 +5,6 @@ import { setSyncFetchImpl } from "@mgmt/sync";
 import { getAppKind } from "@/lib/appRuntime";
 import { desktopNativeFetch } from "@/lib/desktopNativeFetch";
 import DesktopBoot from "@/components/DesktopBoot";
-import "./i18n";
 
 if (getAppKind() === "desktop") {
   setSyncFetchImpl(desktopNativeFetch);

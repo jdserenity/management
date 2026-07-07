@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ const normalizeCameraName = (value: string): string =>
   value.toLowerCase().replace(/\s+/g, ' ').trim();
 
 export default function PostureCameraSettingsCard() {
-  const { t } = useTranslation();
   const [cameras, setCameras] = useState<CameraDetail[]>([]);
   const [selectedCameraIndex, setSelectedCameraIndex] = useState<string>(() => localStorage.getItem(CAMERA_INDEX_KEY) || '0');
 
@@ -67,11 +65,11 @@ export default function PostureCameraSettingsCard() {
           await syncPreviewCameraDevice(selectedCamera.name, selectedCamera.index);
         }
       } catch (error) {
-        console.error(t('settings.cameraErrorGetList', 'Failed to fetch camera list:'), error);
+        console.error('Failed to fetch camera list:', error);
       }
     };
     void getCamerasFromBackend();
-  }, [syncPreviewCameraDevice, t]);
+  }, [syncPreviewCameraDevice]);
 
   const handleCameraChange = (value: string) => {
     const newIndex = parseInt(value, 10);
@@ -82,27 +80,24 @@ export default function PostureCameraSettingsCard() {
       localStorage.setItem(CAMERA_NAME_KEY, selectedCamera.name);
       void syncPreviewCameraDevice(selectedCamera.name, selectedCamera.index);
     }
-    invoke('set_selected_camera', { index: newIndex })
-      .catch((e) => console.error(t('settings.cameraErrorSetSelected', 'Failed to set camera:'), e));
+    invoke('set_selected_camera', { index: newIndex }).catch((e) => console.error('Failed to set camera:', e));
   };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t('settings.cameraTitle', 'Camera')}</CardTitle>
-      </CardHeader>
+      <CardHeader><CardTitle>Camera</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          {t('settings.cameraGuide', 'If the camera does not work, allow Management in system camera settings.')}{' '}
+          If the camera does not work, allow Management in system camera settings.{' '}
           <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => void openSystemSettings('camera')}>
-            {t('settings.cameraGoTo', 'Open camera settings')}
+            Open camera settings
           </Button>
         </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-medium">{t('settings.cameraSelect', 'Camera for posture analysis')}</span>
+          <span className="font-medium">Camera for posture analysis</span>
           <Select value={selectedCameraIndex} onValueChange={handleCameraChange} disabled={cameras.length === 0}>
             <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder={cameras.length === 0 ? t('settings.cameraNone', 'No camera found') : t('settings.cameraSelectPlaceholder', 'Choose a camera')} />
+              <SelectValue placeholder={cameras.length === 0 ? 'No camera found' : 'Choose a camera'} />
             </SelectTrigger>
             <SelectContent>
               {cameras.map((camera) => (

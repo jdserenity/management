@@ -19,7 +19,6 @@ import SyncWarningBanner from '@/components/SyncWarningBanner';
 function App() {
 
   useEffect(() => {
-    invoke('set_current_language', { lang: 'en' }).catch(console.error);
     const prime = () => primeSessionAudio();
     window.addEventListener('pointerdown', prime, { once: true });
     window.addEventListener('keydown', prime, { once: true });

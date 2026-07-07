@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loadStreakHeatmapColorPref, saveStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 
 export default function HabitsSettingsCard() {
-  const { t } = useTranslation();
   const [heatmapColor, setHeatmapColor] = useState('');
   const [loaded, setLoaded] = useState(false);
 
@@ -25,15 +23,13 @@ export default function HabitsSettingsCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t('settings.habitsTitle', 'Habits')}</CardTitle>
-      </CardHeader>
+      <CardHeader><CardTitle>Habits</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <span className="font-medium">{t('settings.habitsHeatmapColor', 'Daily heatmap color')}</span>
+            <span className="font-medium">Daily heatmap color</span>
             <p className="text-sm text-muted-foreground">
-              {t('settings.habitsHeatmapColorDesc', 'Custom color for the yearly habits heatmap. Weekly heatmap stays red.')}
+              Custom color for the yearly habits heatmap. Weekly heatmap stays red.
             </p>
           </div>
           <div className="flex items-center gap-2">

@@ -1,5 +1,4 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -13,7 +12,6 @@ const MONITORING_INTERVAL_KEY = MGMT_LS.monitoringInterval;
 const BATTERY_SAVING_MODE_KEY = MGMT_LS.batterySavingMode;
 
 export default function PostureDetectionSettingsCard() {
-  const { t } = useTranslation();
   const [batterySavingMode, setBatterySavingMode] = useState(() => localStorage.getItem(BATTERY_SAVING_MODE_KEY) === 'true');
   const [frequency, setFrequency] = useState<string>(() => localStorage.getItem(NOTIFICATION_FREQUENCY_KEY) || '2');
   const [turtleNeckSensitivity, setTurtleNeckSensitivity] = useState<string>(() => localStorage.getItem(TURTLE_NECK_SENSITIVITY_KEY) || '2');
@@ -41,19 +39,9 @@ export default function PostureDetectionSettingsCard() {
     }
   }, [frequency, turtleNeckSensitivity, shoulderSensitivity, monitoringInterval, batterySavingMode]);
 
-  const monitoringOptions = batterySavingMode ? [
-    { value: '3', label: t('settings.interval3m', '3m') },
-    { value: '5', label: t('settings.interval5m', '5m') },
-    { value: '10', label: t('settings.interval10m', '10m') },
-    { value: '15', label: t('settings.interval15m', '15m') },
-    { value: '30', label: t('settings.interval30m', '30m') }
-  ] : [
-    { value: '3', label: t('settings.interval3s', '3s') },
-    { value: '5', label: t('settings.interval5s', '5s') },
-    { value: '7', label: t('settings.interval7s', '7s') },
-    { value: '10', label: t('settings.interval10s', '10s') },
-    { value: '15', label: t('settings.interval15s', '15s') }
-  ];
+  const monitoringOptions = batterySavingMode
+    ? ['3', '5', '10', '15', '30'].map((v) => ({ value: v, label: `${v}m` }))
+    : ['3', '5', '7', '10', '15'].map((v) => ({ value: v, label: `${v}s` }));
 
   const handleBatterySavingToggle = (checked: boolean) => {
     setBatterySavingMode(checked);
@@ -63,23 +51,16 @@ export default function PostureDetectionSettingsCard() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t('settings.detectionTitle', 'Posture detection')}</CardTitle>
-      </CardHeader>
+      <CardHeader><CardTitle>Posture detection</CardTitle></CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1">
-            <span className="font-medium">{t('settings.batterySavingMode', 'Battery saving mode')}</span>
-            <p className="text-sm text-muted-foreground">
-              {t('settings.batterySavingModeDesc', 'Uses minute-based monitoring intervals and a lighter camera mode.')}
-            </p>
+            <span className="font-medium">Battery saving mode</span>
+            <p className="text-sm text-muted-foreground">Uses minute-based monitoring intervals and a lighter camera mode.</p>
           </div>
           <Switch checked={batterySavingMode} onCheckedChange={handleBatterySavingToggle} />
         </div>
-        <SettingRow
-          label={t('settings.monitoringInterval', 'Monitoring interval')}
-          desc={t('settings.monitoringIntervalDesc', 'How often posture is analyzed.')}
-        >
+        <SettingRow label="Monitoring interval" desc="How often posture is analyzed.">
           <Select value={monitoringInterval} onValueChange={setMonitoringInterval}>
             <SelectTrigger className="w-[250px]"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -90,31 +71,23 @@ export default function PostureDetectionSettingsCard() {
           </Select>
         </SettingRow>
         <SettingRow
-          label={t('settings.notificationFrequency', 'Alert sensitivity')}
-          desc={batterySavingMode
-            ? t('settings.notificationFrequencyDescBatterySaving', 'Fixed to 1 detection in battery saving mode.')
-            : t('settings.notificationFrequencyDescNormal', 'How many of the last 3 bad detections trigger an alert.')}
+          label="Alert sensitivity"
+          desc={batterySavingMode ? 'Fixed to 1 detection in battery saving mode.' : 'How many of the last 3 bad detections trigger an alert.'}
         >
           <Select value={frequency} onValueChange={setFrequency} disabled={batterySavingMode}>
             <SelectTrigger className="w-[250px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">{t('settings.frequencyOnce', '1 (sensitive)')}</SelectItem>
-              <SelectItem value="2">{t('settings.frequencyTwice', '2 (normal)')}</SelectItem>
-              <SelectItem value="3">{t('settings.frequencyThrice', '3 (relaxed)')}</SelectItem>
+              <SelectItem value="1">1 (sensitive)</SelectItem>
+              <SelectItem value="2">2 (normal)</SelectItem>
+              <SelectItem value="3">3 (relaxed)</SelectItem>
             </SelectContent>
           </Select>
         </SettingRow>
-        <SettingRow
-          label={t('settings.turtleNeckSensitivity', 'Forward head sensitivity')}
-          desc={t('settings.turtleNeckSensitivityDesc', 'How strictly forward-head posture is flagged.')}
-        >
-          <SensitivitySelect value={turtleNeckSensitivity} onValueChange={setTurtleNeckSensitivity} t={t} />
+        <SettingRow label="Forward head sensitivity" desc="How strictly forward-head posture is flagged.">
+          <SensitivitySelect value={turtleNeckSensitivity} onValueChange={setTurtleNeckSensitivity} />
         </SettingRow>
-        <SettingRow
-          label={t('settings.shoulderSensitivity', 'Shoulder alignment sensitivity')}
-          desc={t('settings.shoulderSensitivityDesc', 'How strictly shoulder asymmetry is flagged.')}
-        >
-          <SensitivitySelect value={shoulderSensitivity} onValueChange={setShoulderSensitivity} t={t} />
+        <SettingRow label="Shoulder alignment sensitivity" desc="How strictly shoulder asymmetry is flagged.">
+          <SensitivitySelect value={shoulderSensitivity} onValueChange={setShoulderSensitivity} />
         </SettingRow>
       </CardContent>
     </Card>
@@ -133,14 +106,14 @@ function SettingRow({ label, desc, children }: { label: string; desc: string; ch
   );
 }
 
-function SensitivitySelect({ value, onValueChange, t }: { value: string; onValueChange: (v: string) => void; t: (k: string, d: string) => string }) {
+function SensitivitySelect({ value, onValueChange }: { value: string; onValueChange: (v: string) => void }) {
   return (
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger className="w-[250px]"><SelectValue /></SelectTrigger>
       <SelectContent>
-        <SelectItem value="1">{t('settings.sensitivityLoose', 'Loose')}</SelectItem>
-        <SelectItem value="2">{t('settings.sensitivityNormal', 'Normal')}</SelectItem>
-        <SelectItem value="3">{t('settings.sensitivityStrict', 'Strict')}</SelectItem>
+        <SelectItem value="1">Loose</SelectItem>
+        <SelectItem value="2">Normal</SelectItem>
+        <SelectItem value="3">Strict</SelectItem>
       </SelectContent>
     </Select>
   );

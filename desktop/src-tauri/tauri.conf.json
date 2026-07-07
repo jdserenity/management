@@ -42,7 +42,6 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../../locales",
       "./icons"
     ],
     "createUpdaterArtifacts": true,

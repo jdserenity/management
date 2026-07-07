@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDayRolloverHourLabel } from '@/lib/dayBoundary';
@@ -10,20 +9,17 @@ const hourOptions = Array.from({ length: 24 }, (_, hour) => ({
 }));
 
 export default function StatsDaySettingsCard() {
-  const { t } = useTranslation();
   const { dayRolloverHour, setDayRolloverHour } = useSession();
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{t('settings.statsDayTitle', 'Stats day')}</CardTitle>
-      </CardHeader>
+      <CardHeader><CardTitle>Stats day</CardTitle></CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <span className="font-medium">{t('settings.statsDayRollover', 'Day starts at')}</span>
+            <span className="font-medium">Day starts at</span>
             <p className="text-sm text-muted-foreground">
-              {t('settings.statsDayRolloverDesc', 'Work, movement, nutrition, and habits reset at this time (default 4:00 AM).')}
+              Work, movement, nutrition, and habits reset at this time (default 4:00 AM).
             </p>
           </div>
           <Select value={String(dayRolloverHour)} onValueChange={(v) => setDayRolloverHour(Number(v))}>

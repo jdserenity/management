@@ -31,7 +31,7 @@
 - `mobile/`: Vite PWA for the phone companion (`@mgmt/companion`); break/focus timer viewer; no posture. Reuses `desktop/ui/` screens via Vite aliases.
 
 ## Mobile companion
-- PWA in `mobile/` (`npm run dev:companion`, port 5173). `CompanionBoot.tsx` mounts immediately with a loading screen while sql.js storage, i18n, and the app shell load in parallel; tab pages stay lazy-loaded. Service worker precaches built assets (including sql-wasm) for reliable offline installs.
+- PWA in `mobile/` (`npm run dev:companion`, port 5173). `CompanionBoot.tsx` mounts immediately with a loading screen while sql.js storage and the app shell load in parallel; tab pages stay lazy-loaded. Service worker precaches built assets (including sql-wasm) for reliable offline installs.
 - Remote sync goes through `backend/` (`npm run dev:server`, default `http://localhost:8787`). Clients authenticate with `SERVER_TOKEN` / `VITE_SERVER_TOKEN` (see `.env.example`). Sync URL and token are baked in at **build time** via Vite (`getBuildTimeSyncCreds` in `@mgmt/sync`); there is no runtime config file. **Companion (production):** Cloudflare Pages Git build with `VITE_SERVER_URL` and `VITE_SERVER_TOKEN` set in the Cloudflare dashboard. **Desktop:** local root `.env` when running `npm run tauri build`. **Local dev:** root `.env` for both.
 - Phone is the intended **leader** during exercise breaks; companion auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
 - Shared session logic lives in `@mgmt/core`; desktop `desktop/ui/lib/flowState.ts` and `desktop/ui/lib/sessionProgress.ts` re-export from there.
@@ -166,7 +166,7 @@ Grouped by call site; all are registered on the Rust builder in `main.rs` (`invo
 
 | Area | Command | Called from |
 | --- | --- | --- |
-| Boot | `set_current_language`, `set_app_presence_mode`, `set_hide_to_menu_bar_on_close`, `set_battery_saving_mode`, `set_selected_camera`, `set_monitoring_interval`, `set_detection_settings` | `desktop/ui/App.tsx` |
+| Boot | `set_app_presence_mode`, `set_hide_to_menu_bar_on_close`, `set_battery_saving_mode`, `set_selected_camera`, `set_monitoring_interval`, `set_detection_settings` | `desktop/ui/App.tsx` |
 | Session alerts | `focus_main_window`, `set_tray_session_label`, `set_session_tray_timer_enabled`, `set_tray_flow_active`, `notify_session_phase` | `desktop/ui/components/SessionAlerts.tsx`, `FlowHeaderControl.tsx` (prefs in `sessionAlertsPref.ts`; tray via `app_presence.rs`) |
 | Settings | same tuning commands plus `get_available_cameras`, `set_app_presence_mode`, `set_hide_to_menu_bar_on_close`, session alert prefs (saved in `app_kv`, applied via `SessionAlerts`), stats day rollover, habits heatmap color (`streakHeatmapPref.ts`), `restart_app` | `desktop/ui/components/SettingsPage.tsx` |
 | Posture pipeline | `submit_posture_analysis` | `desktop/ui/components/PosturePipeline.tsx` |

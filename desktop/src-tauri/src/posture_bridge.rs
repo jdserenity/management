@@ -58,6 +58,16 @@ pub struct PostureIngestPayload {
     pub metrics_json: Option<String>,
 }
 
+pub fn posture_alert_message(turtle: bool, shoulder: bool) -> &'static str {
+    if turtle && shoulder {
+        "Turtle neck and shoulder tilt detected."
+    } else if turtle {
+        "Turtle neck detected. Please straighten your neck!"
+    } else {
+        "Shoulder alignment is poor. Please lean back against the chair!"
+    }
+}
+
 pub fn posture_recommendations(turtle: bool, shoulder: bool) -> Vec<String> {
     let mut recommendations = Vec::new();
     if turtle {
@@ -72,4 +82,16 @@ pub fn posture_recommendations(turtle: bool, shoulder: bool) -> Vec<String> {
         recommendations.push("motivation.excellent".to_string());
     }
     recommendations
+}
+
+#[cfg(test)]
+mod tests {
+    use super::posture_alert_message;
+
+    #[test]
+    fn posture_alert_message_covers_each_flag_combo() {
+        assert!(posture_alert_message(true, true).contains("Turtle neck"));
+        assert!(posture_alert_message(true, false).contains("straighten"));
+        assert!(posture_alert_message(false, true).contains("Shoulder"));
+    }
 }
