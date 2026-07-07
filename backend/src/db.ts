@@ -57,7 +57,8 @@ const SCHEMA_SQL = `
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     tdee INTEGER NOT NULL DEFAULT 0,
     protein REAL NOT NULL DEFAULT 0,
-    log_day TEXT NOT NULL DEFAULT ''
+    log_day TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
   CREATE TABLE IF NOT EXISTS nutrition_staples (
@@ -68,6 +69,7 @@ const SCHEMA_SQL = `
     protein REAL NOT NULL DEFAULT 0,
     ingredients_json TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (id, user_id)
   );
 
@@ -79,6 +81,7 @@ const SCHEMA_SQL = `
     protein REAL NOT NULL DEFAULT 0,
     ingredients_json TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (id, user_id)
   );
 
@@ -112,6 +115,7 @@ const SCHEMA_SQL = `
     extra_calories INTEGER,
     extra_protein REAL,
     extra_water_ml INTEGER,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (id, user_id)
   );
 
@@ -131,13 +135,15 @@ const SCHEMA_SQL = `
     pause_since TEXT,
     unpaused_at TEXT,
     reset_count INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (activity_id, user_id)
   );
 
   CREATE TABLE IF NOT EXISTS water_config (
     user_id TEXT PRIMARY KEY REFERENCES users(id),
     target_ml INTEGER NOT NULL DEFAULT 2500,
-    log_day TEXT NOT NULL DEFAULT ''
+    log_day TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
   CREATE TABLE IF NOT EXISTS water_entries (
@@ -157,13 +163,27 @@ const migrateServerSchema = (db: Database.Database): void => {
   for (const sql of [
     'ALTER TABLE streak_activities ADD COLUMN extra_calories INTEGER',
     'ALTER TABLE streak_activities ADD COLUMN extra_protein REAL',
-    'ALTER TABLE streak_activities ADD COLUMN extra_water_ml INTEGER'
+    'ALTER TABLE streak_activities ADD COLUMN extra_water_ml INTEGER',
+    'ALTER TABLE streak_activities ADD COLUMN updated_at TEXT',
+    'ALTER TABLE streak_activity_meta ADD COLUMN updated_at TEXT',
+    'ALTER TABLE nutrition_staples ADD COLUMN updated_at TEXT',
+    'ALTER TABLE nutrition_regulars ADD COLUMN updated_at TEXT',
+    'ALTER TABLE nutrition_config ADD COLUMN updated_at TEXT',
+    'ALTER TABLE water_config ADD COLUMN updated_at TEXT'
   ]) {
     try { db.exec(sql); } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       if (!msg.includes('duplicate column')) throw error;
     }
   }
+  db.exec(`
+    UPDATE streak_activities SET updated_at = COALESCE(archived_at, datetime('now')) WHERE updated_at IS NULL;
+    UPDATE streak_activity_meta SET updated_at = COALESCE(unpaused_at, pause_since, start_date, datetime('now')) WHERE updated_at IS NULL;
+    UPDATE nutrition_staples SET updated_at = datetime('now') WHERE updated_at IS NULL;
+    UPDATE nutrition_regulars SET updated_at = datetime('now') WHERE updated_at IS NULL;
+    UPDATE nutrition_config SET updated_at = COALESCE(NULLIF(log_day, '') || 'T12:00:00', datetime('now')) WHERE updated_at IS NULL;
+    UPDATE water_config SET updated_at = COALESCE(NULLIF(log_day, '') || 'T12:00:00', datetime('now')) WHERE updated_at IS NULL;
+  `);
 };
 
 export const openServerDb = (dbPath: string): Database.Database => {

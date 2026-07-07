@@ -90,7 +90,7 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     scope: 'shared',
     userDataField: 'nutritionConfig',
     rowKey: ['id'],
-    updatedAtColumn: null,
+    updatedAtColumn: 'updated_at',
     mergeKind: 'singleton'
   },
   nutrition_staples: {
@@ -98,7 +98,7 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     scope: 'shared',
     userDataField: 'nutritionStaples',
     rowKey: ['id'],
-    updatedAtColumn: null,
+    updatedAtColumn: 'updated_at',
     mergeKind: 'row_lww'
   },
   nutrition_regulars: {
@@ -106,7 +106,7 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     scope: 'shared',
     userDataField: 'nutritionRegulars',
     rowKey: ['id'],
-    updatedAtColumn: null,
+    updatedAtColumn: 'updated_at',
     mergeKind: 'row_lww'
   },
   nutrition_entries: {
@@ -122,7 +122,7 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     scope: 'shared',
     userDataField: 'streakActivities',
     rowKey: ['id'],
-    updatedAtColumn: null,
+    updatedAtColumn: 'updated_at',
     mergeKind: 'row_lww'
   },
   streak_log_cells: {
@@ -138,7 +138,7 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     scope: 'shared',
     userDataField: 'streakActivityMeta',
     rowKey: ['activity_id'],
-    updatedAtColumn: null,
+    updatedAtColumn: 'updated_at',
     mergeKind: 'row_lww'
   },
   water_config: {
@@ -146,7 +146,7 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     scope: 'shared',
     userDataField: 'waterConfig',
     rowKey: ['id'],
-    updatedAtColumn: null,
+    updatedAtColumn: 'updated_at',
     mergeKind: 'singleton'
   },
   water_entries: {

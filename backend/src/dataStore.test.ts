@@ -9,10 +9,11 @@ const emptyData = () => ({
   waterConfig: null, waterEntries: []
 });
 
-const streakRow = (id: string, name: string, archived_at: string | null = null, extra: Partial<{ extra_calories: number; extra_protein: number; extra_water_ml: number }> = {}) => ({
+const streakRow = (id: string, name: string, archived_at: string | null = null, extra: Partial<{ extra_calories: number; extra_protein: number; extra_water_ml: number; updated_at: string }> = {}) => ({
   id, name, description: null, frequency: 'daily', weekly_target: null,
   scheduled_days_json: null, can_fail: 0, archived_at, sort_order: 0,
   extra_calories: null, extra_protein: null, extra_water_ml: null,
+  updated_at: extra.updated_at ?? archived_at ?? '2026-01-01T00:00:00Z',
   ...extra
 });
 
@@ -44,7 +45,7 @@ describe('SqliteDataStore.putData', () => {
     seedOwnerUser(db, 'owner');
     const store = new SqliteDataStore(db);
     store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run')] });
-    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run', '2026-06-28')] });
+    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run', '2026-06-28', { updated_at: '2026-06-28T12:00:00Z' })] });
     expect(store.getData('owner').streakActivities[0]?.archived_at).toBe('2026-06-28');
     db.close();
   });
@@ -55,7 +56,7 @@ describe('SqliteDataStore.putData', () => {
     const store = new SqliteDataStore(db);
     store.putData('owner', {
       ...emptyData(),
-      waterConfig: { target_ml: 2800, log_day: '2026-06-28' },
+      waterConfig: { target_ml: 2800, log_day: '2026-06-28', updated_at: '2026-06-28T12:00:00Z' },
       waterEntries: [{ id: 'w1', log_day: '2026-06-28', label: 'Bottle', ml: 500, count: 1, updated_at: '2026-06-28T10:00:00Z', deleted: 0 }],
       streakActivities: [streakRow('a1', 'Vitamins', null, { extra_calories: 50, extra_water_ml: 250 })]
     });
@@ -108,7 +109,21 @@ describe('SqliteDataStore.putData', () => {
     store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run', null)] });
     store.putDataPatch('owner', {
       streakActivities: {
-        upserts: [streakRow('a1', 'Run', '2026-07-07')]
+        upserts: [streakRow('a1', 'Run', '2026-07-07', { updated_at: '2026-07-07T12:00:00Z' })]
+      }
+    });
+    expect(store.getData('owner').streakActivities[0]?.archived_at).toBe('2026-07-07');
+    db.close();
+  });
+
+  it('keeps newer archived streak when an older row patch arrives late', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run', '2026-07-07', { updated_at: '2026-07-07T12:00:00Z' })] });
+    store.putDataPatch('owner', {
+      streakActivities: {
+        upserts: [streakRow('a1', 'Run', null, { updated_at: '2026-01-01T00:00:00Z' })]
       }
     });
     expect(store.getData('owner').streakActivities[0]?.archived_at).toBe('2026-07-07');

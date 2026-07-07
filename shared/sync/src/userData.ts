@@ -16,21 +16,21 @@ export interface WorkoutLogRow {
   exercises_json: string; total_reps: number; total_timed_seconds: number; completion_ratio: number | null;
 }
 export interface AppKvRow { key: string; value: string; updated_at: number; }
-export interface NutritionConfig { tdee: number; protein: number; log_day: string; }
+export interface NutritionConfig { tdee: number; protein: number; log_day: string; updated_at: string; }
 export interface NutritionStaple {
   id: string; name: string; calories: number; protein: number;
-  ingredients_json: string | null; sort_order: number;
+  ingredients_json: string | null; sort_order: number; updated_at: string;
 }
 export interface NutritionRegular {
   id: string; name: string; calories: number; protein: number;
-  ingredients_json: string | null; sort_order: number;
+  ingredients_json: string | null; sort_order: number; updated_at: string;
 }
 export interface NutritionEntry {
   id: string; log_day: string; kind: string; ref_id: string | null;
   label: string; calories: number; protein: number; count: number;
   updated_at: string; deleted: number;
 }
-export interface WaterConfig { target_ml: number; log_day: string; }
+export interface WaterConfig { target_ml: number; log_day: string; updated_at: string; }
 export interface WaterEntry {
   id: string; log_day: string; label: string; ml: number;
   count: number; updated_at: string; deleted: number;
@@ -40,11 +40,12 @@ export interface StreakActivity {
   weekly_target: number | null; scheduled_days_json: string | null;
   can_fail: number; archived_at: string | null; sort_order: number;
   extra_calories: number | null; extra_protein: number | null; extra_water_ml: number | null;
+  updated_at: string;
 }
 export interface StreakLogCell { log_date: string; activity_id: string; state: string; updated_at: string; }
 export interface StreakActivityMeta {
   activity_id: string; start_date: string | null; pause_since: string | null;
-  unpaused_at: string | null; reset_count: number;
+  unpaused_at: string | null; reset_count: number; updated_at: string;
 }
 
 export interface UserData {
@@ -107,19 +108,19 @@ export const USER_DATA_TABLES: UserDataTable[] = [
   'waterEntries'
 ];
 
-const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml FROM streak_activities ORDER BY sort_order';
+const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml,updated_at FROM streak_activities ORDER BY sort_order';
 const SELECT_BY_TABLE: Record<UserDataTable, string> = {
   focusLog: 'SELECT id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio FROM focus_log ORDER BY completed_at DESC',
   workoutLog: 'SELECT id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio FROM workout_log ORDER BY completed_at DESC',
   appKv: 'SELECT key,value,updated_at FROM app_kv',
-  nutritionConfig: 'SELECT tdee,protein,log_day FROM nutrition_config WHERE id=1',
-  nutritionStaples: 'SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_staples ORDER BY sort_order',
-  nutritionRegulars: 'SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_regulars ORDER BY sort_order',
+  nutritionConfig: 'SELECT tdee,protein,log_day,updated_at FROM nutrition_config WHERE id=1',
+  nutritionStaples: 'SELECT id,name,calories,protein,ingredients_json,sort_order,updated_at FROM nutrition_staples ORDER BY sort_order',
+  nutritionRegulars: 'SELECT id,name,calories,protein,ingredients_json,sort_order,updated_at FROM nutrition_regulars ORDER BY sort_order',
   nutritionEntries: 'SELECT id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted FROM nutrition_entries',
   streakActivities: streakSelect,
   streakLogCells: 'SELECT log_date,activity_id,state,updated_at FROM streak_log_cells',
-  streakActivityMeta: 'SELECT activity_id,start_date,pause_since,unpaused_at,reset_count FROM streak_activity_meta',
-  waterConfig: 'SELECT target_ml,log_day FROM water_config WHERE id=1',
+  streakActivityMeta: 'SELECT activity_id,start_date,pause_since,unpaused_at,reset_count,updated_at FROM streak_activity_meta',
+  waterConfig: 'SELECT target_ml,log_day,updated_at FROM water_config WHERE id=1',
   waterEntries: 'SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries'
 };
 
@@ -211,20 +212,20 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
   if (data.nutritionConfig) {
     const nc = data.nutritionConfig;
     await db.execute(
-      'INSERT OR REPLACE INTO nutrition_config (id,tdee,protein,log_day) VALUES (1,?,?,?)',
-      [nc.tdee, nc.protein, nc.log_day]
+      'INSERT OR REPLACE INTO nutrition_config (id,tdee,protein,log_day,updated_at) VALUES (1,?,?,?,?)',
+      [nc.tdee, nc.protein, nc.log_day, nc.updated_at]
     );
   }
   for (const r of data.nutritionStaples) {
     await db.execute(
-      'INSERT INTO nutrition_staples (id,name,calories,protein,ingredients_json,sort_order) VALUES (?,?,?,?,?,?)',
-      [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order]
+      'INSERT INTO nutrition_staples (id,name,calories,protein,ingredients_json,sort_order,updated_at) VALUES (?,?,?,?,?,?,?)',
+      [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order, r.updated_at]
     );
   }
   for (const r of data.nutritionRegulars) {
     await db.execute(
-      'INSERT INTO nutrition_regulars (id,name,calories,protein,ingredients_json,sort_order) VALUES (?,?,?,?,?,?)',
-      [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order]
+      'INSERT INTO nutrition_regulars (id,name,calories,protein,ingredients_json,sort_order,updated_at) VALUES (?,?,?,?,?,?,?)',
+      [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order, r.updated_at]
     );
   }
   for (const r of data.nutritionEntries) {
@@ -235,8 +236,8 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
   }
   for (const r of data.streakActivities) {
     await db.execute(
-      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-      [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.archived_at ?? null, r.sort_order, r.extra_calories ?? null, r.extra_protein ?? null, r.extra_water_ml ?? null]
+      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.archived_at ?? null, r.sort_order, r.extra_calories ?? null, r.extra_protein ?? null, r.extra_water_ml ?? null, r.updated_at]
     );
   }
   for (const r of data.streakLogCells) {
@@ -247,16 +248,16 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
   }
   for (const r of data.streakActivityMeta) {
     await db.execute(
-      'INSERT INTO streak_activity_meta (activity_id,start_date,pause_since,unpaused_at,reset_count) VALUES (?,?,?,?,?)',
-      [r.activity_id, r.start_date ?? null, r.pause_since ?? null, r.unpaused_at ?? null, r.reset_count]
+      'INSERT INTO streak_activity_meta (activity_id,start_date,pause_since,unpaused_at,reset_count,updated_at) VALUES (?,?,?,?,?,?)',
+      [r.activity_id, r.start_date ?? null, r.pause_since ?? null, r.unpaused_at ?? null, r.reset_count, r.updated_at]
     );
   }
   const waterEntries = data.waterEntries ?? [];
   if (data.waterConfig) {
     const wc = data.waterConfig;
     await db.execute(
-      'INSERT OR REPLACE INTO water_config (id,target_ml,log_day) VALUES (1,?,?)',
-      [wc.target_ml, wc.log_day]
+      'INSERT OR REPLACE INTO water_config (id,target_ml,log_day,updated_at) VALUES (1,?,?,?)',
+      [wc.target_ml, wc.log_day, wc.updated_at]
     );
   }
   for (const r of waterEntries) {

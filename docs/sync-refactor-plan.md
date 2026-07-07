@@ -50,9 +50,9 @@ Layout overview: `docs/KNOWLEDGE.md` § Repository folder layout.
 
 ### Step 2 — Schema: `updated_at` everywhere syncable
 
-- [ ] Migration desktop (`main.rs`) + `shared/storage` + server (`backend/src/db.ts`)
-- [ ] Backfill existing rows (e.g. `datetime('now')` or `archived_at` where sensible)
-- [ ] Tables missing it today: `streak_activities`, `streak_activity_meta`, `nutrition_staples`, `nutrition_regulars`, …
+- [x] Migration desktop (`main.rs`) + `shared/storage` + server (`backend/src/db.ts`)
+- [x] Backfill existing rows (e.g. `datetime('now')` or `archived_at` where sensible)
+- [x] Tables missing it today: `streak_activities`, `streak_activity_meta`, `nutrition_staples`, `nutrition_regulars`, …
 - **Done when:** registry columns exist on disk on all three DBs
 - **Tests:** migration tests in `shared/storage`
 

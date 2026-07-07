@@ -793,6 +793,12 @@ pub fn run() {
                         sql: "ALTER TABLE streak_activities ADD COLUMN extra_calories INTEGER; ALTER TABLE streak_activities ADD COLUMN extra_protein REAL; ALTER TABLE streak_activities ADD COLUMN extra_water_ml INTEGER;",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 10,
+                        description: "sync_row_updated_at_columns",
+                        sql: "ALTER TABLE streak_activities ADD COLUMN updated_at TEXT; UPDATE streak_activities SET updated_at = COALESCE(archived_at, datetime('now')) WHERE updated_at IS NULL; ALTER TABLE streak_activity_meta ADD COLUMN updated_at TEXT; UPDATE streak_activity_meta SET updated_at = COALESCE(unpaused_at, pause_since, start_date, datetime('now')) WHERE updated_at IS NULL; ALTER TABLE nutrition_staples ADD COLUMN updated_at TEXT; UPDATE nutrition_staples SET updated_at = datetime('now') WHERE updated_at IS NULL; ALTER TABLE nutrition_regulars ADD COLUMN updated_at TEXT; UPDATE nutrition_regulars SET updated_at = datetime('now') WHERE updated_at IS NULL; ALTER TABLE nutrition_config ADD COLUMN updated_at TEXT; UPDATE nutrition_config SET updated_at = COALESCE(NULLIF(log_day, '') || 'T12:00:00', datetime('now')) WHERE updated_at IS NULL; ALTER TABLE water_config ADD COLUMN updated_at TEXT; UPDATE water_config SET updated_at = COALESCE(NULLIF(log_day, '') || 'T12:00:00', datetime('now')) WHERE updated_at IS NULL;",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {

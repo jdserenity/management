@@ -26,6 +26,7 @@ const streakRow = (overrides: Partial<UserData['streakActivities'][0]> = {}) => 
   id: 'a1', name: 'Run', description: null, frequency: 'daily', weekly_target: null,
   scheduled_days_json: null, can_fail: 0, archived_at: null, sort_order: 0,
   extra_calories: null, extra_protein: null, extra_water_ml: null,
+  updated_at: '2026-01-01T00:00:00Z',
   ...overrides
 });
 
@@ -212,8 +213,8 @@ describe('extractUserData', () => {
   });
 
   it('returns nutritionConfig row when present', async () => {
-    const nc = { tdee: 2000, protein: 150, log_day: '2026-06-25' };
-    const q = 'SELECT tdee,protein,log_day FROM nutrition_config WHERE id=1';
+    const nc = { tdee: 2000, protein: 150, log_day: '2026-06-25', updated_at: '2026-06-25T12:00:00Z' };
+    const q = 'SELECT tdee,protein,log_day,updated_at FROM nutrition_config WHERE id=1';
     const db = makeMockDb({ [q]: [nc] });
     const result = await extractUserData(db);
     expect(result.nutritionConfig).toEqual(nc);

@@ -48,15 +48,8 @@ describe('syncRegistry', () => {
     }
   });
 
-  it('lists tables that still need updated_at (step 2)', () => {
-    expect(tablesMissingUpdatedAt()).toEqual(expect.arrayContaining([
-      'streak_activities',
-      'streak_activity_meta',
-      'nutrition_staples',
-      'nutrition_regulars',
-      'nutrition_config',
-      'water_config'
-    ]));
+  it('lists no shared tables missing updated_at after migration v10', () => {
+    expect(tablesMissingUpdatedAt()).toEqual([]);
   });
 
   it('does not overlap shared and desktop-only app_kv keys', () => {
