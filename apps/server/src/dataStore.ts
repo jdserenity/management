@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { assertSafeSnapshotPush, DataWipeRefusedError, totalUserDataRows } from '@mgmt/sync';
+import { assertSafeSnapshotPush, DataWipeRefusedError, totalUserDataRows, type UserDataRowPatch } from '@mgmt/sync';
 
 // ── Shape mirrors local.db columns exactly, just with user_id added ──────────
 
@@ -203,6 +203,201 @@ export class SqliteDataStore {
           INSERT INTO water_entries (id,user_id,log_day,label,ml,count,updated_at,deleted)
           VALUES (?,?,?,?,?,?,?,?)
         `).run(row.id, uid, row.log_day, row.label, row.ml, row.count, row.updated_at, row.deleted);
+      }
+    })();
+  }
+
+  putDataPatch(userId: string, rowPatch: UserDataRowPatch): void {
+    const uid = userId;
+    this.db.transaction(() => {
+      if (rowPatch.focusLog?.deletes) {
+        for (const key of rowPatch.focusLog.deletes) this.db.prepare('DELETE FROM focus_log WHERE user_id=? AND id=?').run(uid, key.id);
+      }
+      if (rowPatch.focusLog?.upserts) {
+        for (const row of rowPatch.focusLog.upserts) {
+          this.db.prepare(`
+            INSERT INTO focus_log (id,user_id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio)
+            VALUES (?,?,?,?,?,?,?)
+            ON CONFLICT(id,user_id) DO UPDATE SET
+              session_type=excluded.session_type,
+              completed_at=excluded.completed_at,
+              duration_minutes=excluded.duration_minutes,
+              planned_duration_minutes=excluded.planned_duration_minutes,
+              completion_ratio=excluded.completion_ratio
+          `).run(row.id, uid, row.session_type, row.completed_at, row.duration_minutes, row.planned_duration_minutes ?? null, row.completion_ratio ?? null);
+        }
+      }
+      if (rowPatch.workoutLog?.deletes) {
+        for (const key of rowPatch.workoutLog.deletes) this.db.prepare('DELETE FROM workout_log WHERE user_id=? AND id=?').run(uid, key.id);
+      }
+      if (rowPatch.workoutLog?.upserts) {
+        for (const row of rowPatch.workoutLog.upserts) {
+          this.db.prepare(`
+            INSERT INTO workout_log (id,user_id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio)
+            VALUES (?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(id,user_id) DO UPDATE SET
+              workout_id=excluded.workout_id,
+              workout_name=excluded.workout_name,
+              completed_at=excluded.completed_at,
+              exercises_json=excluded.exercises_json,
+              total_reps=excluded.total_reps,
+              total_timed_seconds=excluded.total_timed_seconds,
+              completion_ratio=excluded.completion_ratio
+          `).run(row.id, uid, row.workout_id, row.workout_name, row.completed_at, row.exercises_json, row.total_reps, row.total_timed_seconds, row.completion_ratio ?? null);
+        }
+      }
+      if (rowPatch.appKv?.deletes) {
+        for (const key of rowPatch.appKv.deletes) this.db.prepare('DELETE FROM app_kv WHERE user_id=? AND key=?').run(uid, key.key);
+      }
+      if (rowPatch.appKv?.upserts) {
+        for (const row of rowPatch.appKv.upserts) {
+          this.db.prepare(`
+            INSERT INTO app_kv (user_id,key,value,updated_at) VALUES (?,?,?,?)
+            ON CONFLICT(user_id,key) DO UPDATE SET
+              value=excluded.value,
+              updated_at=excluded.updated_at
+          `).run(uid, row.key, row.value, row.updated_at);
+        }
+      }
+      if (rowPatch.nutritionConfig?.set !== undefined) {
+        this.db.prepare('DELETE FROM nutrition_config WHERE user_id=?').run(uid);
+        if (rowPatch.nutritionConfig.set) {
+          const row = rowPatch.nutritionConfig.set;
+          this.db.prepare('INSERT INTO nutrition_config (user_id,tdee,protein,log_day) VALUES (?,?,?,?)').run(uid, row.tdee, row.protein, row.log_day);
+        }
+      }
+      if (rowPatch.nutritionStaples?.deletes) {
+        for (const key of rowPatch.nutritionStaples.deletes) this.db.prepare('DELETE FROM nutrition_staples WHERE user_id=? AND id=?').run(uid, key.id);
+      }
+      if (rowPatch.nutritionStaples?.upserts) {
+        for (const row of rowPatch.nutritionStaples.upserts) {
+          this.db.prepare(`
+            INSERT INTO nutrition_staples (id,user_id,name,calories,protein,ingredients_json,sort_order)
+            VALUES (?,?,?,?,?,?,?)
+            ON CONFLICT(id,user_id) DO UPDATE SET
+              name=excluded.name,
+              calories=excluded.calories,
+              protein=excluded.protein,
+              ingredients_json=excluded.ingredients_json,
+              sort_order=excluded.sort_order
+          `).run(row.id, uid, row.name, row.calories, row.protein, row.ingredients_json ?? null, row.sort_order);
+        }
+      }
+      if (rowPatch.nutritionRegulars?.deletes) {
+        for (const key of rowPatch.nutritionRegulars.deletes) this.db.prepare('DELETE FROM nutrition_regulars WHERE user_id=? AND id=?').run(uid, key.id);
+      }
+      if (rowPatch.nutritionRegulars?.upserts) {
+        for (const row of rowPatch.nutritionRegulars.upserts) {
+          this.db.prepare(`
+            INSERT INTO nutrition_regulars (id,user_id,name,calories,protein,ingredients_json,sort_order)
+            VALUES (?,?,?,?,?,?,?)
+            ON CONFLICT(id,user_id) DO UPDATE SET
+              name=excluded.name,
+              calories=excluded.calories,
+              protein=excluded.protein,
+              ingredients_json=excluded.ingredients_json,
+              sort_order=excluded.sort_order
+          `).run(row.id, uid, row.name, row.calories, row.protein, row.ingredients_json ?? null, row.sort_order);
+        }
+      }
+      if (rowPatch.nutritionEntries?.deletes) {
+        for (const key of rowPatch.nutritionEntries.deletes) this.db.prepare('DELETE FROM nutrition_entries WHERE user_id=? AND id=?').run(uid, key.id);
+      }
+      if (rowPatch.nutritionEntries?.upserts) {
+        for (const row of rowPatch.nutritionEntries.upserts) {
+          this.db.prepare(`
+            INSERT INTO nutrition_entries (id,user_id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(id,user_id,log_day) DO UPDATE SET
+              kind=excluded.kind,
+              ref_id=excluded.ref_id,
+              label=excluded.label,
+              calories=excluded.calories,
+              protein=excluded.protein,
+              count=excluded.count,
+              updated_at=excluded.updated_at,
+              deleted=excluded.deleted
+          `).run(row.id, uid, row.log_day, row.kind, row.ref_id ?? null, row.label, row.calories, row.protein, row.count, row.updated_at, row.deleted);
+        }
+      }
+      if (rowPatch.streakActivities?.deletes) {
+        for (const key of rowPatch.streakActivities.deletes) this.db.prepare('DELETE FROM streak_activities WHERE user_id=? AND id=?').run(uid, key.id);
+      }
+      if (rowPatch.streakActivities?.upserts) {
+        for (const row of rowPatch.streakActivities.upserts) {
+          this.db.prepare(`
+            INSERT INTO streak_activities (id,user_id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(id,user_id) DO UPDATE SET
+              name=excluded.name,
+              description=excluded.description,
+              frequency=excluded.frequency,
+              weekly_target=excluded.weekly_target,
+              scheduled_days_json=excluded.scheduled_days_json,
+              can_fail=excluded.can_fail,
+              archived_at=excluded.archived_at,
+              sort_order=excluded.sort_order,
+              extra_calories=excluded.extra_calories,
+              extra_protein=excluded.extra_protein,
+              extra_water_ml=excluded.extra_water_ml
+          `).run(row.id, uid, row.name, row.description ?? null, row.frequency, row.weekly_target ?? null, row.scheduled_days_json ?? null, row.can_fail, row.archived_at ?? null, row.sort_order, row.extra_calories ?? null, row.extra_protein ?? null, row.extra_water_ml ?? null);
+        }
+      }
+      if (rowPatch.streakLogCells?.deletes) {
+        for (const key of rowPatch.streakLogCells.deletes) {
+          this.db.prepare('DELETE FROM streak_log_cells WHERE user_id=? AND log_date=? AND activity_id=?').run(uid, key.log_date, key.activity_id);
+        }
+      }
+      if (rowPatch.streakLogCells?.upserts) {
+        for (const row of rowPatch.streakLogCells.upserts) {
+          this.db.prepare(`
+            INSERT INTO streak_log_cells (log_date,activity_id,user_id,state,updated_at)
+            VALUES (?,?,?,?,?)
+            ON CONFLICT(log_date,activity_id,user_id) DO UPDATE SET
+              state=excluded.state,
+              updated_at=excluded.updated_at
+          `).run(row.log_date, row.activity_id, uid, row.state, row.updated_at);
+        }
+      }
+      if (rowPatch.streakActivityMeta?.deletes) {
+        for (const key of rowPatch.streakActivityMeta.deletes) this.db.prepare('DELETE FROM streak_activity_meta WHERE user_id=? AND activity_id=?').run(uid, key.activity_id);
+      }
+      if (rowPatch.streakActivityMeta?.upserts) {
+        for (const row of rowPatch.streakActivityMeta.upserts) {
+          this.db.prepare(`
+            INSERT INTO streak_activity_meta (activity_id,user_id,start_date,pause_since,unpaused_at,reset_count)
+            VALUES (?,?,?,?,?,?)
+            ON CONFLICT(activity_id,user_id) DO UPDATE SET
+              start_date=excluded.start_date,
+              pause_since=excluded.pause_since,
+              unpaused_at=excluded.unpaused_at,
+              reset_count=excluded.reset_count
+          `).run(row.activity_id, uid, row.start_date ?? null, row.pause_since ?? null, row.unpaused_at ?? null, row.reset_count);
+        }
+      }
+      if (rowPatch.waterConfig?.set !== undefined) {
+        this.db.prepare('DELETE FROM water_config WHERE user_id=?').run(uid);
+        if (rowPatch.waterConfig.set) {
+          const row = rowPatch.waterConfig.set;
+          this.db.prepare('INSERT INTO water_config (user_id,target_ml,log_day) VALUES (?,?,?)').run(uid, row.target_ml, row.log_day);
+        }
+      }
+      if (rowPatch.waterEntries?.deletes) {
+        for (const key of rowPatch.waterEntries.deletes) this.db.prepare('DELETE FROM water_entries WHERE user_id=? AND id=?').run(uid, key.id);
+      }
+      if (rowPatch.waterEntries?.upserts) {
+        for (const row of rowPatch.waterEntries.upserts) {
+          this.db.prepare(`
+            INSERT INTO water_entries (id,user_id,log_day,label,ml,count,updated_at,deleted)
+            VALUES (?,?,?,?,?,?,?,?)
+            ON CONFLICT(id,user_id,log_day) DO UPDATE SET
+              label=excluded.label,
+              ml=excluded.ml,
+              count=excluded.count,
+              updated_at=excluded.updated_at,
+              deleted=excluded.deleted
+          `).run(row.id, uid, row.log_day, row.label, row.ml, row.count, row.updated_at, row.deleted);
+        }
       }
     })();
   }

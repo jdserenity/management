@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { bearerAuth } from 'hono/bearer-auth';
-import type { ActiveFlowDocument } from '@mgmt/sync';
+import type { ActiveFlowDocument, UserDataRowPatch } from '@mgmt/sync';
 import { DataWipeRefusedError } from '@mgmt/sync';
 import type { ActiveFlowStore } from './store';
 import type { SqliteDataStore, UserData } from './dataStore';
@@ -71,6 +71,14 @@ export const createSyncApp = (store: ActiveFlowStore, dataStore: SqliteDataStore
       }
       throw err;
     }
+    return c.json({ ok: true });
+  });
+
+  app.post('/v1/data/patch', async (c) => {
+    if (!dataStore) return c.json({ error: 'data store not available' }, 503);
+    const body = await c.req.json() as { rowPatch?: UserDataRowPatch };
+    if (!body.rowPatch || typeof body.rowPatch !== 'object') return c.json({ error: 'missing rowPatch payload' }, 400);
+    dataStore.putDataPatch(ownerId, body.rowPatch);
     return c.json({ ok: true });
   });
 

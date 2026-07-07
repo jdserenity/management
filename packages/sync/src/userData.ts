@@ -61,24 +61,100 @@ export interface UserData {
   waterEntries: WaterEntry[];
 }
 
+export type UserDataTable = keyof UserData;
+export type UserDataPatch = Partial<UserData>;
+export type NutritionConfigDeleteKey = { id: 1 };
+export type WaterConfigDeleteKey = { id: 1 };
+export type FocusLogDeleteKey = Pick<FocusLogRow, 'id'>;
+export type WorkoutLogDeleteKey = Pick<WorkoutLogRow, 'id'>;
+export type AppKvDeleteKey = Pick<AppKvRow, 'key'>;
+export type NutritionStapleDeleteKey = Pick<NutritionStaple, 'id'>;
+export type NutritionRegularDeleteKey = Pick<NutritionRegular, 'id'>;
+export type NutritionEntryDeleteKey = Pick<NutritionEntry, 'id'>;
+export type StreakActivityDeleteKey = Pick<StreakActivity, 'id'>;
+export type StreakLogCellDeleteKey = Pick<StreakLogCell, 'log_date' | 'activity_id'>;
+export type StreakActivityMetaDeleteKey = Pick<StreakActivityMeta, 'activity_id'>;
+export type WaterEntryDeleteKey = Pick<WaterEntry, 'id'>;
+
+export interface UserDataRowPatch {
+  focusLog?: { upserts?: FocusLogRow[]; deletes?: FocusLogDeleteKey[] };
+  workoutLog?: { upserts?: WorkoutLogRow[]; deletes?: WorkoutLogDeleteKey[] };
+  appKv?: { upserts?: AppKvRow[]; deletes?: AppKvDeleteKey[] };
+  nutritionConfig?: { set?: NutritionConfig | null; deletes?: NutritionConfigDeleteKey[] };
+  nutritionStaples?: { upserts?: NutritionStaple[]; deletes?: NutritionStapleDeleteKey[] };
+  nutritionRegulars?: { upserts?: NutritionRegular[]; deletes?: NutritionRegularDeleteKey[] };
+  nutritionEntries?: { upserts?: NutritionEntry[]; deletes?: NutritionEntryDeleteKey[] };
+  streakActivities?: { upserts?: StreakActivity[]; deletes?: StreakActivityDeleteKey[] };
+  streakLogCells?: { upserts?: StreakLogCell[]; deletes?: StreakLogCellDeleteKey[] };
+  streakActivityMeta?: { upserts?: StreakActivityMeta[]; deletes?: StreakActivityMetaDeleteKey[] };
+  waterConfig?: { set?: WaterConfig | null; deletes?: WaterConfigDeleteKey[] };
+  waterEntries?: { upserts?: WaterEntry[]; deletes?: WaterEntryDeleteKey[] };
+}
+
+export const USER_DATA_TABLES: UserDataTable[] = [
+  'focusLog',
+  'workoutLog',
+  'appKv',
+  'nutritionConfig',
+  'nutritionStaples',
+  'nutritionRegulars',
+  'nutritionEntries',
+  'streakActivities',
+  'streakLogCells',
+  'streakActivityMeta',
+  'waterConfig',
+  'waterEntries'
+];
+
 const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml FROM streak_activities ORDER BY sort_order';
+const SELECT_BY_TABLE: Record<UserDataTable, string> = {
+  focusLog: 'SELECT id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio FROM focus_log ORDER BY completed_at DESC',
+  workoutLog: 'SELECT id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio FROM workout_log ORDER BY completed_at DESC',
+  appKv: 'SELECT key,value,updated_at FROM app_kv',
+  nutritionConfig: 'SELECT tdee,protein,log_day FROM nutrition_config WHERE id=1',
+  nutritionStaples: 'SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_staples ORDER BY sort_order',
+  nutritionRegulars: 'SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_regulars ORDER BY sort_order',
+  nutritionEntries: 'SELECT id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted FROM nutrition_entries',
+  streakActivities: streakSelect,
+  streakLogCells: 'SELECT log_date,activity_id,state,updated_at FROM streak_log_cells',
+  streakActivityMeta: 'SELECT activity_id,start_date,pause_since,unpaused_at,reset_count FROM streak_activity_meta',
+  waterConfig: 'SELECT target_ml,log_day FROM water_config WHERE id=1',
+  waterEntries: 'SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries'
+};
 
 // ── Read all data from a local-schema db (no user_id columns) ─────────────────
 
 export const extractUserData = async (db: SqlDatabase): Promise<UserData> => ({
-  focusLog: await db.select('SELECT id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio FROM focus_log ORDER BY completed_at DESC'),
-  workoutLog: await db.select('SELECT id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio FROM workout_log ORDER BY completed_at DESC'),
-  appKv: await db.select('SELECT key,value,updated_at FROM app_kv'),
-  nutritionConfig: await db.select<NutritionConfig[]>('SELECT tdee,protein,log_day FROM nutrition_config WHERE id=1').then((r) => r[0] ?? null),
-  nutritionStaples: await db.select('SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_staples ORDER BY sort_order'),
-  nutritionRegulars: await db.select('SELECT id,name,calories,protein,ingredients_json,sort_order FROM nutrition_regulars ORDER BY sort_order'),
-  nutritionEntries: await db.select('SELECT id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted FROM nutrition_entries'),
-  streakActivities: await db.select(streakSelect),
-  streakLogCells: await db.select('SELECT log_date,activity_id,state,updated_at FROM streak_log_cells'),
-  streakActivityMeta: await db.select('SELECT activity_id,start_date,pause_since,unpaused_at,reset_count FROM streak_activity_meta'),
-  waterConfig: await db.select<WaterConfig[]>('SELECT target_ml,log_day FROM water_config WHERE id=1').then((r) => r[0] ?? null),
-  waterEntries: await db.select('SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries'),
+  focusLog: await db.select(SELECT_BY_TABLE.focusLog),
+  workoutLog: await db.select(SELECT_BY_TABLE.workoutLog),
+  appKv: await db.select(SELECT_BY_TABLE.appKv),
+  nutritionConfig: await db.select<NutritionConfig[]>(SELECT_BY_TABLE.nutritionConfig).then((r) => r[0] ?? null),
+  nutritionStaples: await db.select(SELECT_BY_TABLE.nutritionStaples),
+  nutritionRegulars: await db.select(SELECT_BY_TABLE.nutritionRegulars),
+  nutritionEntries: await db.select(SELECT_BY_TABLE.nutritionEntries),
+  streakActivities: await db.select(SELECT_BY_TABLE.streakActivities),
+  streakLogCells: await db.select(SELECT_BY_TABLE.streakLogCells),
+  streakActivityMeta: await db.select(SELECT_BY_TABLE.streakActivityMeta),
+  waterConfig: await db.select<WaterConfig[]>(SELECT_BY_TABLE.waterConfig).then((r) => r[0] ?? null),
+  waterEntries: await db.select(SELECT_BY_TABLE.waterEntries),
 });
+
+export const pickUserDataTables = (data: UserData, tables: UserDataTable[]): UserDataPatch => {
+  const patch: UserDataPatch = {};
+  for (const table of tables) patch[table] = data[table];
+  return patch;
+};
+
+export const extractUserDataForTables = async (db: SqlDatabase, tables: UserDataTable[]): Promise<UserDataPatch> => {
+  const patch: UserDataPatch = {};
+  for (const table of tables) {
+    const rows = await db.select(SELECT_BY_TABLE[table]);
+    patch[table] = (table === 'nutritionConfig' || table === 'waterConfig')
+      ? ((rows as NutritionConfig[] | WaterConfig[])[0] ?? null)
+      : rows as UserData[typeof table];
+  }
+  return patch;
+};
 
 // ── Write a UserData snapshot into a local-schema db (replace tables to match snapshot) ──
 
@@ -251,6 +327,165 @@ export const pushUserData = async (
   logSyncInfo('POST /v1/data ok', { url });
 };
 
+export const pushUserDataPatch = async (
+  baseUrl: string,
+  token: string,
+  rowPatch: UserDataRowPatch
+): Promise<void> => {
+  const root = normalizeApiUrl(baseUrl);
+  if (!root) throw new Error('pushUserDataPatch: missing server URL');
+  const url = `${root}/v1/data/patch`;
+  logSyncInfo('POST /v1/data/patch', { url, tables: Object.keys(rowPatch) });
+  let res: Response;
+  try {
+    res = await syncFetch(url, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ rowPatch })
+    });
+  } catch (err) {
+    logSyncError('POST /v1/data/patch network error', err, { url });
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`pushUserDataPatch to ${url}: ${detail}`);
+  }
+  if (!res.ok) {
+    await logSyncHttpFailure('POST', url, res);
+    throw new Error(`pushUserDataPatch to ${url}: HTTP ${res.status}`);
+  }
+  logSyncInfo('POST /v1/data/patch ok', { url, tables: Object.keys(rowPatch) });
+};
+
+const stableString = (value: unknown): string => JSON.stringify(value);
+
+const diffRows = <T>(
+  beforeRows: T[],
+  afterRows: T[],
+  keyOf: (row: T) => string,
+  deleteOf: (row: T) => unknown
+): { upserts: T[]; deletes: unknown[] } => {
+  const beforeMap = new Map<string, T>();
+  const afterMap = new Map<string, T>();
+  for (const row of beforeRows) beforeMap.set(keyOf(row), row);
+  for (const row of afterRows) afterMap.set(keyOf(row), row);
+  const upserts: T[] = [];
+  const deletes: unknown[] = [];
+  for (const [key, row] of afterMap) {
+    const before = beforeMap.get(key);
+    if (!before || stableString(before) !== stableString(row)) upserts.push(row);
+  }
+  for (const [key, row] of beforeMap) {
+    if (!afterMap.has(key)) deletes.push(deleteOf(row));
+  }
+  return { upserts, deletes };
+};
+
+export const buildUserDataRowPatch = (
+  before: UserDataPatch,
+  after: UserDataPatch,
+  tables: UserDataTable[]
+): UserDataRowPatch => {
+  const rowPatch: UserDataRowPatch = {};
+  for (const table of tables) {
+    if (table === 'nutritionConfig') {
+      if (stableString(before.nutritionConfig ?? null) !== stableString(after.nutritionConfig ?? null)) {
+        rowPatch.nutritionConfig = { set: after.nutritionConfig ?? null };
+      }
+      continue;
+    }
+    if (table === 'waterConfig') {
+      if (stableString(before.waterConfig ?? null) !== stableString(after.waterConfig ?? null)) {
+        rowPatch.waterConfig = { set: after.waterConfig ?? null };
+      }
+      continue;
+    }
+    if (table === 'focusLog') {
+      const { upserts, deletes } = diffRows(before.focusLog ?? [], after.focusLog ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.focusLog = { upserts, deletes: deletes as FocusLogDeleteKey[] };
+      continue;
+    }
+    if (table === 'workoutLog') {
+      const { upserts, deletes } = diffRows(before.workoutLog ?? [], after.workoutLog ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.workoutLog = { upserts, deletes: deletes as WorkoutLogDeleteKey[] };
+      continue;
+    }
+    if (table === 'appKv') {
+      const { upserts, deletes } = diffRows(before.appKv ?? [], after.appKv ?? [], (r) => r.key, (r) => ({ key: r.key }));
+      if (upserts.length || deletes.length) rowPatch.appKv = { upserts, deletes: deletes as AppKvDeleteKey[] };
+      continue;
+    }
+    if (table === 'nutritionStaples') {
+      const { upserts, deletes } = diffRows(before.nutritionStaples ?? [], after.nutritionStaples ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.nutritionStaples = { upserts, deletes: deletes as NutritionStapleDeleteKey[] };
+      continue;
+    }
+    if (table === 'nutritionRegulars') {
+      const { upserts, deletes } = diffRows(before.nutritionRegulars ?? [], after.nutritionRegulars ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.nutritionRegulars = { upserts, deletes: deletes as NutritionRegularDeleteKey[] };
+      continue;
+    }
+    if (table === 'nutritionEntries') {
+      const { upserts, deletes } = diffRows(before.nutritionEntries ?? [], after.nutritionEntries ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.nutritionEntries = { upserts, deletes: deletes as NutritionEntryDeleteKey[] };
+      continue;
+    }
+    if (table === 'streakActivities') {
+      const { upserts, deletes } = diffRows(before.streakActivities ?? [], after.streakActivities ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.streakActivities = { upserts, deletes: deletes as StreakActivityDeleteKey[] };
+      continue;
+    }
+    if (table === 'streakLogCells') {
+      const { upserts, deletes } = diffRows(
+        before.streakLogCells ?? [],
+        after.streakLogCells ?? [],
+        (r) => `${r.log_date}\0${r.activity_id}`,
+        (r) => ({ log_date: r.log_date, activity_id: r.activity_id })
+      );
+      if (upserts.length || deletes.length) rowPatch.streakLogCells = { upserts, deletes: deletes as StreakLogCellDeleteKey[] };
+      continue;
+    }
+    if (table === 'streakActivityMeta') {
+      const { upserts, deletes } = diffRows(before.streakActivityMeta ?? [], after.streakActivityMeta ?? [], (r) => r.activity_id, (r) => ({ activity_id: r.activity_id }));
+      if (upserts.length || deletes.length) rowPatch.streakActivityMeta = { upserts, deletes: deletes as StreakActivityMetaDeleteKey[] };
+      continue;
+    }
+    if (table === 'waterEntries') {
+      const { upserts, deletes } = diffRows(before.waterEntries ?? [], after.waterEntries ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.waterEntries = { upserts, deletes: deletes as WaterEntryDeleteKey[] };
+    }
+  }
+  return rowPatch;
+};
+
+export const hasUserDataRowPatchChanges = (rowPatch: UserDataRowPatch): boolean =>
+  Object.keys(rowPatch).length > 0;
+
+const QUERY_TO_USER_DATA_TABLE: Array<{ pattern: RegExp; table: UserDataTable }> = [
+  { pattern: /\bfocus_log\b/i, table: 'focusLog' },
+  { pattern: /\bworkout_log\b/i, table: 'workoutLog' },
+  { pattern: /\bapp_kv\b/i, table: 'appKv' },
+  { pattern: /\bnutrition_config\b/i, table: 'nutritionConfig' },
+  { pattern: /\bnutrition_staples\b/i, table: 'nutritionStaples' },
+  { pattern: /\bnutrition_regulars\b/i, table: 'nutritionRegulars' },
+  { pattern: /\bnutrition_entries\b/i, table: 'nutritionEntries' },
+  { pattern: /\bstreak_activities\b/i, table: 'streakActivities' },
+  { pattern: /\bstreak_log_cells\b/i, table: 'streakLogCells' },
+  { pattern: /\bstreak_activity_meta\b/i, table: 'streakActivityMeta' },
+  { pattern: /\bwater_config\b/i, table: 'waterConfig' },
+  { pattern: /\bwater_entries\b/i, table: 'waterEntries' }
+];
+
+const isMutationQuery = (query: string): boolean =>
+  /^\s*(insert|update|delete|replace)\b/i.test(query);
+
+const inferTouchedUserDataTables = (query: string): UserDataTable[] => {
+  if (!isMutationQuery(query)) return [];
+  const tables: UserDataTable[] = [];
+  for (const entry of QUERY_TO_USER_DATA_TABLE) {
+    if (entry.pattern.test(query)) tables.push(entry.table);
+  }
+  return tables;
+};
+
 // ── Sync-aware db wrapper ──────────────────────────────────────────────────────
 // Wraps any SqlDatabase so that writes trigger a debounced push to the server.
 // If serverUrl/token are not provided the wrapper is a pass-through.
@@ -266,16 +501,53 @@ export const wrapWithDataSync = (
   beforePush?: () => void | Promise<void>
 ): SqlDatabase => {
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let hadUnknownMutation = false;
+  const dirtyTables = new Set<UserDataTable>();
+  const beforeMutationSnapshot: UserDataPatch = {};
+
   const scheduleSync = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
       void Promise.resolve(getCreds()).then(async ({ serverUrl, token }) => {
         if (!serverUrl || !token) return;
+        const tables = [...dirtyTables];
+        if (!hadUnknownMutation && tables.length === 0) return;
+        const shouldFullPush = hadUnknownMutation;
         if (beforePush) await beforePush();
-        const data = await extractUserData(db);
-        if (isUserDataEmpty(data)) return;
-        await pushUserData(serverUrl, token, data);
+        if (shouldFullPush) {
+          const data = await extractUserData(db);
+          if (isUserDataEmpty(data)) return;
+          await pushUserData(serverUrl, token, data);
+          hadUnknownMutation = false;
+          dirtyTables.clear();
+          for (const table of USER_DATA_TABLES) delete beforeMutationSnapshot[table];
+          return;
+        }
+        const afterMutation = await extractUserDataForTables(db, tables);
+        const missingBefore = tables.filter((table) => !(table in beforeMutationSnapshot));
+        if (missingBefore.length > 0) {
+          const fullData = await extractUserData(db);
+          if (isUserDataEmpty(fullData)) return;
+          await pushUserData(serverUrl, token, fullData);
+          dirtyTables.clear();
+          for (const table of USER_DATA_TABLES) delete beforeMutationSnapshot[table];
+          return;
+        }
+        const beforeMutation = pickUserDataTables(beforeMutationSnapshot as UserData, tables);
+        const rowPatch = buildUserDataRowPatch(beforeMutation, afterMutation, tables);
+        if (!hasUserDataRowPatchChanges(rowPatch)) {
+          for (const table of tables) {
+            dirtyTables.delete(table);
+            delete beforeMutationSnapshot[table];
+          }
+          return;
+        }
+        await pushUserDataPatch(serverUrl, token, rowPatch);
+        for (const table of tables) {
+          dirtyTables.delete(table);
+          delete beforeMutationSnapshot[table];
+        }
       }).catch((err) => {
         logSyncError('debounced push failed', err);
         onPushError?.(err);
@@ -285,7 +557,18 @@ export const wrapWithDataSync = (
   return {
     select: (q, bind) => db.select(q, bind),
     execute: async (q, bind) => {
+      const touchedTables = inferTouchedUserDataTables(q);
+      const mutation = isMutationQuery(q);
+      if (mutation && touchedTables.length > 0 && !hadUnknownMutation) {
+        const missingTables = touchedTables.filter((table) => !(table in beforeMutationSnapshot));
+        if (missingTables.length > 0) {
+          const preMutation = await extractUserDataForTables(db, missingTables);
+          Object.assign(beforeMutationSnapshot, preMutation);
+        }
+      }
       const result = await db.execute(q, bind);
+      if (mutation && touchedTables.length === 0) hadUnknownMutation = true;
+      for (const table of touchedTables) dirtyTables.add(table);
       scheduleSync();
       return result;
     }

@@ -3,6 +3,8 @@ import type { PersistedFlowState } from '@mgmt/core';
 import { createActiveFlowDocument } from '@mgmt/sync';
 import { createSyncApp } from './app';
 import { MemoryActiveFlowStore } from './store';
+import { openServerDb, seedOwnerUser } from './db';
+import { SqliteDataStore } from './dataStore';
 
 const sampleFlow = (): PersistedFlowState => ({
   version: 1,
@@ -68,5 +70,39 @@ describe('server', () => {
     });
     expect(res.status).toBeLessThan(400);
     expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
+  });
+
+  it('applies row patch without wiping other tables', async () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const dataStore = new SqliteDataStore(db);
+    dataStore.putData('owner', {
+      focusLog: [], workoutLog: [],
+      appKv: [{ key: 'keep', value: 'v1', updated_at: 1 }],
+      nutritionConfig: null, nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
+      streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+      waterConfig: null,
+      waterEntries: [{ id: 'w1', log_day: '2026-06-28', label: 'Bottle', ml: 500, count: 1, updated_at: '2026-06-28T10:00:00Z', deleted: 0 }]
+    });
+    const app = createSyncApp(new MemoryActiveFlowStore(), dataStore, 'test-token');
+    const res = await app.request('/v1/data/patch', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer test-token',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        rowPatch: {
+          appKv: {
+            upserts: [{ key: 'keep', value: 'v2', updated_at: 2 }]
+          }
+        }
+      })
+    });
+    expect(res.status).toBe(200);
+    const data = dataStore.getData('owner');
+    expect(data.appKv[0]?.value).toBe('v2');
+    expect(data.waterEntries).toHaveLength(1);
+    db.close();
   });
 });
