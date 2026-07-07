@@ -60,7 +60,7 @@ Layout overview: `docs/KNOWLEDGE.md` § Repository folder layout.
 
 - [x] **`streakDb.ts` first** (archive case): stop `DELETE FROM streak_activities`; upsert one row + `updated_at`
 - [x] Same for `streak_log_cells`, `streak_activity_meta` saves
-- [ ] Then `tdeeDb.ts`, `waterDb.ts`, `stretchCreatorDb.ts`
+- [x] Then `tdeeDb.ts`, `waterDb.ts`, `stretchCreatorDb.ts`
 - **Done when:** archiving one habit touches one row in SQLite
 - **Tests:** `streakDb` integration-style tests; archive round-trip
 
@@ -81,15 +81,15 @@ Layout overview: `docs/KNOWLEDGE.md` § Repository folder layout.
 
 ### Step 6 — Slim HTTP API
 
-- [ ] Normal path: patches / future `GET /v1/changes?since=`
-- [ ] `POST /v1/data` full replace: **bootstrap only** (empty device / first install)
-- [ ] Server apply: consistent LWW on `updated_at` per registry
+- [x] Normal path: patches / future `GET /v1/changes?since=`
+- [x] `POST /v1/data` full replace: **bootstrap only** (empty device / first install)
+- [x] Server apply: consistent LWW on `updated_at` per registry
 - **Done when:** no production code path calls full replace after boot
 - **Tests:** `backend/src/dataStore.test.ts`, `app.test.ts`
 
 ### Step 7 — Behavior test matrix
 
-- [ ] One test per user action (archive, rename habit, pause, staple edit, stretch edit, water, food, check-off, offline→online, conflict newer-wins)
+- [x] One test per user action (archive, rename habit, pause, staple edit, stretch edit, water, food, check-off, offline→online, conflict newer-wins)
 - **Command:** `npm test -- shared/sync backend/src desktop/ui/lib/streakDb.test.ts` (expand as files land)
 
 ## Already shipped (do not re-do)

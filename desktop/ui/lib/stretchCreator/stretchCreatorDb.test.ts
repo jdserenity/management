@@ -81,6 +81,15 @@ describe('stretchCreatorDb', () => {
     expect(persisted.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID)?.exerciseRefs).toHaveLength(6);
   });
 
+  it('upsertStretchDefinition writes stretch_definitions app_kv without wiping other keys', async () => {
+    await loadStretchDefinitions(defaultWorkoutCustomizePrefs());
+    kvStore.set('other_key', 'keep');
+    const patched = { ...defaultBuiltinMorningStretch(), name: 'Morning flow' };
+    await upsertStretchDefinition(patched, defaultWorkoutCustomizePrefs());
+    expect(kvStore.get('other_key')).toBe('keep');
+    expect(kvStore.has(KV_STRETCH_DEFINITIONS)).toBe(true);
+  });
+
   it('upsertStretchDefinition keeps legacy morning_stretch keys in sync for companion sync', async () => {
     await loadStretchDefinitions(defaultWorkoutCustomizePrefs());
     const patched = {
