@@ -20,7 +20,6 @@
     "tauri": "node scripts/tauri.mjs",
     "db:backup": "node scripts/backup-db.mjs",
     "db:server-overview": "node scripts/db-server-overview.mjs",
-    "import:vault": "tsx scripts/import-vault-once.ts",
     "sync:to-server": "tsx scripts/sync-to-server.ts",
     "test:push": "node scripts/test-push.mjs",
     "app:deploy": "node scripts/install-app.mjs"

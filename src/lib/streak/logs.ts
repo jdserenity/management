@@ -55,9 +55,6 @@ export const normalizeLogs = (
   return out;
 };
 
-export const serializeLogsForVault = (logs: StreakData['logs']): Record<string, Record<string, StreakLogCell>> =>
-  normalizeLogs(logs);
-
 export const logsEqualState = (
   a: Record<string, Record<string, StreakLogCell | null>> | undefined,
   b: Record<string, Record<string, StreakLogCell | null>> | undefined,

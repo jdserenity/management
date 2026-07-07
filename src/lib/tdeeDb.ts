@@ -139,18 +139,6 @@ export const saveTdeeFile = async (file: TdeeFile): Promise<void> => {
   await saveEntries(currentDay, normalized.entries);
 };
 
-export const importTdeeVaultJson = async (raw: unknown): Promise<TdeeFile> => {
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
-  const file = normalizeFile(raw);
-  if (file.day !== currentDay) {
-    file.day = currentDay;
-    file.entries = [];
-  }
-  await saveTdeeFile(file);
-  return loadTdeeFile();
-};
-
 export const addTdeeEntry = async (file: TdeeFile, entry: TdeeLogEntry): Promise<TdeeFile> => {
   const next = { ...file, entries: [...file.entries, entry] };
   await saveTdeeFile(next);

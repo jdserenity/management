@@ -2,10 +2,8 @@ import { getDb } from '@/lib/db';
 import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { buildActivityConfigMap } from '@/lib/streak/activityCatalog';
 import { clearActivityLogs, incrementResetCount } from '@/lib/streak/activityReset';
-import { backfillArchivedAt } from '@/lib/streak/archiveBackfill';
 import { dayEndTimeFromRolloverHour, getCurrentDay } from '@/lib/streak/dates';
 import { makeDeletionCell, makeLogCell, normalizeLogs } from '@/lib/streak/logs';
-import { normalizeConfig, normalizeDataPayload } from '@/lib/streak/normalize';
 import { recalculateAllStats } from '@/lib/streak/stats';
 import type { StreakActivity, StreakConfig, StreakData, StreakLogState, StreakState } from '@/lib/streak/types';
 
@@ -184,34 +182,6 @@ export const saveStreakState = async (state: StreakState): Promise<StreakState> 
   await saveLogs(state.data.logs);
   await saveMeta(state.data);
   return loadStreakState();
-};
-
-export const importStreakVaultConfig = async (raw: unknown): Promise<StreakState> => {
-  const config = normalizeConfig(raw);
-  const state = await loadStreakState();
-  state.config = config;
-  backfillArchivedAt(config, state.data);
-  return saveStreakState(state);
-};
-
-export const importStreakVaultData = async (raw: unknown): Promise<StreakState> => {
-  const payload = normalizeDataPayload(raw);
-  const state = await loadStreakState();
-  state.data = { ...payload, stats: {} };
-  backfillArchivedAt(state.config, state.data);
-  return saveStreakState(state);
-};
-
-export const importStreakVault = async (configRaw: unknown, dataRaw: unknown): Promise<StreakState> => {
-  const config = normalizeConfig(configRaw);
-  const payload = normalizeDataPayload(dataRaw);
-  const rolloverHour = await loadDayRolloverHourPref();
-  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
-  const currentDay = getCurrentDay(dayEndTime);
-  const data: StreakData = { ...payload, stats: {} };
-  backfillArchivedAt(config, data);
-  const state = buildState(config, data, currentDay, dayEndTime);
-  return saveStreakState(state);
 };
 
 export const isStreakEmpty = (state: StreakState): boolean =>
