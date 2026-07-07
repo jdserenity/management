@@ -86,4 +86,32 @@ describe('SqliteDataStore.putData', () => {
     expect(data.waterEntries).toHaveLength(1);
     db.close();
   });
+
+  it('keeps newer app_kv value when an older row patch arrives late', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', { ...emptyData(), appKv: [{ key: 'sync-key', value: 'new', updated_at: 200 }] });
+    store.putDataPatch('owner', {
+      appKv: {
+        upserts: [{ key: 'sync-key', value: 'old', updated_at: 100 }]
+      }
+    });
+    expect(store.getData('owner').appKv[0]?.value).toBe('new');
+    db.close();
+  });
+
+  it('syncs archived streak activity via row patch', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run', null)] });
+    store.putDataPatch('owner', {
+      streakActivities: {
+        upserts: [streakRow('a1', 'Run', '2026-07-07')]
+      }
+    });
+    expect(store.getData('owner').streakActivities[0]?.archived_at).toBe('2026-07-07');
+    db.close();
+  });
 });

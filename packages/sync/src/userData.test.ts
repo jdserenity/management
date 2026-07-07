@@ -412,6 +412,23 @@ describe('wrapWithDataSync', () => {
     vi.unstubAllGlobals();
   });
 
+  it('recovers from offline failure on next write', async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+    const db = makeStatefulAppKvDb();
+    const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v2', 2]);
+    await vi.advanceTimersByTimeAsync(600);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v3', 3]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[0]?.[0]).toBe('http://localhost:8787/v1/data/patch');
+    expect(mockFetch.mock.calls[1]?.[0]).toBe('http://localhost:8787/v1/data/patch');
+    vi.unstubAllGlobals();
+  });
+
   it('waits for beforePush before pushing', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
