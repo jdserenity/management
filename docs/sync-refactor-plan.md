@@ -66,8 +66,8 @@ Layout overview: `docs/KNOWLEDGE.md` § Repository folder layout.
 
 ### Step 4 — One merge rule
 
-- [ ] Rewrite `mergeUserData.ts` to use registry only (`mergeByKey` + row `updated_at`)
-- [ ] **Delete** `mergeStreakActivities`, `mergeStreakActivityMeta`, `mergeConfigRows` proxy logic
+- [x] Rewrite `mergeUserData.ts` to use registry only (`mergeByKey` + row `updated_at`)
+- [x] **Delete** `mergeStreakActivities`, `mergeStreakActivityMeta`, `mergeConfigRows` proxy logic
 - **Done when:** merge tests prove archive on server wins over local stale copy
 - **Tests:** `mergeUserData.test.ts` — archive, staple edit, simultaneous edit
 

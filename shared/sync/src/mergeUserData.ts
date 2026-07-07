@@ -1,6 +1,16 @@
+import { SYNC_TABLE_REGISTRY, type SyncTableDef } from './syncRegistry';
 import type { UserData } from './userData';
 
 const parseTs = (v: string | number): number => (typeof v === 'number' ? v : Date.parse(v) || 0);
+
+const rowKey = (row: Record<string, unknown>, keys: string[]): string =>
+  keys.map((k) => String(row[k] ?? '')).join('\0');
+
+const tsFromRow = (row: Record<string, unknown>, column: string): number => {
+  const v = row[column];
+  if (v == null) return 0;
+  return parseTs(v as string | number);
+};
 
 const mergeByKey = <T>(
   local: T[],
@@ -17,96 +27,51 @@ const mergeByKey = <T>(
   return [...map.values()];
 };
 
-const maxActivityLogTs = (data: UserData, activityId: string): number => {
-  let max = 0;
-  for (const c of data.streakLogCells) {
-    if (c.activity_id === activityId) max = Math.max(max, parseTs(c.updated_at));
-  }
-  return max;
-};
-
-const mergeStreakActivities = (local: UserData, server: UserData): UserData['streakActivities'] => {
-  const map = new Map<string, UserData['streakActivities'][number]>();
-  for (const row of [...local.streakActivities, ...server.streakActivities]) {
-    const existing = map.get(row.id);
-    if (!existing) { map.set(row.id, row); continue; }
-    const localTs = maxActivityLogTs(local, row.id);
-    const serverTs = maxActivityLogTs(server, row.id);
-    map.set(row.id, serverTs > localTs ? row : existing);
-  }
-  return [...map.values()].sort((a, b) => a.sort_order - b.sort_order);
-};
-
-const mergeStreakActivityMeta = (local: UserData, server: UserData): UserData['streakActivityMeta'] => {
-  const map = new Map<string, UserData['streakActivityMeta'][number]>();
-  for (const row of [...local.streakActivityMeta, ...server.streakActivityMeta]) {
-    const existing = map.get(row.activity_id);
-    if (!existing) { map.set(row.activity_id, row); continue; }
-    const localTs = maxActivityLogTs(local, row.activity_id);
-    const serverTs = maxActivityLogTs(server, row.activity_id);
-    map.set(row.activity_id, serverTs > localTs ? row : existing);
-  }
-  return [...map.values()];
-};
-const mergeConfigRows = <T extends { id: string }>(
+const mergeRowList = <T>(
   local: T[],
   server: T[],
-  localTs: number,
-  serverTs: number
+  def: SyncTableDef
 ): T[] => {
-  const map = new Map<string, T>();
-  for (const row of [...local, ...server]) {
-    const existing = map.get(row.id);
-    if (!existing) { map.set(row.id, row); continue; }
-    map.set(row.id, serverTs > localTs ? row : existing);
+  const tsColumn = def.updatedAtColumn;
+  if (!tsColumn) throw new Error(`mergeRowList: ${def.sqlTable} has no updatedAtColumn`);
+  const asRecord = (row: T): Record<string, unknown> => row as Record<string, unknown>;
+  const merged = mergeByKey(
+    local,
+    server,
+    (row) => rowKey(asRecord(row), def.rowKey),
+    (row) => tsFromRow(asRecord(row), tsColumn)
+  );
+  if (def.sqlTable === 'streak_activities') {
+    return merged.sort((a, b) => Number(asRecord(a).sort_order ?? 0) - Number(asRecord(b).sort_order ?? 0));
   }
-  return [...map.values()];
+  return merged;
 };
 
-const maxEntryTs = (entries: { updated_at: string }[]): number =>
-  entries.reduce((max, e) => Math.max(max, parseTs(e.updated_at)), 0);
-
-/** Merge two snapshots — per-row last-write-wins where timestamps exist. */
-export const mergeUserData = (local: UserData, server: UserData): UserData => {
-  const localNutTs = maxEntryTs(local.nutritionEntries);
-  const serverNutTs = maxEntryTs(server.nutritionEntries);
-  const localWaterTs = maxEntryTs(local.waterEntries ?? []);
-  const serverWaterTs = maxEntryTs(server.waterEntries ?? []);
-
-  const nutritionConfig = (() => {
-    if (!local.nutritionConfig) return server.nutritionConfig;
-    if (!server.nutritionConfig) return local.nutritionConfig;
-    return serverNutTs >= localNutTs ? server.nutritionConfig : local.nutritionConfig;
-  })();
-
-  const waterConfig = (() => {
-    if (!local.waterConfig) return server.waterConfig;
-    if (!server.waterConfig) return local.waterConfig;
-    return serverWaterTs >= localWaterTs ? server.waterConfig : local.waterConfig;
-  })();
-
-  return {
-    focusLog: mergeByKey(local.focusLog, server.focusLog, (r) => r.id, (r) => r.completed_at),
-    workoutLog: mergeByKey(local.workoutLog, server.workoutLog, (r) => r.id, (r) => r.completed_at),
-    appKv: mergeByKey(local.appKv, server.appKv, (r) => r.key, (r) => r.updated_at),
-    nutritionConfig,
-    nutritionStaples: mergeConfigRows(local.nutritionStaples, server.nutritionStaples, localNutTs, serverNutTs),
-    nutritionRegulars: mergeConfigRows(local.nutritionRegulars, server.nutritionRegulars, localNutTs, serverNutTs),
-    nutritionEntries: mergeByKey(local.nutritionEntries, server.nutritionEntries, (r) => r.id, (r) => parseTs(r.updated_at)),
-    streakActivities: mergeStreakActivities(local, server),
-    streakLogCells: mergeByKey(
-      local.streakLogCells,
-      server.streakLogCells,
-      (r) => `${r.log_date}\0${r.activity_id}`,
-      (r) => parseTs(r.updated_at)
-    ),
-    streakActivityMeta: mergeStreakActivityMeta(local, server),
-    waterConfig,
-    waterEntries: mergeByKey(
-      local.waterEntries ?? [],
-      server.waterEntries ?? [],
-      (r) => r.id,
-      (r) => parseTs(r.updated_at)
-    )
-  };
+const mergeSingleton = <T>(
+  local: T | null,
+  server: T | null,
+  def: SyncTableDef
+): T | null => {
+  const tsColumn = def.updatedAtColumn;
+  if (!tsColumn) throw new Error(`mergeSingleton: ${def.sqlTable} has no updatedAtColumn`);
+  if (!local) return server;
+  if (!server) return local;
+  const asRecord = (row: T): Record<string, unknown> => row as Record<string, unknown>;
+  return tsFromRow(asRecord(server), tsColumn) >= tsFromRow(asRecord(local), tsColumn) ? server : local;
 };
+
+/** Merge two snapshots — registry-driven last-write-wins per row. */
+export const mergeUserData = (local: UserData, server: UserData): UserData => ({
+  focusLog: mergeRowList(local.focusLog, server.focusLog, SYNC_TABLE_REGISTRY.focus_log),
+  workoutLog: mergeRowList(local.workoutLog, server.workoutLog, SYNC_TABLE_REGISTRY.workout_log),
+  appKv: mergeRowList(local.appKv, server.appKv, SYNC_TABLE_REGISTRY.app_kv),
+  nutritionConfig: mergeSingleton(local.nutritionConfig, server.nutritionConfig, SYNC_TABLE_REGISTRY.nutrition_config),
+  nutritionStaples: mergeRowList(local.nutritionStaples, server.nutritionStaples, SYNC_TABLE_REGISTRY.nutrition_staples),
+  nutritionRegulars: mergeRowList(local.nutritionRegulars, server.nutritionRegulars, SYNC_TABLE_REGISTRY.nutrition_regulars),
+  nutritionEntries: mergeRowList(local.nutritionEntries, server.nutritionEntries, SYNC_TABLE_REGISTRY.nutrition_entries),
+  streakActivities: mergeRowList(local.streakActivities, server.streakActivities, SYNC_TABLE_REGISTRY.streak_activities),
+  streakLogCells: mergeRowList(local.streakLogCells, server.streakLogCells, SYNC_TABLE_REGISTRY.streak_log_cells),
+  streakActivityMeta: mergeRowList(local.streakActivityMeta, server.streakActivityMeta, SYNC_TABLE_REGISTRY.streak_activity_meta),
+  waterConfig: mergeSingleton(local.waterConfig, server.waterConfig, SYNC_TABLE_REGISTRY.water_config),
+  waterEntries: mergeRowList(local.waterEntries ?? [], server.waterEntries ?? [], SYNC_TABLE_REGISTRY.water_entries)
+});
