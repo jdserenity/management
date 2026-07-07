@@ -6,19 +6,16 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use log::{error, info, warn, LevelFilter};
 use serde_json::Value;
-use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{
-  path::{BaseDirectory, PathResolver},
   tray::TrayIcon,
   AppHandle,
   Emitter,
   Manager,
-  Runtime,
   State,
 };
 use tauri_plugin_notification::NotificationExt;
@@ -40,58 +37,7 @@ mod camera_watch;
 mod flow_lid_pause;
 mod posture_bridge;
 mod sync_http;
-use posture_bridge::{posture_recommendations, PostureDebouncer, PostureIngestPayload};
-
-pub struct Translations {
-    data: HashMap<String, HashMap<String, String>>,
-}
-
-impl Translations {
-    pub fn new<R: Runtime>(path_resolver: &PathResolver<R>) -> Self {
-        let mut data = HashMap::new();
-        let locales = vec!["en"];
-
-        for lang in locales {
-            if let Ok(resource_path) =
-                path_resolver.resolve(format!("../locales/{}.json", lang), BaseDirectory::Resource)
-            {
-                if let Ok(file_content) = fs::read_to_string(&resource_path) {
-                    if let Ok(map) = serde_json::from_str::<HashMap<String, String>>(&file_content)
-                    {
-                        data.insert(lang.to_string(), map);
-
-                        info!("Loaded translation file for '{}'.", lang);
-                    } else {
-                        error!("Failed to parse translation file for '{}': {:?}", lang, resource_path);
-                    }
-                } else {
-                    error!("Failed to read translation file for '{}': {:?}", lang, resource_path);
-                }
-            } else {
-                error!("Translation resource path not found for '{}'.", lang);
-            }
-        }
-        Self { data }
-    }
-
-    pub fn get(&self, lang: &str, key: &str) -> String {
-        self.data
-            .get(lang)
-            .and_then(|translations| translations.get(key))
-            .cloned()
-            .unwrap_or_else(|| {
-                self.data
-                    .get("en")
-                    .and_then(|translations| translations.get(key))
-                    .cloned()
-                    .unwrap_or_else(|| key.to_string())
-            })
-    }
-}
-
-fn normalize_language_code(_lang: &str) -> String {
-    "en".to_string()
-}
+use posture_bridge::{posture_alert_message, posture_recommendations, PostureDebouncer, PostureIngestPayload};
 
 // --- App State ---
 #[derive(serde::Serialize, Clone)]
@@ -113,8 +59,6 @@ pub(crate) struct AppState {
     alert_messages: Arc<Mutex<Vec<String>>>,
     selected_camera_index: Arc<Mutex<u32>>,
     monitoring_interval_secs: Arc<Mutex<u64>>,
-    translations: Arc<Translations>,
-    current_language: Arc<Mutex<String>>,
     battery_saving_mode: Arc<Mutex<bool>>,
     menu_bar_only: Arc<Mutex<bool>>,
     hide_to_menu_bar_on_close: Arc<Mutex<bool>>,
@@ -230,21 +174,7 @@ async fn submit_posture_analysis(
     if final_turtle || final_shoulder {
         let mut last_alert = lock_or_recover(&state.last_alert_time);
         if last_alert.elapsed() >= Duration::from_secs(10) {
-            let lang = lock_or_recover(&state.current_language).clone();
-            let translations = &state.translations;
-
-            let message_key = if final_turtle && final_shoulder {
-                "alert_both"
-            } else if final_turtle {
-                "alert_turtle"
-            } else {
-                "alert_shoulder"
-            };
-
-            info!("Resolving translation: lang='{}', key='{}'", lang, message_key);
-            let message = translations.get(&lang, message_key);
-            info!("Resolved translation: '{}'", message);
-
+            let message = posture_alert_message(final_turtle, final_shoulder).to_string();
             lock_or_recover(&state.alert_messages).push(message);
             *last_alert = Instant::now();
             lock_or_recover(&state.posture_debouncer).clear();
@@ -457,14 +387,6 @@ async fn set_battery_saving_mode(state: State<'_, AppState>, mode: bool) -> Resu
     if *lock_or_recover(&state.monitoring_active) {
         info!("Battery-saving mode {}; interval applies on next capture cycle.", mode);
     }
-    Ok(())
-}
-
-#[tauri::command]
-async fn set_current_language(state: State<'_, AppState>, lang: String) -> Result<(), String> {
-    let normalized = normalize_language_code(&lang);
-    info!("Current language changed: {} -> {}", lang, normalized);
-    *lock_or_recover(&state.current_language) = normalized;
     Ok(())
 }
 
@@ -819,8 +741,6 @@ pub fn run() {
                 info!("registered for autostart? {}", autostart_manager.is_enabled().unwrap_or(false));
             }
 
-            let translations = Arc::new(Translations::new(&app.path()));
-
             let app_state = AppState {
                 posture_debouncer: Arc::new(Mutex::new(PostureDebouncer::new())),
                 monitoring_active: Arc::new(Mutex::new(false)),
@@ -833,8 +753,6 @@ pub fn run() {
                 alert_messages: Arc::new(Mutex::new(Vec::new())),
                 selected_camera_index: Arc::new(Mutex::new(0)),
                 monitoring_interval_secs: Arc::new(Mutex::new(3)),
-                translations: translations,
-                current_language: Arc::new(Mutex::new("en".to_string())),
                 battery_saving_mode: Arc::new(Mutex::new(false)),
                 menu_bar_only: Arc::new(Mutex::new(false)),
                 hide_to_menu_bar_on_close: Arc::new(Mutex::new(false)),
@@ -896,7 +814,6 @@ pub fn run() {
             get_available_cameras,
             set_selected_camera,
             set_monitoring_interval,
-            set_current_language,
             set_battery_saving_mode,
             set_app_presence_mode,
             get_app_presence_mode,

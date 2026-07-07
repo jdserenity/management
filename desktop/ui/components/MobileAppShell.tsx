@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import FlowHeaderControl from '@/components/FlowHeaderControl';
 import { cn } from '@/lib/utils';
 import { companionNavItems, desktopNavItems, NAV_GO_TO_WORK, type NavItemDef } from '@/lib/navConfig';
-import { useTranslation } from 'react-i18next';
 
 type ShellVariant = 'desktop' | 'companion';
 
@@ -16,7 +15,6 @@ const navForVariant = (variant: ShellVariant): NavItemDef[] =>
   variant === 'companion' ? companionNavItems() : desktopNavItems();
 
 export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderEnd }: MobileAppShellProps) {
-  const { t } = useTranslation();
   const navItems = navForVariant(variant);
   const [activeComponentId, setActiveComponentId] = useState(navItems[0]?.id ?? 'daily');
   const ActiveComponent = navItems.find((item) => item.id === activeComponentId)?.component ?? navItems[0]!.component;
@@ -53,7 +51,7 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
                 onClick={() => navigate(item.id)}
               >
                 <item.icon className="h-4 w-4" />
-                {t(`nav.${item.id}`, item.label)}
+                {item.label}
               </Button>
             ))}
           </nav>
