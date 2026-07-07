@@ -4,7 +4,7 @@ Tauri wraps the React UI in a native **Management.app**. Stats live outside the 
 
 ## Data
 
-- Bundle id: `com.diamari.management` (do not change in `src-tauri/tauri.conf.json`).
+- Bundle id: `com.diamari.management` (do not change in `desktop/src-tauri/tauri.conf.json`).
 - SQLite: `~/Library/Application Support/com.diamari.management/local.db`
 - Backups (via `npm run db:backup`): `.../com.diamari.management/backups/local-<timestamp>.db`
 
@@ -15,7 +15,7 @@ npm install
 npm run tauri build
 ```
 
-Release bundle: `src-tauri/target/release/bundle/macos/Management.app` (open from Finder or `open` that path).
+Release bundle: `desktop/src-tauri/target/release/bundle/macos/Management.app` (open from Finder or `open` that path).
 
 `npm run app:deploy` copies that bundle to `/Applications/Management.app` (replaces an existing install). After code changes, build again and run deploy again (do not delete Application Support).
 
@@ -34,11 +34,11 @@ If macOS blocks an unsigned build: System Settings → Privacy & Security, or `x
 
 ## Sync server (VPS, systemd)
 
-The companion and desktop apps sync through `apps/server` (Hono HTTP API, SQLite). On a VPS, run it as a **systemd** service so it stays up after you close SSH and restarts after a reboot or crash.
+The companion and desktop apps sync through `backend/server` (Hono HTTP API, SQLite). On a VPS, run it as a **systemd** service so it stays up after you close SSH and restarts after a reboot or crash.
 
 **systemd** is Linux’s service manager — it starts background programs (“daemons”) and keeps them running. The name is not short for “daemon”; it’s just the project name for the init system most Linux VPS images use.
 
-Templates: `apps/server/mgmt-server.service.example`, `apps/server/server.env.example`.
+Templates: `backend/server/mgmt-server.service.example`, `backend/server/server.env.example`.
 
 ### One-time VPS setup
 
@@ -49,7 +49,7 @@ Create secrets (edit `SERVER_TOKEN`; `DB_PATH` must be a path **your Linux user 
 ```bash
 mkdir -p ~/prod-apps/management/data
 sudo mkdir -p /etc/mgmt
-sudo cp ~/prod-apps/management/apps/server/server.env.example /etc/mgmt/server.env
+sudo cp ~/prod-apps/management/backend/server/server.env.example /etc/mgmt/server.env
 sudo chmod 600 /etc/mgmt/server.env
 sudo nano /etc/mgmt/server.env
 ```
@@ -59,7 +59,7 @@ If you already have a `server.db` from running the server manually, point `DB_PA
 Install the unit (`User`, `Group`, and `WorkingDirectory` must match your VPS — see `mgmt-server.service.example`):
 
 ```bash
-sudo cp ~/prod-apps/management/apps/server/mgmt-server.service.example /etc/systemd/system/mgmt-server.service
+sudo cp ~/prod-apps/management/backend/server/mgmt-server.service.example /etc/systemd/system/mgmt-server.service
 sudo nano /etc/systemd/system/mgmt-server.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now mgmt-server
@@ -112,7 +112,7 @@ Typical Pages settings (monorepo root as project root):
 | Setting | Value |
 | --- | --- |
 | Build command | `npm ci && npm run build:companion` |
-| Build output directory | `apps/companion/dist` |
+| Build output directory | `mobile/dist` |
 | Production env vars | `VITE_SERVER_URL`, `VITE_SERVER_TOKEN` |
 
 After changing dashboard env vars, trigger a new deployment (push a commit or **Retry deployment**) so the new values are baked into the JS bundle.
