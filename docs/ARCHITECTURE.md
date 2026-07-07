@@ -36,7 +36,7 @@
 - Phone is the intended **leader** during exercise breaks; companion auto-claims leadership and desktop enters viewer mode (`isSyncViewer` in `sessionSync.ts`).
 - Shared session logic lives in `@mgmt/core`; desktop `desktop/ui/lib/flowState.ts` and `desktop/ui/lib/sessionProgress.ts` re-export from there.
 - `@mgmt/sync` defines `ActiveFlowDocument`, `HttpSyncClient`, and `createSyncClient`; `MemorySyncClient` remains for offline dev without the server running.
-- Companion UI reuses all desktop tabs via Vite aliases (`@` → `desktop/ui/`) through `MobileAppShell variant="companion"`, which loads `companionNavItems()` — Daily, Work, Stats, Customize, Settings (no Posture/camera). `CompanionSettingsPage` replaces `SettingsPage` to exclude Tauri-only controls.
+- Companion UI reuses all desktop tabs via Vite aliases (`@` → `desktop/ui/`) through `MobileAppShell variant="companion"`, which loads `companionNavItems()` — Daily, Work, Stats, Customize, Settings (no Posture/camera). `CompanionSettingsPage` replaces `SettingsPage` with sync, stats day, companion session alerts (sound + countdown only), and habits heatmap — no posture or desktop-only controls.
 - Companion storage: sql.js SQLite backed by IndexedDB (`mgmt-companion-sql`). `CompanionBoot` shows a loading screen (`SyncBootScreen`: “Opening local storage…” then “Getting data from server…”) while `initCompanionStorage` and `runCompanionInitialSync` run. Initial sync uses shared `runBidirectionalInitialSync` in `@mgmt/sync` (pull, timestamp merge via `mergeUserData`, push when needed). While the app stays open, both desktop and companion poll `GET /v1/data` every 5s via `startUserDataPolling` in `@mgmt/sync` (started from `startDesktopForegroundPull` / `startCompanionForegroundPull` after boot). Foreground returns also trigger an extra debounced pull. Debounced pushes wait for initial sync bootstrap and never send an empty snapshot. Known-table SQL writes send row-level patches (`POST /v1/data/patch`) with only changed/deleted rows so unrelated rows are not overwritten; unknown mutation SQL falls back to full snapshot push for safety. Server patch apply uses timestamp guards on `app_kv`, `nutrition_entries`, `water_entries`, and `streak_log_cells` (incoming row must have `updated_at` >= existing row) so older delayed patches do not overwrite newer device changes. `focus_log` and `workout_log` are append-only on patch conflicts (`ON CONFLICT DO NOTHING`).
 
 ## Backend server (backend/)
@@ -91,7 +91,7 @@ flowchart TB
     PPg["PosturePage.tsx live score charts history export"]
     CW["CustomizePage.tsx exercises stretches streaks tdee subtabs"]
     ST["StatsPage.tsx aggregates from SessionContext via sessionDb"]
-    SE["SettingsPage.tsx camera monitoring battery habits heatmap restart"]
+    SE["SettingsPage.tsx tabs general alerts posture about sync theme stats habits app presence session alerts camera detection updates"]
   end
   nav --> Daily
   nav --> D
