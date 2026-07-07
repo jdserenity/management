@@ -20,10 +20,20 @@ type ActivityRow = {
   extra_calories: number | null;
   extra_protein: number | null;
   extra_water_ml: number | null;
+  updated_at: string;
 };
 
 type LogRow = { log_date: string; activity_id: string; state: string; updated_at: string };
-type MetaRow = { activity_id: string; start_date: string | null; pause_since: string | null; unpaused_at: string | null; reset_count: number };
+type MetaRow = {
+  activity_id: string;
+  start_date: string | null;
+  pause_since: string | null;
+  unpaused_at: string | null;
+  reset_count: number;
+  updated_at: string;
+};
+
+const syncNow = (): string => new Date().toISOString();
 
 const activityFromRow = (row: ActivityRow): StreakActivity => {
   const a: StreakActivity = {
@@ -47,6 +57,85 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
   return a;
 };
 
+const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, updatedAt: string) => {
+  const scheduledJson = a.scheduledDays?.length ? JSON.stringify(a.scheduledDays) : null;
+  return [
+    a.id,
+    a.name || a.id,
+    a.description || null,
+    a.frequency === 'weekly' ? 'weekly' : 'daily',
+    a.weeklyTarget ?? null,
+    scheduledJson,
+    a.canFail ? 1 : 0,
+    archived ? (a.archivedAt ?? null) : null,
+    sortOrder,
+    a.extraCalories ?? null,
+    a.extraProtein ?? null,
+    a.extraWaterMl ?? null,
+    updatedAt
+  ];
+};
+
+const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+ON CONFLICT(id) DO UPDATE SET
+  name=excluded.name,
+  description=excluded.description,
+  frequency=excluded.frequency,
+  weekly_target=excluded.weekly_target,
+  scheduled_days_json=excluded.scheduled_days_json,
+  can_fail=excluded.can_fail,
+  archived_at=excluded.archived_at,
+  sort_order=excluded.sort_order,
+  extra_calories=excluded.extra_calories,
+  extra_protein=excluded.extra_protein,
+  extra_water_ml=excluded.extra_water_ml,
+  updated_at=excluded.updated_at`;
+
+const upsertActivityRow = async (a: StreakActivity, archived: boolean, sortOrder: number, updatedAt = syncNow()): Promise<void> => {
+  const db = await getDb();
+  await db.execute(UPSERT_ACTIVITY_SQL, activityBinds(a, archived, sortOrder, updatedAt));
+};
+
+const upsertLogCell = async (logDate: string, activityId: string, state: string, updatedAt: string): Promise<void> => {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO streak_log_cells (log_date, activity_id, state, updated_at) VALUES ($1, $2, $3, $4)
+     ON CONFLICT(log_date, activity_id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at`,
+    [logDate, activityId, state, updatedAt]
+  );
+};
+
+const deleteLogCell = async (logDate: string, activityId: string): Promise<void> => {
+  const db = await getDb();
+  await db.execute('DELETE FROM streak_log_cells WHERE log_date=$1 AND activity_id=$2', [logDate, activityId]);
+};
+
+const upsertMetaRow = async (
+  activityId: string,
+  data: Pick<StreakData, 'activityStartDates' | 'pausedActivities' | 'unpausedActivities' | 'activityResetCounts'>,
+  updatedAt = syncNow()
+): Promise<void> => {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO streak_activity_meta (activity_id, start_date, pause_since, unpaused_at, reset_count, updated_at) VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT(activity_id) DO UPDATE SET
+       start_date=excluded.start_date,
+       pause_since=excluded.pause_since,
+       unpaused_at=excluded.unpaused_at,
+       reset_count=excluded.reset_count,
+       updated_at=excluded.updated_at`,
+    [
+      activityId,
+      data.activityStartDates[activityId] ?? null,
+      data.pausedActivities[activityId] ?? null,
+      data.unpausedActivities[activityId] ?? null,
+      data.activityResetCounts[activityId] ?? 0,
+      updatedAt
+    ]
+  );
+};
+
 const emptyData = (): StreakData => ({
   logs: {},
   activityStartDates: {},
@@ -65,7 +154,7 @@ const buildState = (config: StreakConfig, data: StreakData, currentDay: string, 
 const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakData, 'stats'> }> => {
   const db = await getDb();
   const activityRows = await db.select<ActivityRow[]>(
-    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml FROM streak_activities ORDER BY sort_order, name'
+    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml, updated_at FROM streak_activities ORDER BY sort_order, name'
   );
   const activities: StreakActivity[] = [];
   const archivedActivities: StreakActivity[] = [];
@@ -86,7 +175,7 @@ const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakD
       logs[row.log_date][row.activity_id] = { state: row.state as StreakLogState, updatedAt: row.updated_at };
     }
   }
-  const metaRows = await db.select<MetaRow[]>('SELECT activity_id, start_date, pause_since, unpaused_at, reset_count FROM streak_activity_meta');
+  const metaRows = await db.select<MetaRow[]>('SELECT activity_id, start_date, pause_since, unpaused_at, reset_count, updated_at FROM streak_activity_meta');
   const activityStartDates: Record<string, string> = {};
   const pausedActivities: Record<string, string> = {};
   const unpausedActivities: Record<string, string> = {};
@@ -112,68 +201,65 @@ export const loadStreakState = async (): Promise<StreakState> => {
   return buildState(config, data, currentDay, dayEndTime);
 };
 
-const saveActivities = async (config: StreakConfig): Promise<void> => {
+const deleteActivitiesNotIn = async (ids: string[]): Promise<void> => {
   const db = await getDb();
-  await db.execute('DELETE FROM streak_activities');
+  if (!ids.length) {
+    await db.execute('DELETE FROM streak_activities');
+    return;
+  }
+  const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+  await db.execute(`DELETE FROM streak_activities WHERE id NOT IN (${placeholders})`, ids);
+};
+
+const saveActivities = async (config: StreakConfig): Promise<void> => {
+  const updatedAt = syncNow();
   let order = 0;
-  const write = async (a: StreakActivity, archived: boolean) => {
-    const scheduledJson = a.scheduledDays?.length ? JSON.stringify(a.scheduledDays) : null;
-    await db.execute(
-      'INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
-      [
-        a.id,
-        a.name || a.id,
-        a.description || null,
-        a.frequency === 'weekly' ? 'weekly' : 'daily',
-        a.weeklyTarget ?? null,
-        scheduledJson,
-        a.canFail ? 1 : 0,
-        archived ? (a.archivedAt ?? null) : null,
-        order++,
-        a.extraCalories ?? null,
-        a.extraProtein ?? null,
-        a.extraWaterMl ?? null
-      ]
-    );
-  };
-  for (const a of config.activities) await write(a, false);
-  for (const a of config.archivedActivities) await write(a, true);
+  const ids: string[] = [];
+  for (const a of config.activities) {
+    ids.push(a.id);
+    await upsertActivityRow(a, false, order++, updatedAt);
+  }
+  for (const a of config.archivedActivities) {
+    ids.push(a.id);
+    await upsertActivityRow(a, true, order++, updatedAt);
+  }
+  await deleteActivitiesNotIn(ids);
 };
 
 const saveLogs = async (logs: StreakData['logs']): Promise<void> => {
   const db = await getDb();
-  await db.execute('DELETE FROM streak_log_cells');
   const normalized = normalizeLogs(logs);
+  const keepKeys: string[] = [];
   for (const date of Object.keys(normalized)) {
     for (const [activityId, cell] of Object.entries(normalized[date])) {
+      keepKeys.push(`${date}\0${activityId}`);
       await db.execute(
-        'INSERT INTO streak_log_cells (log_date, activity_id, state, updated_at) VALUES ($1, $2, $3, $4)',
+        `INSERT INTO streak_log_cells (log_date, activity_id, state, updated_at) VALUES ($1, $2, $3, $4)
+         ON CONFLICT(log_date, activity_id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at`,
         [date, activityId, cell.state, cell.updatedAt]
       );
     }
+  }
+  const rows = await db.select<LogRow[]>('SELECT log_date, activity_id, state, updated_at FROM streak_log_cells');
+  for (const row of rows) {
+    const key = `${row.log_date}\0${row.activity_id}`;
+    if (!keepKeys.includes(key)) await deleteLogCell(row.log_date, row.activity_id);
   }
 };
 
 const saveMeta = async (data: Omit<StreakData, 'logs' | 'stats'>): Promise<void> => {
   const db = await getDb();
-  await db.execute('DELETE FROM streak_activity_meta');
   const ids = new Set<string>([
     ...Object.keys(data.activityStartDates),
     ...Object.keys(data.pausedActivities),
     ...Object.keys(data.unpausedActivities),
     ...Object.keys(data.activityResetCounts)
   ]);
-  for (const activityId of ids) {
-    await db.execute(
-      'INSERT INTO streak_activity_meta (activity_id, start_date, pause_since, unpaused_at, reset_count) VALUES ($1, $2, $3, $4, $5)',
-      [
-        activityId,
-        data.activityStartDates[activityId] ?? null,
-        data.pausedActivities[activityId] ?? null,
-        data.unpausedActivities[activityId] ?? null,
-        data.activityResetCounts[activityId] ?? 0
-      ]
-    );
+  const updatedAt = syncNow();
+  for (const activityId of ids) await upsertMetaRow(activityId, data, updatedAt);
+  const rows = await db.select<MetaRow[]>('SELECT activity_id, start_date, pause_since, unpaused_at, reset_count, updated_at FROM streak_activity_meta');
+  for (const row of rows) {
+    if (!ids.has(row.activity_id)) await db.execute('DELETE FROM streak_activity_meta WHERE activity_id=$1', [row.activity_id]);
   }
 };
 
@@ -201,13 +287,21 @@ export const saveStreakLog = async (
   const dayLog = { ...logs[day] };
   if (newState == null || newState === 'none') {
     dayLog[activityId] = makeDeletionCell();
+    await deleteLogCell(day, activityId);
   } else {
-    dayLog[activityId] = makeLogCell(newState)!;
+    const cell = makeLogCell(newState)!;
+    dayLog[activityId] = cell;
+    await upsertLogCell(day, activityId, cell.state, cell.updatedAt);
   }
   logs[day] = dayLog;
   state.data.logs = logs;
-  if (!state.data.activityStartDates[activityId]) state.data.activityStartDates[activityId] = day;
-  return saveStreakState(state);
+  if (!state.data.activityStartDates[activityId]) {
+    state.data.activityStartDates = { ...state.data.activityStartDates, [activityId]: day };
+    await upsertMetaRow(activityId, state.data);
+  }
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
 export const setActivityPaused = async (state: StreakState, activityId: string, paused: boolean): Promise<StreakState> => {
@@ -223,7 +317,10 @@ export const setActivityPaused = async (state: StreakState, activityId: string, 
     state.data.pausedActivities = pausedMap;
     state.data.unpausedActivities = { ...state.data.unpausedActivities, [activityId]: day };
   }
-  return saveStreakState(state);
+  await upsertMetaRow(activityId, state.data);
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
 export const resetStreakActivity = async (state: StreakState, activityId: string): Promise<StreakState> => {
@@ -231,28 +328,41 @@ export const resetStreakActivity = async (state: StreakState, activityId: string
   state.data.logs = clearActivityLogs(state.data.logs, activityId);
   state.data.activityStartDates = { ...state.data.activityStartDates, [activityId]: day };
   state.data.activityResetCounts = incrementResetCount(state.data.activityResetCounts, activityId);
-  return saveStreakState(state);
+  const db = await getDb();
+  await db.execute('DELETE FROM streak_log_cells WHERE activity_id=$1', [activityId]);
+  await upsertMetaRow(activityId, state.data);
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
 export const archiveStreakActivity = async (state: StreakState, activityId: string): Promise<StreakState> => {
   const day = state.currentDay;
   const act = state.config.activities.find((a) => a.id === activityId);
   if (!act) return state;
+  const archived = { ...act, archivedAt: day };
+  const sortOrder = state.config.archivedActivities.length;
+  await upsertActivityRow(archived, true, sortOrder, syncNow());
   state.config.activities = state.config.activities.filter((a) => a.id !== activityId);
-  state.config.archivedActivities = [...state.config.archivedActivities, { ...act, archivedAt: day }];
+  state.config.archivedActivities = [...state.config.archivedActivities, archived];
   const paused = { ...state.data.pausedActivities };
   delete paused[activityId];
   state.data.pausedActivities = paused;
   const unpaused = { ...state.data.unpausedActivities };
   delete unpaused[activityId];
   state.data.unpausedActivities = unpaused;
-  return saveStreakState(state);
+  await upsertMetaRow(activityId, state.data);
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
 export const upsertStreakActivity = async (state: StreakState, activity: StreakActivity, isNew: boolean): Promise<StreakState> => {
   if (isNew) {
     state.config.activities = [...state.config.activities, activity];
     state.data.activityStartDates = { ...state.data.activityStartDates, [activity.id]: state.currentDay };
+    await upsertActivityRow(activity, false, state.config.activities.length - 1);
+    await upsertMetaRow(activity.id, state.data);
   } else {
     state.config.activities = state.config.activities.map((a) => {
       if (a.id !== activity.id) return a;
@@ -262,8 +372,13 @@ export const upsertStreakActivity = async (state: StreakState, activity: StreakA
       if (!activity.extraWaterMl) delete next.extraWaterMl;
       return next;
     });
+    const idx = state.config.activities.findIndex((a) => a.id === activity.id);
+    const merged = state.config.activities[idx];
+    if (merged) await upsertActivityRow(merged, false, idx);
   }
-  return saveStreakState(state);
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
 export const updateStreakActivityDescription = async (
@@ -278,7 +393,12 @@ export const updateStreakActivityDescription = async (
     else delete next.description;
     return next;
   });
-  return saveStreakState(state);
+  const idx = state.config.activities.findIndex((a) => a.id === activityId);
+  const merged = state.config.activities[idx];
+  if (merged) await upsertActivityRow(merged, false, idx);
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
 export { emptyData };

@@ -4,12 +4,12 @@ import { getCurrentLogDay } from '@/lib/tdee/dates';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/defaults';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
 import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
-import { removeMeal, upsertMeal } from '@/lib/tdee/meals';
+import { upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import type { TdeeFile, TdeeLogEntry, TdeeMealDef, TdeeStoredEntry } from '@/lib/tdee/types';
 
-type ConfigRow = { tdee: number; protein: number; log_day: string };
-type MealRow = { id: string; name: string; calories: number; protein: number; ingredients_json: string | null; sort_order: number };
+type ConfigRow = { tdee: number; protein: number; log_day: string; updated_at: string };
+type MealRow = { id: string; name: string; calories: number; protein: number; ingredients_json: string | null; sort_order: number; updated_at: string };
 type EntryRow = {
   id: string;
   kind: string;
@@ -21,6 +21,8 @@ type EntryRow = {
   updated_at: string;
   deleted: number;
 };
+
+const syncNow = (): string => new Date().toISOString();
 
 const mealFromRow = (row: MealRow): TdeeMealDef => {
   const meal: TdeeMealDef = {
@@ -52,11 +54,83 @@ const entryFromRow = (row: EntryRow): TdeeStoredEntry => {
   };
 };
 
+const upsertConfig = async (tdee: number, protein: number, logDay: string, updatedAt = syncNow()): Promise<void> => {
+  const db = await getDb();
+  await db.execute(
+    `INSERT INTO nutrition_config (id, tdee, protein, log_day, updated_at) VALUES (1, $1, $2, $3, $4)
+     ON CONFLICT(id) DO UPDATE SET tdee=excluded.tdee, protein=excluded.protein, log_day=excluded.log_day, updated_at=excluded.updated_at`,
+    [tdee, protein, logDay, updatedAt]
+  );
+};
+
+const upsertMealRow = async (
+  table: 'nutrition_staples' | 'nutrition_regulars',
+  meal: TdeeMealDef,
+  sortOrder: number,
+  updatedAt = syncNow()
+): Promise<void> => {
+  const db = await getDb();
+  const ingredientsJson = meal.ingredients?.length ? JSON.stringify(meal.ingredients) : null;
+  await db.execute(
+    `INSERT INTO ${table} (id, name, calories, protein, ingredients_json, sort_order, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT(id) DO UPDATE SET
+       name=excluded.name,
+       calories=excluded.calories,
+       protein=excluded.protein,
+       ingredients_json=excluded.ingredients_json,
+       sort_order=excluded.sort_order,
+       updated_at=excluded.updated_at`,
+    [meal.id, meal.name, meal.calories, meal.protein, ingredientsJson, sortOrder, updatedAt]
+  );
+};
+
+const deleteMealRow = async (table: 'nutrition_staples' | 'nutrition_regulars', id: string): Promise<void> => {
+  const db = await getDb();
+  await db.execute(`DELETE FROM ${table} WHERE id=$1`, [id]);
+};
+
+const deleteMealsNotIn = async (table: 'nutrition_staples' | 'nutrition_regulars', ids: string[]): Promise<void> => {
+  const db = await getDb();
+  if (!ids.length) {
+    await db.execute(`DELETE FROM ${table}`);
+    return;
+  }
+  const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
+  await db.execute(`DELETE FROM ${table} WHERE id NOT IN (${placeholders})`, ids);
+};
+
+const upsertNutritionEntry = async (day: string, entry: TdeeStoredEntry, updatedAt?: string): Promise<void> => {
+  const db = await getDb();
+  if ('deleted' in entry && entry.deleted) {
+    await db.execute(
+      `INSERT INTO nutrition_entries (id, log_day, kind, ref_id, label, calories, protein, count, updated_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)
+       ON CONFLICT(id, log_day) DO UPDATE SET updated_at=excluded.updated_at, deleted=1`,
+      [entry.id, day, 'custom', null, '', 0, 0, 1, updatedAt ?? entry.updatedAt]
+    );
+    return;
+  }
+  const e = entry as TdeeLogEntry;
+  const ts = updatedAt ?? e.updatedAt;
+  await db.execute(
+    `INSERT INTO nutrition_entries (id, log_day, kind, ref_id, label, calories, protein, count, updated_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0)
+     ON CONFLICT(id, log_day) DO UPDATE SET
+       kind=excluded.kind,
+       ref_id=excluded.ref_id,
+       label=excluded.label,
+       calories=excluded.calories,
+       protein=excluded.protein,
+       count=excluded.count,
+       updated_at=excluded.updated_at,
+       deleted=0`,
+    [e.id, day, e.kind, e.refId, e.label, e.calories, e.protein, e.count, ts]
+  );
+};
+
 const ensureConfigRow = async (): Promise<void> => {
   const db = await getDb();
-  const rows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day FROM nutrition_config WHERE id = 1');
+  const rows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
   if (rows.length) return;
-  await db.execute('INSERT OR IGNORE INTO nutrition_config (id, tdee, protein, log_day) VALUES (1, 0, 0, \'\')');
+  await upsertConfig(0, 0, '');
 };
 
 export const loadTdeeFile = async (): Promise<TdeeFile> => {
@@ -64,10 +138,10 @@ export const loadTdeeFile = async (): Promise<TdeeFile> => {
   const db = await getDb();
   const rolloverHour = await loadDayRolloverHourPref();
   const currentDay = getCurrentLogDay(new Date(), rolloverHour);
-  const configRows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day FROM nutrition_config WHERE id = 1');
-  const config = configRows[0] ?? { tdee: 0, protein: 0, log_day: '' };
-  const stapleRows = await db.select<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order FROM nutrition_staples ORDER BY sort_order, name');
-  const regularRows = await db.select<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order FROM nutrition_regulars ORDER BY sort_order, name');
+  const configRows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
+  const config = configRows[0] ?? { tdee: 0, protein: 0, log_day: '', updated_at: syncNow() };
+  const stapleRows = await db.select<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order, updated_at FROM nutrition_staples ORDER BY sort_order, name');
+  const regularRows = await db.select<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order, updated_at FROM nutrition_regulars ORDER BY sort_order, name');
   let entryRows: EntryRow[] = [];
   if (config.log_day === currentDay) {
     entryRows = await db.select<EntryRow[]>(
@@ -75,8 +149,7 @@ export const loadTdeeFile = async (): Promise<TdeeFile> => {
       [currentDay]
     );
   } else if (config.log_day !== currentDay) {
-    await db.execute('DELETE FROM nutrition_entries');
-    await db.execute('UPDATE nutrition_config SET log_day = $1 WHERE id = 1', [currentDay]);
+    await upsertConfig(config.tdee, config.protein, currentDay);
   }
   const file: TdeeFile = {
     tdee: config.tdee,
@@ -91,66 +164,56 @@ export const loadTdeeFile = async (): Promise<TdeeFile> => {
 };
 
 const saveMeals = async (table: 'nutrition_staples' | 'nutrition_regulars', meals: TdeeMealDef[]): Promise<void> => {
-  const db = await getDb();
-  await db.execute(`DELETE FROM ${table}`);
+  const updatedAt = syncNow();
+  const ids: string[] = [];
   for (let i = 0; i < meals.length; i++) {
-    const m = meals[i];
-    const ingredientsJson = m.ingredients?.length ? JSON.stringify(m.ingredients) : null;
-    await db.execute(
-      `INSERT INTO ${table} (id, name, calories, protein, ingredients_json, sort_order) VALUES ($1, $2, $3, $4, $5, $6)`,
-      [m.id, m.name, m.calories, m.protein, ingredientsJson, i]
-    );
+    ids.push(meals[i].id);
+    await upsertMealRow(table, meals[i], i, updatedAt);
   }
+  await deleteMealsNotIn(table, ids);
 };
 
-const saveEntries = async (day: string, entries: TdeeStoredEntry[]): Promise<void> => {
-  const db = await getDb();
-  await db.execute('DELETE FROM nutrition_entries');
+const saveEntriesForDay = async (day: string, entries: TdeeStoredEntry[]): Promise<void> => {
+  const ids: string[] = [];
   for (const entry of entries) {
-    if ('deleted' in entry && entry.deleted) {
-      await db.execute(
-        'INSERT INTO nutrition_entries (id, log_day, kind, ref_id, label, calories, protein, count, updated_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)',
-        [entry.id, day, 'custom', null, '', 0, 0, 1, entry.updatedAt]
-      );
-      continue;
-    }
-    const e = entry as TdeeLogEntry;
-    await db.execute(
-      'INSERT INTO nutrition_entries (id, log_day, kind, ref_id, label, calories, protein, count, updated_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0)',
-      [e.id, day, e.kind, e.refId, e.label, e.calories, e.protein, e.count, e.updatedAt]
-    );
+    ids.push(entry.id);
+    await upsertNutritionEntry(day, entry);
   }
+  const db = await getDb();
+  if (!ids.length) {
+    await db.execute('DELETE FROM nutrition_entries WHERE log_day=$1', [day]);
+    return;
+  }
+  const placeholders = ids.map((_, i) => `$${i + 2}`).join(',');
+  await db.execute(`DELETE FROM nutrition_entries WHERE log_day=$1 AND id NOT IN (${placeholders})`, [day, ...ids]);
 };
 
 export const saveTdeeFile = async (file: TdeeFile): Promise<void> => {
   await ensureConfigRow();
-  const db = await getDb();
   const rolloverHour = await loadDayRolloverHourPref();
   const currentDay = getCurrentLogDay(new Date(), rolloverHour);
   const normalized = normalizeFile(file);
   ensureCurrentDay(normalized, currentDay);
-  await db.execute('UPDATE nutrition_config SET tdee = $1, protein = $2, log_day = $3 WHERE id = 1', [
-    normalized.tdee,
-    normalized.protein,
-    currentDay
-  ]);
+  await upsertConfig(normalized.tdee, normalized.protein, currentDay);
   await saveMeals('nutrition_staples', normalized.staples);
   await saveMeals('nutrition_regulars', normalized.regulars);
-  await saveEntries(currentDay, normalized.entries);
+  await saveEntriesForDay(currentDay, normalized.entries);
 };
 
 export const addTdeeEntry = async (file: TdeeFile, entry: TdeeLogEntry): Promise<TdeeFile> => {
-  const next = { ...file, entries: [...file.entries, entry] };
-  await saveTdeeFile(next);
+  void file;
+  const rolloverHour = await loadDayRolloverHourPref();
+  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  await upsertNutritionEntry(currentDay, entry);
   return loadTdeeFile();
 };
 
 export const removeTdeeEntry = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
   const idx = file.entries.findIndex((e) => e.id === id);
   if (idx < 0) return file;
-  const entries = [...file.entries];
-  entries[idx] = makeTombstone(id);
-  await saveTdeeFile({ ...file, entries });
+  const rolloverHour = await loadDayRolloverHourPref();
+  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  await upsertNutritionEntry(currentDay, makeTombstone(id));
   return loadTdeeFile();
 };
 
@@ -185,30 +248,35 @@ export const addRegularEntry = async (
 
 export const upsertTdeeRegular = async (file: TdeeFile, meal: TdeeMealDef, isNew: boolean): Promise<TdeeFile> => {
   const regulars = upsertMeal(file.regulars, meal, isNew);
-  await saveTdeeFile({ ...file, regulars });
+  const idx = regulars.findIndex((m) => m.id === meal.id);
+  if (idx >= 0) await upsertMealRow('nutrition_regulars', regulars[idx], idx);
   return loadTdeeFile();
 };
 
 export const removeTdeeRegular = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
-  const regulars = removeMeal(file.regulars, id);
-  await saveTdeeFile({ ...file, regulars });
+  if (!file.regulars.some((m) => m.id === id)) return file;
+  await deleteMealRow('nutrition_regulars', id);
   return loadTdeeFile();
 };
 
 export const upsertTdeeStaple = async (file: TdeeFile, meal: TdeeMealDef, isNew: boolean): Promise<TdeeFile> => {
   const staples = upsertMeal(file.staples, meal, isNew);
-  await saveTdeeFile({ ...file, staples });
+  const idx = staples.findIndex((m) => m.id === meal.id);
+  if (idx >= 0) await upsertMealRow('nutrition_staples', staples[idx], idx);
   return loadTdeeFile();
 };
 
 export const removeTdeeStaple = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
-  const staples = removeMeal(file.staples, id);
-  await saveTdeeFile({ ...file, staples });
+  if (!file.staples.some((m) => m.id === id)) return file;
+  await deleteMealRow('nutrition_staples', id);
   return loadTdeeFile();
 };
 
 export const updateTdeeTargets = async (file: TdeeFile, tdee: number, protein: number): Promise<TdeeFile> => {
-  await saveTdeeFile({ ...file, tdee: normalizeCalories(tdee), protein: normalizeMacro(protein) });
+  void file;
+  const rolloverHour = await loadDayRolloverHourPref();
+  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  await upsertConfig(normalizeCalories(tdee), normalizeMacro(protein), currentDay);
   return loadTdeeFile();
 };
 

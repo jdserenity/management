@@ -3,7 +3,8 @@ import { getDb } from '@/lib/db';
 import {
   getBuildTimeSyncCreds,
   pullAndMergeUserData,
-  pushUserData,
+  pushUserDataDiff,
+  emptyUserData,
   extractUserData,
   runBidirectionalInitialSync,
   startUserDataPolling,
@@ -25,7 +26,7 @@ export const pushLocalDataToServer = async (): Promise<void> => {
   if (!serverUrl || !serverToken) throw new Error('Sync server not configured (set VITE_SERVER_URL and VITE_SERVER_TOKEN in .env before build)');
   const db = await getDb();
   const data = await extractUserData(db);
-  await pushUserData(serverUrl, serverToken, data);
+  await pushUserDataDiff(serverUrl, serverToken, emptyUserData(), data);
 };
 
 const pullAndMergeFromServer = async (): Promise<void> => {

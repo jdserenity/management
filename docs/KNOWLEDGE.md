@@ -23,3 +23,7 @@ Root `package.json` still runs desktop Vite/Tauri; workspace entries are `shared
 **Tauri CLI:** `scripts/tauri.mjs` passes `dev --config desktop/src-tauri/tauri.conf.json` (config flag must come **after** the subcommand).
 
 **Stale `apps/` folder:** if you still see `apps/sync-api/` locally, it is gitignored dev DB junk from an old experiment — safe to delete (`rm -rf apps`).
+
+## Sync refactor (in progress)
+
+Full checklist and file paths: **`docs/sync-refactor-plan.md`**. Root issue: local saves wipe whole tables; merge uses wrong timestamps for config rows; pull is still full-snapshot. Row patches on upload are done; steps 1–7 in that doc finish the loop.
