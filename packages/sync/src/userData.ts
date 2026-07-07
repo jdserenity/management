@@ -61,6 +61,24 @@ export interface UserData {
   waterEntries: WaterEntry[];
 }
 
+export type UserDataTable = keyof UserData;
+export type UserDataPatch = Partial<UserData>;
+
+export const USER_DATA_TABLES: UserDataTable[] = [
+  'focusLog',
+  'workoutLog',
+  'appKv',
+  'nutritionConfig',
+  'nutritionStaples',
+  'nutritionRegulars',
+  'nutritionEntries',
+  'streakActivities',
+  'streakLogCells',
+  'streakActivityMeta',
+  'waterConfig',
+  'waterEntries'
+];
+
 const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml FROM streak_activities ORDER BY sort_order';
 
 // ── Read all data from a local-schema db (no user_id columns) ─────────────────
@@ -79,6 +97,12 @@ export const extractUserData = async (db: SqlDatabase): Promise<UserData> => ({
   waterConfig: await db.select<WaterConfig[]>('SELECT target_ml,log_day FROM water_config WHERE id=1').then((r) => r[0] ?? null),
   waterEntries: await db.select('SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries'),
 });
+
+export const pickUserDataTables = (data: UserData, tables: UserDataTable[]): UserDataPatch => {
+  const patch: UserDataPatch = {};
+  for (const table of tables) patch[table] = data[table];
+  return patch;
+};
 
 // ── Write a UserData snapshot into a local-schema db (replace tables to match snapshot) ──
 
@@ -251,6 +275,63 @@ export const pushUserData = async (
   logSyncInfo('POST /v1/data ok', { url });
 };
 
+export const pushUserDataPatch = async (
+  baseUrl: string,
+  token: string,
+  tables: UserDataTable[],
+  data: UserDataPatch
+): Promise<void> => {
+  const root = normalizeApiUrl(baseUrl);
+  if (!root) throw new Error('pushUserDataPatch: missing server URL');
+  if (tables.length === 0) return;
+  const url = `${root}/v1/data/patch`;
+  logSyncInfo('POST /v1/data/patch', { url, tables });
+  let res: Response;
+  try {
+    res = await syncFetch(url, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ tables, data })
+    });
+  } catch (err) {
+    logSyncError('POST /v1/data/patch network error', err, { url, tables });
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`pushUserDataPatch to ${url}: ${detail}`);
+  }
+  if (!res.ok) {
+    await logSyncHttpFailure('POST', url, res);
+    throw new Error(`pushUserDataPatch to ${url}: HTTP ${res.status}`);
+  }
+  logSyncInfo('POST /v1/data/patch ok', { url, tables });
+};
+
+const QUERY_TO_USER_DATA_TABLE: Array<{ pattern: RegExp; table: UserDataTable }> = [
+  { pattern: /\bfocus_log\b/i, table: 'focusLog' },
+  { pattern: /\bworkout_log\b/i, table: 'workoutLog' },
+  { pattern: /\bapp_kv\b/i, table: 'appKv' },
+  { pattern: /\bnutrition_config\b/i, table: 'nutritionConfig' },
+  { pattern: /\bnutrition_staples\b/i, table: 'nutritionStaples' },
+  { pattern: /\bnutrition_regulars\b/i, table: 'nutritionRegulars' },
+  { pattern: /\bnutrition_entries\b/i, table: 'nutritionEntries' },
+  { pattern: /\bstreak_activities\b/i, table: 'streakActivities' },
+  { pattern: /\bstreak_log_cells\b/i, table: 'streakLogCells' },
+  { pattern: /\bstreak_activity_meta\b/i, table: 'streakActivityMeta' },
+  { pattern: /\bwater_config\b/i, table: 'waterConfig' },
+  { pattern: /\bwater_entries\b/i, table: 'waterEntries' }
+];
+
+const isMutationQuery = (query: string): boolean =>
+  /^\s*(insert|update|delete|replace)\b/i.test(query);
+
+const inferTouchedUserDataTables = (query: string): UserDataTable[] => {
+  if (!isMutationQuery(query)) return [];
+  const tables: UserDataTable[] = [];
+  for (const entry of QUERY_TO_USER_DATA_TABLE) {
+    if (entry.pattern.test(query)) tables.push(entry.table);
+  }
+  return tables;
+};
+
 // ── Sync-aware db wrapper ──────────────────────────────────────────────────────
 // Wraps any SqlDatabase so that writes trigger a debounced push to the server.
 // If serverUrl/token are not provided the wrapper is a pass-through.
@@ -266,16 +347,30 @@ export const wrapWithDataSync = (
   beforePush?: () => void | Promise<void>
 ): SqlDatabase => {
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let hadUnknownMutation = false;
+  const dirtyTables = new Set<UserDataTable>();
+
   const scheduleSync = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
       void Promise.resolve(getCreds()).then(async ({ serverUrl, token }) => {
         if (!serverUrl || !token) return;
+        const tables = [...dirtyTables];
+        if (!hadUnknownMutation && tables.length === 0) return;
+        const shouldFullPush = hadUnknownMutation;
         if (beforePush) await beforePush();
         const data = await extractUserData(db);
         if (isUserDataEmpty(data)) return;
-        await pushUserData(serverUrl, token, data);
+        if (shouldFullPush) {
+          await pushUserData(serverUrl, token, data);
+          hadUnknownMutation = false;
+          dirtyTables.clear();
+          return;
+        }
+        const patch = pickUserDataTables(data, tables);
+        await pushUserDataPatch(serverUrl, token, tables, patch);
+        for (const table of tables) dirtyTables.delete(table);
       }).catch((err) => {
         logSyncError('debounced push failed', err);
         onPushError?.(err);
@@ -286,6 +381,9 @@ export const wrapWithDataSync = (
     select: (q, bind) => db.select(q, bind),
     execute: async (q, bind) => {
       const result = await db.execute(q, bind);
+      const touchedTables = inferTouchedUserDataTables(q);
+      if (isMutationQuery(q) && touchedTables.length === 0) hadUnknownMutation = true;
+      for (const table of touchedTables) dirtyTables.add(table);
       scheduleSync();
       return result;
     }

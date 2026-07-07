@@ -74,5 +74,15 @@ export const createSyncApp = (store: ActiveFlowStore, dataStore: SqliteDataStore
     return c.json({ ok: true });
   });
 
+  app.post('/v1/data/patch', async (c) => {
+    if (!dataStore) return c.json({ error: 'data store not available' }, 503);
+    const body = await c.req.json() as { tables?: unknown; data?: Partial<UserData> };
+    const tables = Array.isArray(body.tables) ? body.tables.filter((t): t is keyof UserData => typeof t === 'string') : [];
+    if (tables.length === 0) return c.json({ error: 'missing tables payload' }, 400);
+    if (!body.data || typeof body.data !== 'object') return c.json({ error: 'missing data payload' }, 400);
+    dataStore.putDataPatch(ownerId, tables, body.data);
+    return c.json({ ok: true });
+  });
+
   return app;
 };

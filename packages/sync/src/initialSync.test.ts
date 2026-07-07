@@ -66,7 +66,7 @@ describe('runBidirectionalInitialSync', () => {
     expect(result.pullOk).toBe(true);
     expect(mergeUserData).toHaveBeenCalledWith(local, server);
     expect(hydrateDb).toHaveBeenCalled();
-    expect(pushUserData).toHaveBeenCalled();
+    expect(pushUserData).not.toHaveBeenCalled();
   });
 });
 

@@ -66,4 +66,20 @@ describe('SqliteDataStore.putData', () => {
     expect(data.streakActivities[0]?.extra_water_ml).toBe(250);
     db.close();
   });
+
+  it('replaces only patched tables when putDataPatch is used', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', {
+      ...emptyData(),
+      appKv: [{ key: 'keep', value: '1', updated_at: 1 }],
+      waterEntries: [{ id: 'w1', log_day: '2026-06-28', label: 'Bottle', ml: 500, count: 1, updated_at: '2026-06-28T10:00:00Z', deleted: 0 }]
+    });
+    store.putDataPatch('owner', ['appKv'], { appKv: [{ key: 'keep', value: '2', updated_at: 2 }] });
+    const data = store.getData('owner');
+    expect(data.appKv[0]?.value).toBe('2');
+    expect(data.waterEntries).toHaveLength(1);
+    db.close();
+  });
 });

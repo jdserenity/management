@@ -3,6 +3,7 @@ import type { SqlDatabase } from '@mgmt/storage';
 import {
   fetchUserData,
   pushUserData,
+  pushUserDataPatch,
   extractUserData,
   hydrateDb,
   hydrateDbFromServer,
@@ -134,6 +135,29 @@ describe('pushUserData', () => {
       'http://localhost:8787/v1/data',
       expect.objectContaining({ method: 'POST' })
     );
+  });
+});
+
+describe('pushUserDataPatch', () => {
+  afterEach(() => { setSyncFetchImpl(null); });
+
+  it('calls POST /v1/data/patch with selected tables', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+    await pushUserDataPatch('http://localhost:8787', 'tok', ['appKv'], {
+      appKv: [{ key: 'k', value: 'v', updated_at: 1 }]
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:8787/v1/data/patch',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          tables: ['appKv'],
+          data: { appKv: [{ key: 'k', value: 'v', updated_at: 1 }] }
+        })
+      })
+    );
+    vi.unstubAllGlobals();
   });
 });
 
@@ -294,12 +318,11 @@ describe('wrapWithDataSync', () => {
     vi.stubGlobal('fetch', mockFetch);
     const db = makeMockDbWithSyncData();
     const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
-    await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v', 1]);
     expect(mockFetch).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(600);
-    // extractUserData runs first (GET-like selects via db.select), then push
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost:8787/v1/data',
+      'http://localhost:8787/v1/data/patch',
       expect.objectContaining({ method: 'POST' })
     );
     vi.unstubAllGlobals();
@@ -326,6 +349,20 @@ describe('wrapWithDataSync', () => {
     await wrapped.execute('DELETE FROM foo', []);
     await vi.advanceTimersByTimeAsync(600);
     expect(mockFetch).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('falls back to full snapshot push for unknown mutation queries', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', mockFetch);
+    const db = makeMockDbWithSyncData();
+    const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
+    await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:8787/v1/data',
+      expect.objectContaining({ method: 'POST' })
+    );
     vi.unstubAllGlobals();
   });
 

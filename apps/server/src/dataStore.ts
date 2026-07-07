@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import { assertSafeSnapshotPush, DataWipeRefusedError, totalUserDataRows } from '@mgmt/sync';
+import { assertSafeSnapshotPush, DataWipeRefusedError, totalUserDataRows, type UserDataTable } from '@mgmt/sync';
 
 // ── Shape mirrors local.db columns exactly, just with user_id added ──────────
 
@@ -203,6 +203,133 @@ export class SqliteDataStore {
           INSERT INTO water_entries (id,user_id,log_day,label,ml,count,updated_at,deleted)
           VALUES (?,?,?,?,?,?,?,?)
         `).run(row.id, uid, row.log_day, row.label, row.ml, row.count, row.updated_at, row.deleted);
+      }
+    })();
+  }
+
+  putDataPatch(userId: string, tables: UserDataTable[], data: Partial<UserData>): void {
+    const uid = userId;
+    this.db.transaction(() => {
+      for (const table of tables) {
+        if (!(table in data)) continue;
+        if (table === 'focusLog') {
+          this.db.prepare('DELETE FROM focus_log WHERE user_id=?').run(uid);
+          for (const row of data.focusLog ?? []) {
+            this.db.prepare(`
+              INSERT INTO focus_log (id,user_id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio)
+              VALUES (?,?,?,?,?,?,?)
+            `).run(row.id, uid, row.session_type, row.completed_at, row.duration_minutes, row.planned_duration_minutes ?? null, row.completion_ratio ?? null);
+          }
+          continue;
+        }
+        if (table === 'workoutLog') {
+          this.db.prepare('DELETE FROM workout_log WHERE user_id=?').run(uid);
+          for (const row of data.workoutLog ?? []) {
+            this.db.prepare(`
+              INSERT INTO workout_log (id,user_id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio)
+              VALUES (?,?,?,?,?,?,?,?,?)
+            `).run(row.id, uid, row.workout_id, row.workout_name, row.completed_at, row.exercises_json, row.total_reps, row.total_timed_seconds, row.completion_ratio ?? null);
+          }
+          continue;
+        }
+        if (table === 'appKv') {
+          this.db.prepare('DELETE FROM app_kv WHERE user_id=?').run(uid);
+          for (const row of data.appKv ?? []) {
+            this.db.prepare(`
+              INSERT INTO app_kv (user_id,key,value,updated_at) VALUES (?,?,?,?)
+            `).run(uid, row.key, row.value, row.updated_at);
+          }
+          continue;
+        }
+        if (table === 'nutritionConfig') {
+          this.db.prepare('DELETE FROM nutrition_config WHERE user_id=?').run(uid);
+          if (data.nutritionConfig) {
+            const row = data.nutritionConfig;
+            this.db.prepare(`
+              INSERT INTO nutrition_config (user_id,tdee,protein,log_day) VALUES (?,?,?,?)
+            `).run(uid, row.tdee, row.protein, row.log_day);
+          }
+          continue;
+        }
+        if (table === 'nutritionStaples') {
+          this.db.prepare('DELETE FROM nutrition_staples WHERE user_id=?').run(uid);
+          for (const row of data.nutritionStaples ?? []) {
+            this.db.prepare(`
+              INSERT INTO nutrition_staples (id,user_id,name,calories,protein,ingredients_json,sort_order)
+              VALUES (?,?,?,?,?,?,?)
+            `).run(row.id, uid, row.name, row.calories, row.protein, row.ingredients_json ?? null, row.sort_order);
+          }
+          continue;
+        }
+        if (table === 'nutritionRegulars') {
+          this.db.prepare('DELETE FROM nutrition_regulars WHERE user_id=?').run(uid);
+          for (const row of data.nutritionRegulars ?? []) {
+            this.db.prepare(`
+              INSERT INTO nutrition_regulars (id,user_id,name,calories,protein,ingredients_json,sort_order)
+              VALUES (?,?,?,?,?,?,?)
+            `).run(row.id, uid, row.name, row.calories, row.protein, row.ingredients_json ?? null, row.sort_order);
+          }
+          continue;
+        }
+        if (table === 'nutritionEntries') {
+          this.db.prepare('DELETE FROM nutrition_entries WHERE user_id=?').run(uid);
+          for (const row of data.nutritionEntries ?? []) {
+            this.db.prepare(`
+              INSERT INTO nutrition_entries (id,user_id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            `).run(row.id, uid, row.log_day, row.kind, row.ref_id ?? null, row.label, row.calories, row.protein, row.count, row.updated_at, row.deleted);
+          }
+          continue;
+        }
+        if (table === 'streakActivities') {
+          this.db.prepare('DELETE FROM streak_activities WHERE user_id=?').run(uid);
+          for (const row of data.streakActivities ?? []) {
+            this.db.prepare(`
+              INSERT INTO streak_activities (id,user_id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            `).run(row.id, uid, row.name, row.description ?? null, row.frequency, row.weekly_target ?? null, row.scheduled_days_json ?? null, row.can_fail, row.archived_at ?? null, row.sort_order, row.extra_calories ?? null, row.extra_protein ?? null, row.extra_water_ml ?? null);
+          }
+          continue;
+        }
+        if (table === 'streakLogCells') {
+          this.db.prepare('DELETE FROM streak_log_cells WHERE user_id=?').run(uid);
+          for (const row of data.streakLogCells ?? []) {
+            this.db.prepare(`
+              INSERT INTO streak_log_cells (log_date,activity_id,user_id,state,updated_at)
+              VALUES (?,?,?,?,?)
+            `).run(row.log_date, row.activity_id, uid, row.state, row.updated_at);
+          }
+          continue;
+        }
+        if (table === 'streakActivityMeta') {
+          this.db.prepare('DELETE FROM streak_activity_meta WHERE user_id=?').run(uid);
+          for (const row of data.streakActivityMeta ?? []) {
+            this.db.prepare(`
+              INSERT INTO streak_activity_meta (activity_id,user_id,start_date,pause_since,unpaused_at,reset_count)
+              VALUES (?,?,?,?,?,?)
+            `).run(row.activity_id, uid, row.start_date ?? null, row.pause_since ?? null, row.unpaused_at ?? null, row.reset_count);
+          }
+          continue;
+        }
+        if (table === 'waterConfig') {
+          this.db.prepare('DELETE FROM water_config WHERE user_id=?').run(uid);
+          if (data.waterConfig) {
+            const row = data.waterConfig;
+            this.db.prepare(`
+              INSERT INTO water_config (user_id,target_ml,log_day) VALUES (?,?,?)
+            `).run(uid, row.target_ml, row.log_day);
+          }
+          continue;
+        }
+        if (table === 'waterEntries') {
+          this.db.prepare('DELETE FROM water_entries WHERE user_id=?').run(uid);
+          for (const row of data.waterEntries ?? []) {
+            this.db.prepare(`
+              INSERT INTO water_entries (id,user_id,log_day,label,ml,count,updated_at,deleted)
+              VALUES (?,?,?,?,?,?,?,?)
+            `).run(row.id, uid, row.log_day, row.label, row.ml, row.count, row.updated_at, row.deleted);
+          }
+        }
       }
     })();
   }
