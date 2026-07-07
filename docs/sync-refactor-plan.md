@@ -58,8 +58,8 @@ Layout overview: `docs/KNOWLEDGE.md` § Repository folder layout.
 
 ### Step 3 — Row-level saves (feature DBs)
 
-- [ ] **`streakDb.ts` first** (archive case): stop `DELETE FROM streak_activities`; upsert one row + `updated_at`
-- [ ] Same for `streak_log_cells`, `streak_activity_meta` saves
+- [x] **`streakDb.ts` first** (archive case): stop `DELETE FROM streak_activities`; upsert one row + `updated_at`
+- [x] Same for `streak_log_cells`, `streak_activity_meta` saves
 - [ ] Then `tdeeDb.ts`, `waterDb.ts`, `stretchCreatorDb.ts`
 - **Done when:** archiving one habit touches one row in SQLite
 - **Tests:** `streakDb` integration-style tests; archive round-trip
