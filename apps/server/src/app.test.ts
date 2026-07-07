@@ -72,7 +72,7 @@ describe('server', () => {
     expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
   });
 
-  it('applies table patch without wiping other tables', async () => {
+  it('applies row patch without wiping other tables', async () => {
     const db = openServerDb(':memory:');
     seedOwnerUser(db, 'owner');
     const dataStore = new SqliteDataStore(db);
@@ -92,8 +92,11 @@ describe('server', () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        tables: ['appKv'],
-        data: { appKv: [{ key: 'keep', value: 'v2', updated_at: 2 }] }
+        rowPatch: {
+          appKv: {
+            upserts: [{ key: 'keep', value: 'v2', updated_at: 2 }]
+          }
+        }
       })
     });
     expect(res.status).toBe(200);
