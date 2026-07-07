@@ -4,17 +4,20 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from '@tailwindcss/vite'
 
 const host = process.env.TAURI_DEV_HOST;
+const uiRoot = path.resolve(__dirname, "./desktop/ui");
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
+  root: uiRoot,
+  publicDir: path.resolve(__dirname, "./public"),
   envDir: path.resolve(__dirname, "."),
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@mgmt/core": path.resolve(__dirname, "./packages/core/src/index.ts"),
-      "@mgmt/sync": path.resolve(__dirname, "./packages/sync/src/index.ts"),
-      "@mgmt/storage": path.resolve(__dirname, "./packages/storage/src/types.ts"),
+      "@": uiRoot,
+      "@mgmt/core": path.resolve(__dirname, "./shared/core/src/index.ts"),
+      "@mgmt/sync": path.resolve(__dirname, "./shared/sync-client/src/index.ts"),
+      "@mgmt/storage": path.resolve(__dirname, "./shared/storage/src/types.ts"),
     },
   },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -34,8 +37,8 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. tell Vite to ignore watching `desktop/src-tauri`
+      ignored: ["**/desktop/src-tauri/**"],
     },
   },
 }));

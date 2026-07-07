@@ -1,21 +1,24 @@
 import path from 'path';
 import { defineConfig } from 'vitest/config';
 
+const uiRoot = path.resolve(__dirname, './desktop/ui');
+
 export default defineConfig({
   test: {
     include: [
-      'src/**/*.test.ts',
+      'desktop/ui/**/*.test.ts',
       'scripts/**/*.test.ts',
-      'packages/**/*.test.ts',
-      'apps/**/*.test.ts'
+      'shared/**/*.test.ts',
+      'backend/**/*.test.ts',
+      'mobile/**/*.test.ts'
     ]
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@mgmt/core': path.resolve(__dirname, './packages/core/src/index.ts'),
-      '@mgmt/sync': path.resolve(__dirname, './packages/sync/src/index.ts'),
-      '@mgmt/storage': path.resolve(__dirname, './packages/storage/src/index.ts')
+      '@': uiRoot,
+      '@mgmt/core': path.resolve(__dirname, './shared/core/src/index.ts'),
+      '@mgmt/sync': path.resolve(__dirname, './shared/sync-client/src/index.ts'),
+      '@mgmt/storage': path.resolve(__dirname, './shared/storage/src/index.ts')
     }
   }
 });

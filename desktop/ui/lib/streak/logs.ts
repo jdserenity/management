@@ -1,4 +1,4 @@
-import type { StreakData, StreakLogCell, StreakLogState } from '@/lib/streak/types';
+import type { StreakLogCell, StreakLogState } from '@/lib/streak/types';
 
 export const LEGACY_EPOCH = '1970-01-01T00:00:00.000Z';
 

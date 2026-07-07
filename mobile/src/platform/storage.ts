@@ -109,7 +109,7 @@ export const startCompanionForegroundPull = (): (() => void) => {
   window.addEventListener('focus', scheduleForegroundPull);
   stopDataPolling?.();
   stopDataPolling = startUserDataPolling({
-    pull: () => pullCompanionSnapshotFromServer(),
+    pull: () => { void pullCompanionSnapshotFromServer(); },
     shouldPoll: () => companionRawDb !== null
   });
   return () => {

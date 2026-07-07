@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = path.join(root, '.env');
-const companionDir = path.join(root, 'apps/companion');
+const companionDir = path.join(root, 'mobile');
 
 const loadEnv = (file) => {
   if (!fs.existsSync(file)) return {};

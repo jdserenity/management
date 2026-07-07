@@ -4,12 +4,12 @@
   "version": "1.5.1",
   "type": "module",
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "shared/*",
+    "backend/*",
+    "mobile"
   ],
   "scripts": {
     "dev": "vite",
-    "icons:generate": "node scripts/generate-icons.mjs",
     "dev:companion": "npm run dev -w @mgmt/companion",
     "dev:server": "npm run dev -w @mgmt/server",
     "build": "tsc && vite build",
@@ -20,7 +20,6 @@
     "tauri": "node scripts/tauri.mjs",
     "db:backup": "node scripts/backup-db.mjs",
     "db:server-overview": "node scripts/db-server-overview.mjs",
-    "sync:to-server": "tsx scripts/sync-to-server.ts",
     "test:push": "node scripts/test-push.mjs",
     "app:deploy": "node scripts/install-app.mjs"
   },

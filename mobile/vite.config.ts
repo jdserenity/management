@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  envDir: path.resolve(__dirname, '../..'),
+  envDir: path.resolve(__dirname, '..'),
   plugins: [
     react(),
     tailwindcss(),
@@ -37,10 +37,10 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: '@/lib/navConfig', replacement: path.resolve(__dirname, 'src/companionNavConfig.ts') },
-      { find: '@', replacement: path.resolve(__dirname, '../../src') },
-      { find: '@mgmt/core', replacement: path.resolve(__dirname, '../../packages/core/src/index.ts') },
-      { find: '@mgmt/sync', replacement: path.resolve(__dirname, '../../packages/sync/src/index.ts') },
-      { find: '@mgmt/storage', replacement: path.resolve(__dirname, '../../packages/storage/src/index.ts') }
+      { find: '@', replacement: path.resolve(__dirname, '../desktop/ui') },
+      { find: '@mgmt/core', replacement: path.resolve(__dirname, '../shared/core/src/index.ts') },
+      { find: '@mgmt/sync', replacement: path.resolve(__dirname, '../shared/sync-client/src/index.ts') },
+      { find: '@mgmt/storage', replacement: path.resolve(__dirname, '../shared/storage/src/index.ts') }
     ]
   },
   server: {

@@ -3,7 +3,7 @@ import { APP_NAME, applicationsDest, releaseAppPath } from './install-app.mjs';
 
 describe('install-app paths', () => {
   it('points at the Tauri release bundle', () => {
-    expect(releaseAppPath('/repo')).toBe(`/repo/src-tauri/target/release/bundle/macos/${APP_NAME}`);
+    expect(releaseAppPath('/repo')).toBe(`/repo/desktop/src-tauri/target/release/bundle/macos/${APP_NAME}`);
   });
 
   it('installs to /Applications', () => {

@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with src-tauri/src/main.rs sqlite:local.db migrations (v1–v9). */
+/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v9). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BRAND_ICON_COLOR, brandAppIconSvg, brandTrayIconSvg } from './brandIcon';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 describe('brandIcon', () => {
   it('uses the brand blue for the app icon fill', () => {
@@ -20,16 +20,16 @@ describe('brandIcon', () => {
 
   it('ships generated icon assets for desktop and companion', () => {
     for (const rel of [
-      'src-tauri/icons/icon.icns',
-      'src-tauri/icons/icon.png',
-      'src-tauri/icons/tray.png',
-      'src-tauri/icons/monitoring_off.png',
-      'apps/companion/public/icon.svg',
-      'apps/companion/public/apple-touch-icon.png',
+      'desktop/src-tauri/icons/icon.icns',
+      'desktop/src-tauri/icons/icon.png',
+      'desktop/src-tauri/icons/tray.png',
+      'desktop/src-tauri/icons/monitoring_off.png',
+      'mobile/public/icon.svg',
+      'mobile/public/apple-touch-icon.png',
       'public/icon.svg'
     ]) {
       expect(fs.existsSync(path.join(root, rel)), rel).toBe(true);
     }
-    expect(fs.readFileSync(path.join(root, 'apps/companion/public/icon.svg'), 'utf8')).toContain(BRAND_ICON_COLOR);
+    expect(fs.readFileSync(path.join(root, 'mobile/public/icon.svg'), 'utf8')).toContain(BRAND_ICON_COLOR);
   });
 });

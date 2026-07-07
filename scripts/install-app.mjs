@@ -7,7 +7,7 @@ export const APP_NAME = 'Management.app';
 
 /** @param {string} repoRoot */
 export function releaseAppPath(repoRoot) {
-  return join(repoRoot, 'src-tauri', 'target', 'release', 'bundle', 'macos', APP_NAME);
+  return join(repoRoot, 'desktop', 'src-tauri', 'target', 'release', 'bundle', 'macos', APP_NAME);
 }
 
 export function applicationsDest() {

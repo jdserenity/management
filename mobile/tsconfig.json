@@ -15,12 +15,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": "../..",
+    "baseUrl": "..",
     "paths": {
-      "@/*": ["src/*"],
-      "@mgmt/core": ["packages/core/src/index.ts"],
-      "@mgmt/sync": ["packages/sync/src/index.ts"],
-      "@mgmt/storage": ["packages/storage/src/index.ts"]
+      "@/*": ["desktop/ui/*"],
+      "@mgmt/core": ["shared/core/src/index.ts"],
+      "@mgmt/sync": ["shared/sync-client/src/index.ts"],
+      "@mgmt/storage": ["shared/storage/src/index.ts"]
     }
   },
   "include": ["src"]
