@@ -39,7 +39,7 @@ export default defineConfig({
       { find: '@/lib/navConfig', replacement: path.resolve(__dirname, 'src/companionNavConfig.ts') },
       { find: '@', replacement: path.resolve(__dirname, '../desktop/ui') },
       { find: '@mgmt/core', replacement: path.resolve(__dirname, '../shared/core/src/index.ts') },
-      { find: '@mgmt/sync', replacement: path.resolve(__dirname, '../shared/sync-client/src/index.ts') },
+      { find: '@mgmt/sync', replacement: path.resolve(__dirname, '../shared/sync/src/index.ts') },
       { find: '@mgmt/storage', replacement: path.resolve(__dirname, '../shared/storage/src/index.ts') }
     ]
   },

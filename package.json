@@ -5,7 +5,7 @@
   "type": "module",
   "workspaces": [
     "shared/*",
-    "backend/*",
+    "backend",
     "mobile"
   ],
   "scripts": {

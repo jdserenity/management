@@ -16,7 +16,7 @@ export default defineConfig(async () => ({
     alias: {
       "@": uiRoot,
       "@mgmt/core": path.resolve(__dirname, "./shared/core/src/index.ts"),
-      "@mgmt/sync": path.resolve(__dirname, "./shared/sync-client/src/index.ts"),
+      "@mgmt/sync": path.resolve(__dirname, "./shared/sync/src/index.ts"),
       "@mgmt/storage": path.resolve(__dirname, "./shared/storage/src/types.ts"),
     },
   },

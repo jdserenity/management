@@ -19,7 +19,7 @@
     "paths": {
       "@/*": ["desktop/ui/*"],
       "@mgmt/core": ["shared/core/src/index.ts"],
-      "@mgmt/sync": ["shared/sync-client/src/index.ts"],
+      "@mgmt/sync": ["shared/sync/src/index.ts"],
       "@mgmt/storage": ["shared/storage/src/index.ts"]
     }
   },

@@ -12,12 +12,14 @@ Top-level code lives in literal folders:
 | --- | --- |
 | `desktop/ui/` | Desktop React UI (import alias `@/`) |
 | `desktop/src-tauri/` | Tauri Rust shell (keep this inner name — Tauri expects it) |
-| `shared/core`, `shared/storage`, `shared/sync-client/` | npm packages `@mgmt/core`, `@mgmt/storage`, `@mgmt/sync` |
-| `backend/server/` | HTTP sync server (`@mgmt/server`) |
+| `shared/core`, `shared/storage`, `shared/sync/` | npm packages `@mgmt/core`, `@mgmt/storage`, `@mgmt/sync` (sync is the **client** library, not the server) |
+| `backend/` | HTTP sync server (`@mgmt/server`) — the program that runs on the VPS |
 | `mobile/` | Phone PWA companion (`@mgmt/companion`) |
 
-Root `package.json` still runs desktop Vite/Tauri; workspace globs are `shared/*`, `backend/*`, and `mobile`.
+Root `package.json` still runs desktop Vite/Tauri; workspace entries are `shared/*`, `backend`, and `mobile`.
 
-**Cloudflare Pages:** after this move, set build output directory to `mobile/dist` (was `apps/companion/dist`).
+**Cloudflare Pages:** build output directory is `mobile/dist`.
 
-**Tauri CLI:** `scripts/tauri.mjs` passes `--config desktop/src-tauri/tauri.conf.json` because `src-tauri` is no longer at the repo root.
+**Tauri CLI:** `scripts/tauri.mjs` passes `dev --config desktop/src-tauri/tauri.conf.json` (config flag must come **after** the subcommand).
+
+**Stale `apps/` folder:** if you still see `apps/sync-api/` locally, it is gitignored dev DB junk from an old experiment — safe to delete (`rm -rf apps`).

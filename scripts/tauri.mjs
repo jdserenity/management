@@ -6,7 +6,7 @@ import path from 'node:path';
 const args = process.argv.slice(2);
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tauriConfig = path.join(repoRoot, 'desktop/src-tauri/tauri.conf.json');
-const tauriArgs = ['--config', tauriConfig, ...args];
+const tauriArgs = [...args, '--config', tauriConfig];
 
 if (args[0] === 'build' && !process.env.TAURI_SIGNING_PRIVATE_KEY) {
   tauriArgs.push('--config', JSON.stringify({ bundle: { createUpdaterArtifacts: false } }));

@@ -34,11 +34,11 @@ If macOS blocks an unsigned build: System Settings → Privacy & Security, or `x
 
 ## Sync server (VPS, systemd)
 
-The companion and desktop apps sync through `backend/server` (Hono HTTP API, SQLite). On a VPS, run it as a **systemd** service so it stays up after you close SSH and restarts after a reboot or crash.
+The companion and desktop apps sync through `backend/` (Hono HTTP API, SQLite). On a VPS, run it as a **systemd** service so it stays up after you close SSH and restarts after a reboot or crash.
 
 **systemd** is Linux’s service manager — it starts background programs (“daemons”) and keeps them running. The name is not short for “daemon”; it’s just the project name for the init system most Linux VPS images use.
 
-Templates: `backend/server/mgmt-server.service.example`, `backend/server/server.env.example`.
+Templates: `backend/mgmt-server.service.example`, `backend/server.env.example`.
 
 ### One-time VPS setup
 
@@ -49,7 +49,7 @@ Create secrets (edit `SERVER_TOKEN`; `DB_PATH` must be a path **your Linux user 
 ```bash
 mkdir -p ~/prod-apps/management/data
 sudo mkdir -p /etc/mgmt
-sudo cp ~/prod-apps/management/backend/server/server.env.example /etc/mgmt/server.env
+sudo cp ~/prod-apps/management/backend/server.env.example /etc/mgmt/server.env
 sudo chmod 600 /etc/mgmt/server.env
 sudo nano /etc/mgmt/server.env
 ```
@@ -59,7 +59,7 @@ If you already have a `server.db` from running the server manually, point `DB_PA
 Install the unit (`User`, `Group`, and `WorkingDirectory` must match your VPS — see `mgmt-server.service.example`):
 
 ```bash
-sudo cp ~/prod-apps/management/backend/server/mgmt-server.service.example /etc/systemd/system/mgmt-server.service
+sudo cp ~/prod-apps/management/backend/mgmt-server.service.example /etc/systemd/system/mgmt-server.service
 sudo nano /etc/systemd/system/mgmt-server.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now mgmt-server

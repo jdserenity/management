@@ -11,8 +11,6 @@ node_modules
 dist
 dist-ssr
 *.local
-apps/sync-api/data
-apps/sync-api/apps
 .env
 
 # Editor directories and files
@@ -25,3 +23,4 @@ apps/sync-api/apps
 *.njsproj
 *.sln
 *.sw?
+apps/

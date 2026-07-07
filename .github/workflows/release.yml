@@ -117,6 +117,7 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
+          projectPath: desktop
           tagName: ${{ steps.release-tag.outputs.value }}
           releaseName: Management ${{ steps.release-tag.outputs.value }}
           releaseDraft: false
