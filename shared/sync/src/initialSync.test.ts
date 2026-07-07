@@ -8,7 +8,7 @@ vi.mock('./userData', async (importOriginal) => {
     fetchUserData: vi.fn(),
     hydrateDb: vi.fn(),
     hydrateDbFromServer: vi.fn(),
-    pushUserData: vi.fn()
+    pushUserDataDiff: vi.fn()
   };
 });
 
@@ -17,7 +17,7 @@ vi.mock('./dataSyncEvents', () => ({ dispatchDataSyncRefresh: vi.fn() }));
 
 import { dispatchDataSyncRefresh } from './dataSyncEvents';
 import { mergeUserData } from './mergeUserData';
-import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserData } from './userData';
+import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff } from './userData';
 import { pullAndMergeUserData, resetSyncWarningForTests, runBidirectionalInitialSync } from './initialSync';
 
 const empty = () => ({
@@ -36,7 +36,7 @@ describe('runBidirectionalInitialSync', () => {
     vi.mocked(fetchUserData).mockResolvedValue(empty());
     vi.mocked(hydrateDbFromServer).mockResolvedValue('hydrated');
     vi.mocked(hydrateDb).mockResolvedValue(undefined);
-    vi.mocked(pushUserData).mockResolvedValue(undefined);
+    vi.mocked(pushUserDataDiff).mockResolvedValue(undefined);
     vi.mocked(mergeUserData).mockReturnValue(empty());
   });
 
@@ -52,7 +52,7 @@ describe('runBidirectionalInitialSync', () => {
     const result = await runBidirectionalInitialSync({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
     expect(result.pullOk).toBe(true);
     expect(hydrateDbFromServer).toHaveBeenCalled();
-    expect(pushUserData).not.toHaveBeenCalled();
+    expect(pushUserDataDiff).not.toHaveBeenCalled();
     expect(dispatchDataSyncRefresh).toHaveBeenCalled();
   });
 
@@ -66,7 +66,18 @@ describe('runBidirectionalInitialSync', () => {
     expect(result.pullOk).toBe(true);
     expect(mergeUserData).toHaveBeenCalledWith(local, server);
     expect(hydrateDb).toHaveBeenCalled();
-    expect(pushUserData).not.toHaveBeenCalled();
+    expect(pushUserDataDiff).not.toHaveBeenCalled();
+  });
+
+  it('uploads local data as row patch when server is empty', async () => {
+    const local = { ...empty(), appKv: [{ key: 'k', value: 'v', updated_at: 1 }] };
+    vi.mocked(extractUserData).mockResolvedValue(local);
+    vi.mocked(fetchUserData).mockResolvedValue(empty());
+    const result = await runBidirectionalInitialSync({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
+    expect(result.pullOk).toBe(true);
+    expect(pushUserDataDiff).toHaveBeenCalled();
+    expect(vi.mocked(pushUserDataDiff).mock.calls[0]?.[2]).toEqual(empty());
+    expect(vi.mocked(pushUserDataDiff).mock.calls[0]?.[3]).toEqual(local);
   });
 });
 
@@ -76,7 +87,7 @@ describe('pullAndMergeUserData', () => {
     vi.mocked(fetchUserData).mockResolvedValue(empty());
     vi.mocked(hydrateDbFromServer).mockResolvedValue('hydrated');
     vi.mocked(hydrateDb).mockResolvedValue(undefined);
-    vi.mocked(pushUserData).mockResolvedValue(undefined);
+    vi.mocked(pushUserDataDiff).mockResolvedValue(undefined);
     vi.mocked(mergeUserData).mockReturnValue(empty());
   });
 

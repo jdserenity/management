@@ -369,6 +369,33 @@ export const pushUserDataPatch = async (
   markSyncPushResult('push-patch', true);
 };
 
+export const emptyUserData = (): UserData => ({
+  focusLog: [],
+  workoutLog: [],
+  appKv: [],
+  nutritionConfig: null,
+  nutritionStaples: [],
+  nutritionRegulars: [],
+  nutritionEntries: [],
+  streakActivities: [],
+  streakLogCells: [],
+  streakActivityMeta: [],
+  waterConfig: null,
+  waterEntries: []
+});
+
+/** Push only rows that differ between two snapshots (normal sync path; not full replace). */
+export const pushUserDataDiff = async (
+  baseUrl: string,
+  token: string,
+  before: UserData,
+  after: UserData
+): Promise<void> => {
+  const rowPatch = buildUserDataRowPatch(before, after, USER_DATA_TABLES);
+  if (!hasUserDataRowPatchChanges(rowPatch)) return;
+  await pushUserDataPatch(baseUrl, token, rowPatch);
+};
+
 const stableString = (value: unknown): string => JSON.stringify(value);
 
 const diffRows = <T>(

@@ -1,7 +1,7 @@
 import type { SqlDatabase } from '@mgmt/storage';
 import { dispatchDataSyncRefresh } from './dataSyncEvents';
 import { logSyncError, logSyncInfo, summarizeUserDataCounts } from './syncLog';
-import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserData } from './userData';
+import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff, emptyUserData } from './userData';
 import { mergeUserData } from './mergeUserData';
 import { totalUserDataRows } from './userDataSafety';
 
@@ -71,7 +71,7 @@ export const runBidirectionalInitialSync = async (opts: BidirectionalSyncOpts): 
   } else if (serverRows === 0 && localRows > 0) {
     logSyncInfo(`${logLabel} initial sync: uploading local data (server was empty)`, { localRows });
     try {
-      await pushUserData(serverUrl, serverToken, localBefore);
+      await pushUserDataDiff(serverUrl, serverToken, emptyUserData(), localBefore);
     } catch (err) {
       pushOk = false;
       logSyncError(`${logLabel} initial sync: push failed`, err, { serverUrl });
@@ -83,7 +83,7 @@ export const runBidirectionalInitialSync = async (opts: BidirectionalSyncOpts): 
     if (!localMatchesMerged) await hydrateDb(db, merged);
     if (!serverMatchesMerged) {
       try {
-        await pushUserData(serverUrl, serverToken, merged);
+        await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
       } catch (err) {
         pushOk = false;
         logSyncError(`${logLabel} initial sync: merge push failed`, err, { serverUrl });
@@ -123,7 +123,7 @@ export const pullAndMergeUserData = async (opts: BidirectionalSyncOpts): Promise
       const localMatchesMerged = sameUserData(localBefore, merged);
       const serverMatchesMerged = sameUserData(serverData, merged);
       if (!localMatchesMerged) await hydrateDb(db, merged);
-      if (!serverMatchesMerged) await pushUserData(serverUrl, serverToken, merged);
+      if (!serverMatchesMerged) await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
     }
     dispatchDataSyncRefresh();
     logSyncInfo(`${logLabel} foreground pull complete`, summarizeUserDataCounts(await extractUserData(db)));

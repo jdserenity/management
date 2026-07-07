@@ -4,7 +4,8 @@ import {
   getBuildTimeSyncCreds,
   logSyncError,
   pullAndMergeUserData,
-  pushUserData,
+  pushUserDataDiff,
+  emptyUserData,
   runBidirectionalInitialSync,
   startUserDataPolling,
   type BidirectionalSyncResult,
@@ -64,7 +65,7 @@ export const pushCompanionSnapshotToServer = async (): Promise<boolean> => {
   }
   try {
     const data = await extractUserData(companionRawDb);
-    await pushUserData(serverUrl, serverToken, data);
+    await pushUserDataDiff(serverUrl, serverToken, emptyUserData(), data);
     return true;
   } catch (err) {
     logSyncError('companion push failed', err, { serverUrl });
