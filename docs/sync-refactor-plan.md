@@ -73,9 +73,9 @@ Layout overview: `docs/KNOWLEDGE.md` § Repository folder layout.
 
 ### Step 5 — Outbox; remove SQL guessing
 
-- [ ] `sync_outbox` table (entity, row key, op, payload/json, `updated_at`)
-- [ ] Writers enqueue; `SyncWorker` drains → `pushUserDataPatch`
-- [ ] Remove or narrow `wrapWithDataSync` SQL inference; no routine full-snapshot push
+- [x] `sync_outbox` table (entity, row key, op, payload/json, `updated_at`)
+- [x] Writers enqueue; `SyncWorker` drains → `pushUserDataPatch`
+- [x] Remove or narrow `wrapWithDataSync` SQL inference; no routine full-snapshot push
 - **Done when:** every syncable save enqueues without parsing SQL
 - **Tests:** outbox drain, offline retry
 

@@ -45,13 +45,33 @@ const makeMockDb = (selectResults: Record<string, unknown[]> = {}): SqlDatabase 
   };
 };
 
-const makeMockDbWithSyncData = (): SqlDatabase & { calls: string[] } =>
-  makeMockDb({ 'SELECT key,value,updated_at FROM app_kv': [{ key: 'k', value: 'v', updated_at: 1 }] });
+const makeOutboxCapableDb = (base: SqlDatabase): SqlDatabase => {
+  const rows: { id: number; patch_json: string; created_at: number }[] = [];
+  let nextId = 1;
+  return {
+    select: async <T>(q: string, bind?: unknown[]): Promise<T> => {
+      if (q.includes('FROM sync_outbox')) return [...rows] as T;
+      return base.select(q, bind);
+    },
+    execute: async (q: string, bind?: unknown[]) => {
+      if (q.includes('INSERT INTO sync_outbox')) {
+        rows.push({ id: nextId++, patch_json: String(bind?.[0] ?? '{}'), created_at: Number(bind?.[1] ?? Date.now()) });
+        return { lastInsertId: nextId, rowsAffected: 1 };
+      }
+      if (q.includes('DELETE FROM sync_outbox')) {
+        const count = rows.length;
+        rows.length = 0;
+        return { lastInsertId: 0, rowsAffected: count };
+      }
+      return base.execute(q, bind);
+    }
+  };
+};
 
 const makeStatefulAppKvDb = (): SqlDatabase & { calls: string[] } => {
   const calls: string[] = [];
   let appKv = [{ key: 'k', value: 'v', updated_at: 1 }];
-  return {
+  const base: SqlDatabase & { calls: string[] } = {
     calls,
     select: vi.fn(async <T>(q: string): Promise<T> => {
       calls.push(`SELECT:${q.slice(0, 40)}`);
@@ -67,7 +87,11 @@ const makeStatefulAppKvDb = (): SqlDatabase & { calls: string[] } => {
       return { lastInsertId: 1, rowsAffected: 1 };
     })
   };
+  return makeOutboxCapableDb(base) as SqlDatabase & { calls: string[] };
 };
+
+const makeMockDbWithSyncData = (): SqlDatabase & { calls: string[] } =>
+  makeOutboxCapableDb(makeMockDb({ 'SELECT key,value,updated_at FROM app_kv': [{ key: 'k', value: 'v', updated_at: 1 }] }));
 
 // ── fetchUserData ─────────────────────────────────────────────────────────────
 
@@ -363,14 +387,14 @@ describe('wrapWithDataSync', () => {
     vi.unstubAllGlobals();
   });
 
-  it('debounces multiple rapid writes into one push', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+  it('debounces multiple rapid app_kv writes into one outbox drain', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal('fetch', mockFetch);
-    const db = makeMockDbWithSyncData();
+    const db = makeStatefulAppKvDb();
     const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
-    await wrapped.execute('INSERT INTO a VALUES (?)', [1]);
-    await wrapped.execute('INSERT INTO b VALUES (?)', [2]);
-    await wrapped.execute('INSERT INTO c VALUES (?)', [3]);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v2', 2]);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v3', 3]);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v4', 4]);
     await vi.advanceTimersByTimeAsync(600);
     expect(mockFetch).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
@@ -387,17 +411,14 @@ describe('wrapWithDataSync', () => {
     vi.unstubAllGlobals();
   });
 
-  it('falls back to full snapshot push for unknown mutation queries', async () => {
+  it('skips push for unknown mutation queries instead of full snapshot', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);
     const db = makeMockDbWithSyncData();
     const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500);
     await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
     await vi.advanceTimersByTimeAsync(600);
-    expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost:8787/v1/data',
-      expect.objectContaining({ method: 'POST' })
-    );
+    expect(mockFetch).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
 
@@ -405,11 +426,11 @@ describe('wrapWithDataSync', () => {
     const mockFetch = vi.fn().mockRejectedValue(new Error('Load failed'));
     vi.stubGlobal('fetch', mockFetch);
     const onPushError = vi.fn();
-    const db = makeMockDbWithSyncData();
+    const db = makeStatefulAppKvDb();
     const wrapped = wrapWithDataSync(db, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 500, onPushError);
-    await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v2', 2]);
     await vi.advanceTimersByTimeAsync(600);
-    expect(onPushError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Load failed') }));
+    expect(onPushError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('sync outbox drain failed') }));
     vi.unstubAllGlobals();
   });
 
@@ -430,10 +451,10 @@ describe('wrapWithDataSync', () => {
     vi.unstubAllGlobals();
   });
 
-  it('waits for beforePush before pushing', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ ok: true });
+  it('waits for beforePush before draining outbox', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal('fetch', mockFetch);
-    const db = makeMockDbWithSyncData();
+    const db = makeStatefulAppKvDb();
     const callOrder: string[] = [];
     const beforePush = vi.fn(async () => { callOrder.push('beforePush'); });
     const wrapped = wrapWithDataSync(
@@ -443,8 +464,8 @@ describe('wrapWithDataSync', () => {
       undefined,
       beforePush
     );
-    mockFetch.mockImplementation(async () => { callOrder.push('fetch'); return { ok: true }; });
-    await wrapped.execute('INSERT INTO foo VALUES (?)', [1]);
+    mockFetch.mockImplementation(async () => { callOrder.push('fetch'); return { ok: true, json: async () => ({}) }; });
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v2', 2]);
     await vi.advanceTimersByTimeAsync(600);
     expect(beforePush).toHaveBeenCalled();
     expect(callOrder).toEqual(['beforePush', 'fetch']);

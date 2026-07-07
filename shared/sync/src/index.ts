@@ -1,3 +1,4 @@
+export * from './syncOutbox';
 export * from './syncRegistry';
 export * from './syncFetch';
 export * from './types';

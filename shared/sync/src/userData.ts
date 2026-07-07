@@ -1,6 +1,8 @@
 import type { SqlDatabase } from '@mgmt/storage';
 import { normalizeApiUrl } from './apiUrl';
 import { logSyncError, logSyncHttpFailure, logSyncInfo, summarizeUserDataCounts } from './syncLog';
+import { inferSyncUserDataTablesFromSql } from './syncRegistry';
+import { drainSyncOutbox, enqueueSyncPatch } from './syncOutbox';
 import { syncFetch } from './syncFetch';
 import { assertSafeSnapshotPush, isUserDataEmpty } from './userDataSafety';
 import { markLocalSyncChangePending, markSyncPullResult, markSyncPushResult } from './syncStatus';
@@ -471,32 +473,8 @@ export const buildUserDataRowPatch = (
 export const hasUserDataRowPatchChanges = (rowPatch: UserDataRowPatch): boolean =>
   Object.keys(rowPatch).length > 0;
 
-const QUERY_TO_USER_DATA_TABLE: Array<{ pattern: RegExp; table: UserDataTable }> = [
-  { pattern: /\bfocus_log\b/i, table: 'focusLog' },
-  { pattern: /\bworkout_log\b/i, table: 'workoutLog' },
-  { pattern: /\bapp_kv\b/i, table: 'appKv' },
-  { pattern: /\bnutrition_config\b/i, table: 'nutritionConfig' },
-  { pattern: /\bnutrition_staples\b/i, table: 'nutritionStaples' },
-  { pattern: /\bnutrition_regulars\b/i, table: 'nutritionRegulars' },
-  { pattern: /\bnutrition_entries\b/i, table: 'nutritionEntries' },
-  { pattern: /\bstreak_activities\b/i, table: 'streakActivities' },
-  { pattern: /\bstreak_log_cells\b/i, table: 'streakLogCells' },
-  { pattern: /\bstreak_activity_meta\b/i, table: 'streakActivityMeta' },
-  { pattern: /\bwater_config\b/i, table: 'waterConfig' },
-  { pattern: /\bwater_entries\b/i, table: 'waterEntries' }
-];
-
 const isMutationQuery = (query: string): boolean =>
   /^\s*(insert|update|delete|replace)\b/i.test(query);
-
-const inferTouchedUserDataTables = (query: string): UserDataTable[] => {
-  if (!isMutationQuery(query)) return [];
-  const tables: UserDataTable[] = [];
-  for (const entry of QUERY_TO_USER_DATA_TABLE) {
-    if (entry.pattern.test(query)) tables.push(entry.table);
-  }
-  return tables;
-};
 
 // ── Sync-aware db wrapper ──────────────────────────────────────────────────────
 // Wraps any SqlDatabase so that writes trigger a debounced push to the server.
@@ -513,7 +491,7 @@ export const wrapWithDataSync = (
   beforePush?: () => void | Promise<void>
 ): SqlDatabase => {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  let hadUnknownMutation = false;
+  let skippedUnknownMutation = false;
   const dirtyTables = new Set<UserDataTable>();
   const beforeMutationSnapshot: UserDataPatch = {};
 
@@ -523,43 +501,36 @@ export const wrapWithDataSync = (
       timer = null;
       void Promise.resolve(getCreds()).then(async ({ serverUrl, token }) => {
         if (!serverUrl || !token) return;
-        const tables = [...dirtyTables];
-        if (!hadUnknownMutation && tables.length === 0) return;
-        const shouldFullPush = hadUnknownMutation;
         if (beforePush) await beforePush();
-        if (shouldFullPush) {
-          const data = await extractUserData(db);
-          if (isUserDataEmpty(data)) return;
-          await pushUserData(serverUrl, token, data);
-          hadUnknownMutation = false;
-          dirtyTables.clear();
-          for (const table of USER_DATA_TABLES) delete beforeMutationSnapshot[table];
+        const tables = [...dirtyTables];
+        if (skippedUnknownMutation) {
+          logSyncInfo('sync skipped unknown mutation SQL; use markSyncRowPatch for explicit patches');
+          skippedUnknownMutation = false;
+        }
+        if (tables.length === 0) {
+          await drainSyncOutbox(db, serverUrl, token);
           return;
         }
         const afterMutation = await extractUserDataForTables(db, tables);
         const missingBefore = tables.filter((table) => !(table in beforeMutationSnapshot));
         if (missingBefore.length > 0) {
-          const fullData = await extractUserData(db);
-          if (isUserDataEmpty(fullData)) return;
-          await pushUserData(serverUrl, token, fullData);
-          dirtyTables.clear();
-          for (const table of USER_DATA_TABLES) delete beforeMutationSnapshot[table];
-          return;
+          logSyncInfo('sync patch missing before snapshot; upserting current rows only', { tables: missingBefore });
+          const upsertPatch = buildUserDataRowPatch({}, afterMutation, missingBefore);
+          await enqueueSyncPatch(db, upsertPatch);
         }
-        const beforeMutation = pickUserDataTables(beforeMutationSnapshot as UserData, tables);
-        const rowPatch = buildUserDataRowPatch(beforeMutation, afterMutation, tables);
-        if (!hasUserDataRowPatchChanges(rowPatch)) {
-          for (const table of tables) {
-            dirtyTables.delete(table);
-            delete beforeMutationSnapshot[table];
-          }
-          return;
+        const knownTables = tables.filter((table) => table in beforeMutationSnapshot);
+        if (knownTables.length > 0) {
+          const beforeMutation = pickUserDataTables(beforeMutationSnapshot as UserData, knownTables);
+          const knownAfter = pickUserDataTables(afterMutation as UserData, knownTables);
+          const rowPatch = buildUserDataRowPatch(beforeMutation, knownAfter, knownTables);
+          await enqueueSyncPatch(db, rowPatch);
         }
-        await pushUserDataPatch(serverUrl, token, rowPatch);
         for (const table of tables) {
           dirtyTables.delete(table);
           delete beforeMutationSnapshot[table];
         }
+        const drain = await drainSyncOutbox(db, serverUrl, token);
+        if (!drain.ok) throw new Error('sync outbox drain failed');
       }).catch((err) => {
         logSyncError('debounced push failed', err);
         onPushError?.(err);
@@ -569,9 +540,9 @@ export const wrapWithDataSync = (
   return {
     select: (q, bind) => db.select(q, bind),
     execute: async (q, bind) => {
-      const touchedTables = inferTouchedUserDataTables(q);
+      const touchedTables = inferSyncUserDataTablesFromSql(q);
       const mutation = isMutationQuery(q);
-      if (mutation && touchedTables.length > 0 && !hadUnknownMutation) {
+      if (mutation && touchedTables.length > 0) {
         const missingTables = touchedTables.filter((table) => !(table in beforeMutationSnapshot));
         if (missingTables.length > 0) {
           const preMutation = await extractUserDataForTables(db, missingTables);
@@ -579,7 +550,7 @@ export const wrapWithDataSync = (
         }
       }
       const result = await db.execute(q, bind);
-      if (mutation && touchedTables.length === 0) hadUnknownMutation = true;
+      if (mutation && touchedTables.length === 0) skippedUnknownMutation = true;
       for (const table of touchedTables) dirtyTables.add(table);
       if (mutation) markLocalSyncChangePending();
       scheduleSync();
