@@ -11,4 +11,5 @@ export * from './dataSyncEvents';
 export * from './syncCreds';
 export * from './initialSync';
 export * from './userDataPolling';
+export * from './syncStatus';
 export { logSyncError, logSyncInfo, logSyncHttpFailure, summarizeUserDataCounts } from './syncLog';

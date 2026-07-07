@@ -3,6 +3,7 @@ import { normalizeApiUrl } from './apiUrl';
 import { logSyncError, logSyncHttpFailure, logSyncInfo, summarizeUserDataCounts } from './syncLog';
 import { syncFetch } from './syncFetch';
 import { assertSafeSnapshotPush, isUserDataEmpty } from './userDataSafety';
+import { markLocalSyncChangePending, markSyncPullResult, markSyncPushResult } from './syncStatus';
 
 // ── Row types — mirror local.db columns (no user_id) ──────────────────────────
 
@@ -141,7 +142,7 @@ export const extractUserData = async (db: SqlDatabase): Promise<UserData> => ({
 
 export const pickUserDataTables = (data: UserData, tables: UserDataTable[]): UserDataPatch => {
   const patch: UserDataPatch = {};
-  for (const table of tables) patch[table] = data[table];
+  for (const table of tables) (patch as Record<UserDataTable, UserData[UserDataTable]>)[table] = data[table];
   return patch;
 };
 
@@ -149,9 +150,10 @@ export const extractUserDataForTables = async (db: SqlDatabase, tables: UserData
   const patch: UserDataPatch = {};
   for (const table of tables) {
     const rows = await db.select(SELECT_BY_TABLE[table]);
-    patch[table] = (table === 'nutritionConfig' || table === 'waterConfig')
+    const value = (table === 'nutritionConfig' || table === 'waterConfig')
       ? ((rows as NutritionConfig[] | WaterConfig[])[0] ?? null)
       : rows as UserData[typeof table];
+    (patch as Record<UserDataTable, UserData[UserDataTable]>)[table] = value as UserData[UserDataTable];
   }
   return patch;
 };
@@ -286,14 +288,17 @@ export const fetchUserData = async (baseUrl: string, token: string): Promise<Use
       hint: 'If the browser shows ERR_ADDRESS_UNREACHABLE, this device cannot route to the server host (DNS/VPS/firewall/Tailscale-only URL).'
     });
     const detail = err instanceof Error ? err.message : String(err);
+    markSyncPullResult(false, detail);
     throw new Error(`fetchUserData: ${detail}`);
   }
   if (!res.ok) {
     await logSyncHttpFailure('GET', url, res);
+    markSyncPullResult(false, `HTTP ${res.status}`);
     throw new Error(`fetchUserData: HTTP ${res.status}`);
   }
   const body = (await res.json()) as { data: UserData };
   logSyncInfo('GET /v1/data ok', summarizeUserDataCounts(body.data));
+  markSyncPullResult(true);
   return body.data;
 };
 
@@ -318,13 +323,16 @@ export const pushUserData = async (
   } catch (err) {
     logSyncError('POST /v1/data network error', err, { url });
     const detail = err instanceof Error ? err.message : String(err);
+    markSyncPushResult('push-full', false, detail);
     throw new Error(`pushUserData to ${url}: ${detail}`);
   }
   if (!res.ok) {
     await logSyncHttpFailure('POST', url, res);
+    markSyncPushResult('push-full', false, `HTTP ${res.status}`);
     throw new Error(`pushUserData to ${url}: HTTP ${res.status}`);
   }
   logSyncInfo('POST /v1/data ok', { url });
+  markSyncPushResult('push-full', true);
 };
 
 export const pushUserDataPatch = async (
@@ -346,13 +354,16 @@ export const pushUserDataPatch = async (
   } catch (err) {
     logSyncError('POST /v1/data/patch network error', err, { url });
     const detail = err instanceof Error ? err.message : String(err);
+    markSyncPushResult('push-patch', false, detail);
     throw new Error(`pushUserDataPatch to ${url}: ${detail}`);
   }
   if (!res.ok) {
     await logSyncHttpFailure('POST', url, res);
+    markSyncPushResult('push-patch', false, `HTTP ${res.status}`);
     throw new Error(`pushUserDataPatch to ${url}: HTTP ${res.status}`);
   }
   logSyncInfo('POST /v1/data/patch ok', { url, tables: Object.keys(rowPatch) });
+  markSyncPushResult('push-patch', true);
 };
 
 const stableString = (value: unknown): string => JSON.stringify(value);
@@ -569,6 +580,7 @@ export const wrapWithDataSync = (
       const result = await db.execute(q, bind);
       if (mutation && touchedTables.length === 0) hadUnknownMutation = true;
       for (const table of touchedTables) dirtyTables.add(table);
+      if (mutation) markLocalSyncChangePending();
       scheduleSync();
       return result;
     }

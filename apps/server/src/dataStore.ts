@@ -218,12 +218,7 @@ export class SqliteDataStore {
           this.db.prepare(`
             INSERT INTO focus_log (id,user_id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio)
             VALUES (?,?,?,?,?,?,?)
-            ON CONFLICT(id,user_id) DO UPDATE SET
-              session_type=excluded.session_type,
-              completed_at=excluded.completed_at,
-              duration_minutes=excluded.duration_minutes,
-              planned_duration_minutes=excluded.planned_duration_minutes,
-              completion_ratio=excluded.completion_ratio
+            ON CONFLICT(id,user_id) DO NOTHING
           `).run(row.id, uid, row.session_type, row.completed_at, row.duration_minutes, row.planned_duration_minutes ?? null, row.completion_ratio ?? null);
         }
       }
@@ -235,14 +230,7 @@ export class SqliteDataStore {
           this.db.prepare(`
             INSERT INTO workout_log (id,user_id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio)
             VALUES (?,?,?,?,?,?,?,?,?)
-            ON CONFLICT(id,user_id) DO UPDATE SET
-              workout_id=excluded.workout_id,
-              workout_name=excluded.workout_name,
-              completed_at=excluded.completed_at,
-              exercises_json=excluded.exercises_json,
-              total_reps=excluded.total_reps,
-              total_timed_seconds=excluded.total_timed_seconds,
-              completion_ratio=excluded.completion_ratio
+            ON CONFLICT(id,user_id) DO NOTHING
           `).run(row.id, uid, row.workout_id, row.workout_name, row.completed_at, row.exercises_json, row.total_reps, row.total_timed_seconds, row.completion_ratio ?? null);
         }
       }
@@ -256,6 +244,7 @@ export class SqliteDataStore {
             ON CONFLICT(user_id,key) DO UPDATE SET
               value=excluded.value,
               updated_at=excluded.updated_at
+            WHERE excluded.updated_at >= app_kv.updated_at
           `).run(uid, row.key, row.value, row.updated_at);
         }
       }
@@ -317,6 +306,7 @@ export class SqliteDataStore {
               count=excluded.count,
               updated_at=excluded.updated_at,
               deleted=excluded.deleted
+            WHERE excluded.updated_at >= nutrition_entries.updated_at
           `).run(row.id, uid, row.log_day, row.kind, row.ref_id ?? null, row.label, row.calories, row.protein, row.count, row.updated_at, row.deleted);
         }
       }
@@ -356,6 +346,7 @@ export class SqliteDataStore {
             ON CONFLICT(log_date,activity_id,user_id) DO UPDATE SET
               state=excluded.state,
               updated_at=excluded.updated_at
+            WHERE excluded.updated_at >= streak_log_cells.updated_at
           `).run(row.log_date, row.activity_id, uid, row.state, row.updated_at);
         }
       }
@@ -396,6 +387,7 @@ export class SqliteDataStore {
               count=excluded.count,
               updated_at=excluded.updated_at,
               deleted=excluded.deleted
+            WHERE excluded.updated_at >= water_entries.updated_at
           `).run(row.id, uid, row.log_day, row.label, row.ml, row.count, row.updated_at, row.deleted);
         }
       }
