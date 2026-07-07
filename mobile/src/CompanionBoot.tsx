@@ -10,9 +10,8 @@ export default function CompanionBoot() {
     let cancelled = false;
     void (async () => {
       try {
-        const [storage, , appMod] = await Promise.all([
+        const [storage, appMod] = await Promise.all([
           import('./platform/storage'),
-          import('@/i18n'),
           import('./App')
         ]);
         if (cancelled) return;
