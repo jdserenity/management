@@ -21,6 +21,7 @@ import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { getAppKind, hasAppStorage } from '@/lib/appRuntime';
 import { BUILTIN_MORNING_STRETCH_ID, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
 import { loadStretchDefinitions, upsertStretchDefinition } from '@/lib/stretchCreator/stretchCreatorDb';
+import SyncStatusCard from '@/components/SyncStatusCard';
 
 const durationOptions = [3, 5, 7, 10, 15, 20, 30].map((m) => ({ value: String(m), label: `${m} min` }));
 
@@ -105,6 +106,7 @@ export default function CompanionSettingsPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
+      <SyncStatusCard />
       <Card>
         <CardHeader><CardTitle>Stats day</CardTitle></CardHeader>
         <CardContent>

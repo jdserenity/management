@@ -33,6 +33,7 @@ import {
     loadStreakHeatmapColorPref,
     saveStreakHeatmapColorPref,
 } from '@/lib/streakHeatmapPref';
+import SyncStatusCard from '@/components/SyncStatusCard';
 
 const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
 const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
@@ -801,6 +802,7 @@ const NotificationSettings = () => {
 const SettingsPage = () => {
     return (
         <div className="space-y-6 p-4 md:p-6">
+            <SyncStatusCard />
             <AppPresenceSettings />
             <SessionAlertSettings />
             <ThemeSettings />
