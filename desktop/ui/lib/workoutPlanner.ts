@@ -324,7 +324,7 @@ export const STRETCH_UPPER_BODY_IDS = new Set<string>([
   'stretch-neck-roll',
   'stretch-lateral-shoulder-L',
   'stretch-lateral-shoulder-R',
-  'stretch-forward-hang'
+  'arm-rolls'
 ]);
 
 export const STRETCH_LOWER_BODY_IDS = new Set<string>([
@@ -336,13 +336,45 @@ export const STRETCH_LOWER_BODY_IDS = new Set<string>([
   'stretch-toe-one-R',
   'stretch-deep-squat',
   'stretch-quad-standing-L',
-  'stretch-quad-standing-R'
+  'stretch-quad-standing-R',
+  'stretch-forward-hang'
 ]);
 
 export const stretchBodyRegionForId = (id: string): StretchBodyRegion | null => {
   if (STRETCH_UPPER_BODY_IDS.has(id)) return 'upper';
   if (STRETCH_LOWER_BODY_IDS.has(id)) return 'lower';
   return null;
+};
+
+export const isStretchExerciseId = (id: string): boolean => stretchBodyRegionForId(id) !== null;
+
+/** Strength/move counters for today — stretch moves are rolled up separately, not listed per-move. */
+export const listTodayWorkoutExerciseTotals = (totals: Record<string, ExerciseRunAgg>): ExerciseRunAgg[] =>
+  listNonZeroExerciseTotals(totals).filter((agg) => !isStretchExerciseId(agg.id));
+
+/** Exercises plus upper/lower stretch rollups for the Daily movement totals list. */
+export const listTodayMovementTotals = (
+  exerciseTotals: Record<string, ExerciseRunAgg>,
+  stretchTotals: TodayStretchTotals
+): ExerciseRunAgg[] => {
+  const rows: ExerciseRunAgg[] = [...listTodayWorkoutExerciseTotals(exerciseTotals)];
+  if (stretchTotals.upperBodySeconds > 0) {
+    rows.push({
+      id: '__stretch-upper',
+      label: DASHBOARD_TODAY_STRETCH_ROWS[0].label,
+      reps: 0,
+      timedSeconds: stretchTotals.upperBodySeconds
+    });
+  }
+  if (stretchTotals.lowerBodySeconds > 0) {
+    rows.push({
+      id: '__stretch-lower',
+      label: DASHBOARD_TODAY_STRETCH_ROWS[1].label,
+      reps: 0,
+      timedSeconds: stretchTotals.lowerBodySeconds
+    });
+  }
+  return rows.sort((a, b) => a.label.localeCompare(b.label));
 };
 
 export interface TodayStretchTotals {

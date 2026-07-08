@@ -72,6 +72,7 @@ import {
   persistFocusLog,
   persistWorkoutLog,
   deleteWorkoutLogsForWorkoutIdSince,
+  deleteWorkoutLogById,
   saveActiveFlowState,
   saveWorkoutCustomizePrefs
 } from '@/lib/sessionDb';
@@ -89,6 +90,14 @@ import { createActiveFlowDocument } from '@mgmt/sync';
 import { isActiveExerciseBreak } from '@mgmt/core';
 import { MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch';
 import { buildStretchLogEntry, defaultBuiltinMorningStretch, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
+import {
+  buildMovementSnackLogEntry,
+  countMovementSnacksToday,
+  defaultMovementSnackPrefs,
+  normalizeMovementSnackPrefs,
+  type MovementSnackPrefs
+} from '@/lib/movementSnack/movementSnack';
+import { saveMovementSnackPrefs } from '@/lib/movementSnack/movementSnackPref';
 import { FLOW_LID_PAUSE_EVENT, FLOW_LID_RESUME_EVENT, phaseEndsAtMsAfterLidResume } from '@/lib/flowLidPause';
 import { isTauri } from '@/lib/isTauri';
 import { listen } from '@tauri-apps/api/event';
@@ -125,6 +134,8 @@ interface SessionContextValue {
   todayExerciseTotals: Record<string, ExerciseRunAgg>;
   todayStretchTotals: TodayStretchTotals;
   focusToday: FocusTodayTotals;
+  todayMovementSnacks: number;
+  movementSnackPrefs: MovementSnackPrefs;
   dayRolloverHour: number;
   setDayRolloverHour: (hour: number) => void;
   cantExerciseMode: boolean;
@@ -140,6 +151,9 @@ interface SessionContextValue {
   logStretchCompletion: (stretch: StretchDefinition, exercises: ExerciseDefinition[], completionRatio?: number) => void;
   logMorningStretchCompletion: (exercises: ExerciseDefinition[], completionRatio?: number) => void;
   clearMorningStretchCompletionToday: () => void;
+  updateMovementSnackPrefs: (patch: Partial<MovementSnackPrefs>) => void;
+  logMovementSnackCompletion: (easy: boolean, exercises?: ExerciseDefinition[]) => void;
+  removeWorkoutLog: (id: string) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
   updateExerciseOverride: (exerciseId: string, amount: number, unit: ExerciseUnit) => void;
@@ -179,6 +193,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   const [sessionStorageReady, setSessionStorageReady] = useState(false);
   const [dayRolloverHour, setDayRolloverHourState] = useState(DEFAULT_DAY_ROLLOVER_HOUR);
   const [cantExerciseMode, setCantExerciseModeState] = useState(false);
+  const [movementSnackPrefs, setMovementSnackPrefsState] = useState<MovementSnackPrefs>(defaultMovementSnackPrefs);
   const [statsDayWindowStart, setStatsDayWindowStart] = useState(() => getStatsDayWindow().startTs);
   const [runExerciseTotals, setRunExerciseTotals] = useState<Record<string, ExerciseRunAgg>>(() => emptyExerciseTotals());
   const [runPomodoros, setRunPomodoros] = useState(0);
@@ -218,6 +233,8 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   nextSessionTypeRef.current = nextSessionType;
   const workoutCustomizePrefsRef = useRef(workoutCustomizePrefs);
   workoutCustomizePrefsRef.current = workoutCustomizePrefs;
+  const movementSnackPrefsRef = useRef(movementSnackPrefs);
+  movementSnackPrefsRef.current = movementSnackPrefs;
   const cantExerciseModeRef = useRef(cantExerciseMode);
   cantExerciseModeRef.current = cantExerciseMode;
   const dayRolloverHourRef = useRef(dayRolloverHour);
@@ -593,6 +610,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
         setStatsDayWindowStart(getStatsDayWindow(Date.now(), rolloverHour).startTs);
         workoutCustomizePrefsRef.current = snapshot.workoutCustomizePrefs;
         setWorkoutCustomizePrefs(snapshot.workoutCustomizePrefs);
+        setMovementSnackPrefsState(snapshot.movementSnackPrefs);
         setWorkoutLogs(snapshot.workoutLogs);
         setFocusLogs(snapshot.focusLogs);
         if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
@@ -843,6 +861,34 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     });
   }, [dayRolloverHour]);
 
+  const updateMovementSnackPrefs = useCallback((patch: Partial<MovementSnackPrefs>) => {
+    setMovementSnackPrefsState((current) => {
+      const next = normalizeMovementSnackPrefs({ ...current, ...patch });
+      void saveMovementSnackPrefs(next).catch((error) => {
+        console.error('Failed to save movement snack prefs:', error);
+      });
+      return next;
+    });
+  }, []);
+
+  const logMovementSnackCompletion = useCallback((easy: boolean, exercises?: ExerciseDefinition[]) => {
+    const defaults = easy ? movementSnackPrefsRef.current.easyExercises : movementSnackPrefsRef.current.hardExercises;
+    const toLog = exercises && exercises.length > 0 ? exercises : defaults;
+    if (toLog.length === 0) return;
+    const entry = buildMovementSnackLogEntry(toLog, createId('snack'), Date.now(), easy);
+    setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
+    void persistWorkoutLog(entry).catch((error) => {
+      console.error('Failed to persist movement snack:', error);
+    });
+  }, []);
+
+  const removeWorkoutLog = useCallback((id: string) => {
+    setWorkoutLogs((current) => current.filter((log) => log.id !== id));
+    void deleteWorkoutLogById(id).catch((error) => {
+      console.error('Failed to delete workout log:', error);
+    });
+  }, []);
+
   const setDayRolloverHour = useCallback((hour: number) => {
     void saveDayRolloverHourPref(hour)
       .then((saved) => {
@@ -900,6 +946,11 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   const focusToday = useMemo(
     () => summarizeFocusToday(focusLogs, Date.now(), dayRolloverHour),
     [focusLogs, dayRolloverHour, statsDayWindowStart]
+  );
+
+  const todayMovementSnacks = useMemo(
+    () => countMovementSnacksToday(workoutLogs, Date.now(), dayRolloverHour),
+    [workoutLogs, dayRolloverHour, statsDayWindowStart]
   );
 
   const patchWorkoutPrefs = useCallback((patch: (current: WorkoutCustomizePrefs) => WorkoutCustomizePrefs | null) => {
@@ -1045,7 +1096,12 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       focusDeskPosture,
       nextDeskPostureIfPomodoro,
       togglePomodoroDeskPosture,
-      sessionStorageReady
+      sessionStorageReady,
+      todayMovementSnacks,
+      movementSnackPrefs,
+      updateMovementSnackPrefs,
+      logMovementSnackCompletion,
+      removeWorkoutLog
     }),
     [
       phase,
@@ -1093,6 +1149,11 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       nextDeskPostureIfPomodoro,
       togglePomodoroDeskPosture,
       sessionStorageReady,
+      todayMovementSnacks,
+      movementSnackPrefs,
+      updateMovementSnackPrefs,
+      logMovementSnackCompletion,
+      removeWorkoutLog,
       statsDayWindowStart
     ]
   );

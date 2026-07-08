@@ -12,6 +12,7 @@ import {
   type FocusLogEntry,
   type WorkoutLogEntry
 } from '@/lib/workoutPlanner';
+import { loadMovementSnackPrefs, type MovementSnackPrefs } from '@/lib/movementSnack/movementSnackPref';
 
 export const LEGACY_LS_KEYS = {
   allowedWorkouts: 'management_allowed_workouts',
@@ -299,6 +300,7 @@ export type SessionStorageSnapshot = {
   workoutLogs: WorkoutLogEntry[];
   focusLogs: FocusLogEntry[];
   activeFlow: PersistedFlowState | null;
+  movementSnackPrefs: MovementSnackPrefs;
 };
 
 export const fetchActiveFlowState = async (): Promise<PersistedFlowState | null> => {
@@ -318,13 +320,14 @@ export const clearActiveFlowState = async (): Promise<void> => {
 
 export const loadSessionStorage = async (): Promise<SessionStorageSnapshot> => {
   await migrateSessionStorageFromLocalStorageIfNeeded();
-  const [workoutCustomizePrefs, workoutLogs, focusLogs, activeFlow] = await Promise.all([
+  const [workoutCustomizePrefs, workoutLogs, focusLogs, activeFlow, movementSnackPrefs] = await Promise.all([
     fetchWorkoutCustomizePrefs(),
     fetchWorkoutLogs(),
     fetchFocusLogs(),
-    fetchActiveFlowState()
+    fetchActiveFlowState(),
+    loadMovementSnackPrefs()
   ]);
-  return { workoutCustomizePrefs, workoutLogs, focusLogs, activeFlow };
+  return { workoutCustomizePrefs, workoutLogs, focusLogs, activeFlow, movementSnackPrefs };
 };
 
 export const persistFocusLog = async (entry: FocusLogEntry): Promise<void> => {
@@ -335,6 +338,11 @@ export const persistFocusLog = async (entry: FocusLogEntry): Promise<void> => {
 export const persistWorkoutLog = async (entry: WorkoutLogEntry): Promise<void> => {
   await insertWorkoutLog(entry);
   await pruneWorkoutLogs(MAX_HISTORY_ITEMS);
+};
+
+export const deleteWorkoutLogById = async (id: string): Promise<void> => {
+  const db = await getDb();
+  await db.execute('DELETE FROM workout_log WHERE id = $1', [id]);
 };
 
 export const deleteWorkoutLogsForWorkoutIdSince = async (workoutId: string, startTs: number): Promise<number> => {

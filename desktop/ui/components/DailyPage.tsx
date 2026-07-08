@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import DailyStretchSections from '@/components/daily/DailyStretchSections';
+import MovementSnackSection from '@/components/daily/MovementSnackSection';
 import StreakSection from '@/components/daily/StreakSection';
 import TdeeSection from '@/components/daily/TdeeSection';
 import WaterSection from '@/components/daily/WaterSection';
@@ -21,6 +22,7 @@ export default function DailyPage() {
       <StreakSection onCrossLog={handleCrossLog} />
       <TdeeSection refreshKey={tdeeRefreshKey} />
       <WaterSection refreshKey={waterRefreshKey} />
+      <MovementSnackSection />
     </div>
   );
 }
