@@ -22,8 +22,10 @@ Root `package.json` still runs desktop Vite/Tauri; workspace entries are `shared
 
 **Tauri CLI:** `scripts/tauri.mjs` passes `dev --config desktop/src-tauri/tauri.conf.json` (config flag must come **after** the subcommand).
 
+**Tauri build output path:** Vite `root` is `desktop/ui/`, so the default Vite `outDir` is `desktop/ui/dist/`. Tauri `frontendDist` in `desktop/src-tauri/tauri.conf.json` is `../../dist` (repo root). If those diverge, `npm run tauri build` bundles a **stale** root `dist/` while fresh JS lands in `desktop/ui/dist/` — Settings tabs, Sync health card, etc. look missing in the installed app. `vite.config.ts` sets `build.outDir` to repo root `dist/`. After a build, `rg "Sync health" dist/assets/*.js` should match.
+
 **Stale `apps/` folder:** if you still see `apps/sync-api/` locally, it is gitignored dev DB junk from an old experiment — safe to delete (`rm -rf apps`).
 
-## Sync refactor (in progress)
+## Sync refactor (merged 2026-07)
 
-Full checklist and file paths: **`docs/sync-refactor-plan.md`**. Root issue: local saves wipe whole tables; merge uses wrong timestamps for config rows; pull is still full-snapshot. Row patches on upload are done; steps 1–7 in that doc finish the loop.
+Branch `refactor/sync` merged to main. Checklist: **`docs/sync-refactor-plan.md`**. Still requires redeploy of desktop (`npm run tauri build`), companion (Cloudflare Pages), and VPS server for sync fixes to take effect in production.

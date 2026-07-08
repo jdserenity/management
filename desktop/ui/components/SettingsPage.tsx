@@ -7,6 +7,7 @@ import AppPresenceSettingsCard from '@/components/settings/AppPresenceSettingsCa
 import SessionAlertSettingsCard from '@/components/settings/SessionAlertSettingsCard';
 import PostureDetectionSettingsCard from '@/components/settings/PostureDetectionSettingsCard';
 import PostureCameraSettingsCard from '@/components/settings/PostureCameraSettingsCard';
+import AppVersionCard from '@/components/settings/AppVersionCard';
 import UpdateSettingsCard from '@/components/settings/UpdateSettingsCard';
 
 const SettingsPage = () => (
@@ -33,6 +34,7 @@ const SettingsPage = () => (
         <PostureCameraSettingsCard />
       </TabsContent>
       <TabsContent value="about" className="space-y-6">
+        <AppVersionCard />
         <UpdateSettingsCard />
       </TabsContent>
     </Tabs>

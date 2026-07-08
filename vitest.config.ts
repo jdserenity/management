@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
 import path from 'path';
 import { defineConfig } from 'vitest/config';
 
 const uiRoot = path.resolve(__dirname, './desktop/ui');
+const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')).version as string;
 
 export default defineConfig({
+  define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion) },
   test: {
     include: [
       'desktop/ui/**/*.test.ts',

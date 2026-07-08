@@ -1,3 +1,4 @@
+import AppVersionCard from '@/components/settings/AppVersionCard';
 import SyncStatusCard from '@/components/SyncStatusCard';
 import StatsDaySettingsCard from '@/components/settings/StatsDaySettingsCard';
 import HabitsSettingsCard from '@/components/settings/HabitsSettingsCard';
@@ -10,6 +11,7 @@ export default function CompanionSettingsPage() {
       <StatsDaySettingsCard />
       <SessionAlertSettingsCard surface="companion" />
       <HabitsSettingsCard />
+      <AppVersionCard />
     </div>
   );
 }
