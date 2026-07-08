@@ -8,7 +8,6 @@ import {
   defaultMovementSnackPrefs,
   MOVEMENT_SNACK_HARD_WORKOUT_ID,
   MOVEMENT_SNACK_EASY_WORKOUT_ID,
-  MOVEMENT_SNACK_WORKOUT_ID,
   normalizeMovementSnackPrefs,
 } from './movementSnack';
 

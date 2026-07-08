@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
 import type { ExerciseDefinition, ExerciseUnit } from '@/lib/workoutPlanner';
-import { formatTimedDuration } from '@/lib/workoutCustomize';
 
 const UNIT_OPTIONS: { value: ExerciseUnit; label: string }[] = [
   { value: 'reps', label: 'reps' },

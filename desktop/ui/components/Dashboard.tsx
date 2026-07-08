@@ -3,14 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { ArrowRight, Briefcase, Clock, Plus, X } from 'lucide-react';
+import { ArrowRight, Briefcase, Clock, Dumbbell, Plus, X } from 'lucide-react';
 import { useSession, type DeskPosture } from '@/context/SessionContext';
 import {
   SESSION_DURATIONS_MINUTES,
   formatClock,
   formatExerciseAmount,
   formatWallTime,
-  type ExerciseUnit,
   type SessionType
 } from '@/lib/workoutPlanner';
 import { canConvertFocusSession, showSessionChainControls } from '@/lib/sessionProgress';
@@ -324,7 +323,7 @@ const Dashboard = () => {
                         value={ex.amount}
                         onChange={(e) => updateBreakExerciseAmount(index, Number(e.target.value))}
                       />
-                      <span className="tabular-nums">{unitShort(ex.unit)}</span>
+                      <span className="tabular-nums">{ex.unit === 'reps' ? 'reps' : ex.unit === 'seconds' ? 'sec' : 'min'}</span>
                     </label>
                   </li>
                 ))}

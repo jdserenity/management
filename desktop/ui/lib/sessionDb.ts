@@ -12,7 +12,8 @@ import {
   type FocusLogEntry,
   type WorkoutLogEntry
 } from '@/lib/workoutPlanner';
-import { loadMovementSnackPrefs, type MovementSnackPrefs } from '@/lib/movementSnack/movementSnackPref';
+import { loadMovementSnackPrefs } from '@/lib/movementSnack/movementSnackPref';
+import type { MovementSnackPrefs } from '@/lib/movementSnack/movementSnack';
 
 export const LEGACY_LS_KEYS = {
   allowedWorkouts: 'management_allowed_workouts',
