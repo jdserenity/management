@@ -6,7 +6,7 @@ import {
 } from '@/lib/workoutPlanner';
 
 export const MOVEMENT_SNACK_WORKOUT_ID = 'movement-snack';
-export const MOVEMENT_SNACK_WORKOUT_NAME = '🍿 Movement Snack';
+export const MOVEMENT_SNACK_WORKOUT_NAME = 'Movement snack';
 
 export interface MovementSnackPrefs {
   dailyGoal: number;
@@ -66,16 +66,20 @@ export const normalizeMovementSnackPrefs = (
   };
 };
 
+export const movementSnackLogLabel = (easy: boolean): string =>
+  easy ? `${MOVEMENT_SNACK_WORKOUT_NAME} · easy` : `${MOVEMENT_SNACK_WORKOUT_NAME} · hard`;
+
 export const buildMovementSnackLogEntry = (
   exercises: ExerciseDefinition[],
   id: string,
-  completedAt: number = Date.now()
+  completedAt: number = Date.now(),
+  easy: boolean = false
 ): WorkoutLogEntry => {
   const vol = sumExerciseVolume(exercises);
   return {
     id,
     workoutId: MOVEMENT_SNACK_WORKOUT_ID,
-    workoutName: MOVEMENT_SNACK_WORKOUT_NAME,
+    workoutName: movementSnackLogLabel(easy),
     completedAt,
     exercises: [...exercises],
     totalReps: vol.reps,
@@ -84,13 +88,19 @@ export const buildMovementSnackLogEntry = (
   };
 };
 
+export const movementSnackLogsToday = (
+  logs: WorkoutLogEntry[],
+  nowTimestamp = Date.now(),
+  rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR
+): WorkoutLogEntry[] => {
+  const { startTs, endTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
+  return logs.filter(
+    (log) => log.workoutId === MOVEMENT_SNACK_WORKOUT_ID && log.completedAt >= startTs && log.completedAt < endTs
+  );
+};
+
 export const countMovementSnacksToday = (
   logs: WorkoutLogEntry[],
   nowTimestamp = Date.now(),
   rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR
-): number => {
-  const { startTs, endTs } = getStatsDayWindow(nowTimestamp, rolloverHour);
-  return logs.filter(
-    (log) => log.workoutId === MOVEMENT_SNACK_WORKOUT_ID && log.completedAt >= startTs && log.completedAt < endTs
-  ).length;
-};
+): number => movementSnackLogsToday(logs, nowTimestamp, rolloverHour).length;

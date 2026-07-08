@@ -1,0 +1,279 @@
+/* Movement — Daily tab (matches water/tdee tracker pattern) */
+
+.movement-tracker-container {
+  padding: 0;
+  font-family: inherit;
+  --movement-accent: rgb(16, 185, 129);
+}
+
+.movement-tracker-empty {
+  color: var(--muted-foreground);
+  font-style: italic;
+  margin: 0;
+}
+
+.movement-summary {
+  margin-bottom: 16px;
+}
+
+.movement-counts {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.movement-sep,
+.movement-target {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.movement-remaining {
+  margin-top: 4px;
+  font-size: 0.9em;
+  color: var(--muted-foreground);
+}
+
+.movement-remaining-done {
+  color: var(--movement-accent);
+  font-weight: 600;
+}
+
+.movement-progress {
+  margin-top: 10px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.movement-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--movement-accent);
+  transition: width 0.2s ease;
+}
+
+.movement-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 12px;
+}
+
+.movement-chain-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 2px;
+  min-height: 44px;
+  min-width: 44px;
+  max-width: 160px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: normal;
+  text-align: center;
+  transition: background 0.15s ease;
+}
+
+.movement-chain-label {
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  max-width: 100%;
+}
+
+.movement-chain-plus {
+  min-width: 44px;
+  font-size: 1.4em;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+.movement-chain-plus-disabled,
+.movement-chain-plus:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--border);
+  color: var(--muted-foreground);
+}
+
+.movement-chain-btn:hover:not(.movement-chain-done) {
+  background: var(--accent);
+}
+
+.movement-chain-done {
+  background: var(--movement-accent);
+  color: #fff;
+  border-color: var(--movement-accent);
+}
+
+.movement-chain-done:hover {
+  filter: brightness(0.92);
+}
+
+.movement-chain-done .movement-chain-label {
+  color: #fff;
+}
+
+.movement-add-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--secondary);
+}
+
+.movement-add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.movement-add-title {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.movement-add-close {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 1.35em;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.movement-add-close:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.movement-snack-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.movement-quick-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.movement-quick-btn:hover {
+  background: var(--accent);
+}
+
+.movement-quick-btn-primary {
+  background: var(--movement-accent);
+  color: #fff;
+  border-color: var(--movement-accent);
+}
+
+.movement-quick-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.movement-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.movement-custom-input {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.movement-custom-input-wide {
+  min-width: 10rem;
+  flex: 1;
+}
+
+.movement-log-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.movement-log-btn:hover {
+  filter: brightness(1.05);
+}
+
+.movement-regions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.movement-region {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--secondary);
+}
+
+.movement-region-title {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 6px;
+}
+
+.movement-region-empty {
+  font-size: 0.85em;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+.movement-region-row {
+  font-size: 0.85em;
+  color: var(--foreground);
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+
+.movement-region-row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}

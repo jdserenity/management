@@ -76,9 +76,14 @@ describe('buildMovementSnackLogEntry', () => {
     const hard = defaultMovementSnackHardExercises();
     const entry = buildMovementSnackLogEntry(hard, 'snack-1');
     expect(entry.workoutId).toBe(MOVEMENT_SNACK_WORKOUT_ID);
-    expect(entry.workoutName).toBe('🍿 Movement Snack');
+    expect(entry.workoutName).toBe('Movement snack · hard');
     expect(entry.exercises).toHaveLength(3);
     expect(entry.completionRatio).toBe(1);
+  });
+
+  it('labels easy snacks in workout name', () => {
+    const entry = buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'snack-e', Date.now(), true);
+    expect(entry.workoutName).toBe('Movement snack · easy');
   });
 
   it('totals reps and timed seconds', () => {

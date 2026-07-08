@@ -130,7 +130,6 @@ export default function CustomizeMovementSnacksPanel() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <span role="img" aria-label="popcorn">🍿</span>
           Movement Snacks
         </CardTitle>
         <p className="text-sm text-muted-foreground">

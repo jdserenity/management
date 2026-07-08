@@ -340,6 +340,11 @@ export const persistWorkoutLog = async (entry: WorkoutLogEntry): Promise<void> =
   await pruneWorkoutLogs(MAX_HISTORY_ITEMS);
 };
 
+export const deleteWorkoutLogById = async (id: string): Promise<void> => {
+  const db = await getDb();
+  await db.execute('DELETE FROM workout_log WHERE id = $1', [id]);
+};
+
 export const deleteWorkoutLogsForWorkoutIdSince = async (workoutId: string, startTs: number): Promise<number> => {
   const db = await getDb();
   const rows = await db.select<{ count: number }[]>(

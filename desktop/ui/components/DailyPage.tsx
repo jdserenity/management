@@ -19,10 +19,10 @@ export default function DailyPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 lg:space-y-10">
       <DailyStretchSections />
-      <MovementSnackSection />
       <StreakSection onCrossLog={handleCrossLog} />
       <TdeeSection refreshKey={tdeeRefreshKey} />
       <WaterSection refreshKey={waterRefreshKey} />
+      <MovementSnackSection />
     </div>
   );
 }

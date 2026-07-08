@@ -72,6 +72,7 @@ import {
   persistFocusLog,
   persistWorkoutLog,
   deleteWorkoutLogsForWorkoutIdSince,
+  deleteWorkoutLogById,
   saveActiveFlowState,
   saveWorkoutCustomizePrefs
 } from '@/lib/sessionDb';
@@ -152,6 +153,7 @@ interface SessionContextValue {
   clearMorningStretchCompletionToday: () => void;
   updateMovementSnackPrefs: (patch: Partial<MovementSnackPrefs>) => void;
   logMovementSnackCompletion: (easy: boolean) => void;
+  removeWorkoutLog: (id: string) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
   updateExerciseOverride: (exerciseId: string, amount: number, unit: ExerciseUnit) => void;
@@ -872,10 +874,17 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   const logMovementSnackCompletion = useCallback((easy: boolean) => {
     const exercises = easy ? movementSnackPrefsRef.current.easyExercises : movementSnackPrefsRef.current.hardExercises;
     if (exercises.length === 0) return;
-    const entry = buildMovementSnackLogEntry(exercises, createId('snack'));
+    const entry = buildMovementSnackLogEntry(exercises, createId('snack'), Date.now(), easy);
     setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
     void persistWorkoutLog(entry).catch((error) => {
       console.error('Failed to persist movement snack:', error);
+    });
+  }, []);
+
+  const removeWorkoutLog = useCallback((id: string) => {
+    setWorkoutLogs((current) => current.filter((log) => log.id !== id));
+    void deleteWorkoutLogById(id).catch((error) => {
+      console.error('Failed to delete workout log:', error);
     });
   }, []);
 
@@ -1090,7 +1099,8 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       todayMovementSnacks,
       movementSnackPrefs,
       updateMovementSnackPrefs,
-      logMovementSnackCompletion
+      logMovementSnackCompletion,
+      removeWorkoutLog
     }),
     [
       phase,
@@ -1142,6 +1152,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       movementSnackPrefs,
       updateMovementSnackPrefs,
       logMovementSnackCompletion,
+      removeWorkoutLog,
       statsDayWindowStart
     ]
   );
