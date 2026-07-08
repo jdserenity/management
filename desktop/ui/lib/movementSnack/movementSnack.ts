@@ -73,7 +73,7 @@ export const movementSnackLogLabel = (easy: boolean): string =>
   easy ? `${MOVEMENT_SNACK_WORKOUT_NAME} · easy` : `${MOVEMENT_SNACK_WORKOUT_NAME} · hard`;
 
 export const isHardMovementSnackLog = (log: Pick<WorkoutLogEntry, 'workoutId' | 'workoutName'>): boolean =>
-  log.workoutId === MOVEMENT_SNACK_HARD_WORKOUT_ID;
+  log.workoutId === MOVEMENT_SNACK_HARD_WORKOUT_ID && !log.workoutName.includes('· easy');
 
 export const isEasyMovementSnackLog = (log: Pick<WorkoutLogEntry, 'workoutId' | 'workoutName'>): boolean =>
   log.workoutId === MOVEMENT_SNACK_EASY_WORKOUT_ID ||
