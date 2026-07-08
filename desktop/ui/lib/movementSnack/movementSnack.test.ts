@@ -111,19 +111,19 @@ describe('countMovementSnacksToday', () => {
       buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'b', insideTs, true),
       buildMovementSnackLogEntry(defaultMovementSnackHardExercises(), 'c', outsideTs, false),
     ];
-    expect(countMovementSnacksToday(logs, now, 5)).toBe(1);
+    expect(countMovementSnacksToday(logs, now, 5)).toBe(2);
   });
 
   it('returns 0 for an empty log list', () => {
     expect(countMovementSnacksToday([])).toBe(0);
   });
 
-  it('does not count legacy easy logs stored under the hard workout id', () => {
+  it('counts legacy easy logs stored under the hard workout id', () => {
     const now = Date.now();
     const { startTs } = getStatsDayWindow(now, 5);
     const insideTs = startTs + 1000;
     const legacyEasy = buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'legacy', insideTs, true);
     legacyEasy.workoutId = MOVEMENT_SNACK_HARD_WORKOUT_ID;
-    expect(countMovementSnacksToday([legacyEasy], now, 5)).toBe(0);
+    expect(countMovementSnacksToday([legacyEasy], now, 5)).toBe(1);
   });
 });

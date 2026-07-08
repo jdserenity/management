@@ -116,8 +116,7 @@ export const countMovementSnacksToday = (
   logs: WorkoutLogEntry[],
   nowTimestamp = Date.now(),
   rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR
-): number =>
-  movementSnackLogsToday(logs, nowTimestamp, rolloverHour).filter(isHardMovementSnackLog).length;
+): number => movementSnackLogsToday(logs, nowTimestamp, rolloverHour).length;
 
 export const hardMovementSnackLogsToday = (
   logs: WorkoutLogEntry[],
