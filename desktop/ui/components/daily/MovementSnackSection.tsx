@@ -3,15 +3,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { useMemo } from 'react';
 import { useSession } from '@/context/SessionContext';
-import { formatExerciseAmount } from '@/lib/workoutPlanner';
+import {
+  DASHBOARD_TODAY_STRETCH_ROWS,
+  formatExerciseAmount,
+  formatExerciseRunAggLine,
+  formatTimedSecondsTotal,
+  listNonZeroExerciseTotals
+} from '@/lib/workoutPlanner';
 
 export default function MovementSnackSection() {
   const {
     movementSnackPrefs,
     todayMovementSnacks,
+    todayExerciseTotals,
+    todayStretchTotals,
     logMovementSnackCompletion
   } = useSession();
+
+  const todayExercises = useMemo(() => listNonZeroExerciseTotals(todayExerciseTotals), [todayExerciseTotals]);
 
   const goal = movementSnackPrefs.dailyGoal;
   const done = todayMovementSnacks;
@@ -81,6 +92,26 @@ export default function MovementSnackSection() {
               </Button>
             </div>
           </div>
+
+          {(todayExercises.length > 0 || todayStretchTotals.upperBodySeconds > 0 || todayStretchTotals.lowerBodySeconds > 0) && (
+            <div className="space-y-2 rounded-lg border bg-muted/15 px-3 py-3">
+              <p className="text-sm font-semibold">Today&apos;s movement</p>
+              {todayExercises.map((agg) => (
+                <div key={agg.id} className="rounded-md border bg-background px-3 py-2 text-sm">
+                  <span className="font-medium leading-snug">{formatExerciseRunAggLine(agg)}</span>
+                </div>
+              ))}
+              {DASHBOARD_TODAY_STRETCH_ROWS.map((row) => {
+                const seconds = row.region === 'upper' ? todayStretchTotals.upperBodySeconds : todayStretchTotals.lowerBodySeconds;
+                if (seconds <= 0) return null;
+                return (
+                  <div key={row.region} className="rounded-md border bg-background px-3 py-2 text-sm">
+                    <span className="font-medium leading-snug">{row.label}: {formatTimedSecondsTotal(seconds)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </section>
