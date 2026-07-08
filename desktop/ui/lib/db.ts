@@ -3,6 +3,7 @@ import { wrapWithDataSync } from '@mgmt/sync';
 import { notifyDataSyncError } from '@/lib/dataSyncNotify';
 import { awaitDataSyncBootstrap } from '@/lib/dataSyncBootstrap';
 import { getBuildTimeSyncCreds } from '@mgmt/sync';
+import { isTauri } from '@/lib/isTauri';
 
 export type { SqlDatabase };
 
@@ -40,6 +41,11 @@ export const registerSqlBackend = (backend: SqlDatabase): void => {
 
 export const getDb = async (): Promise<SqlDatabase> => {
   if (registeredBackend) return registeredBackend;
+  if (!isTauri()) {
+    throw new Error(
+      'This app needs the Tauri desktop shell and its SQLite database. Run `npm run tauri dev` and use the Management window that opens — not `npm run dev` in a regular browser tab.'
+    );
+  }
   if (!tauriLoadPromise) {
     tauriLoadPromise = import('@tauri-apps/plugin-sql').then(({ default: Database }) =>
       Database.load(DB_ID).then(wrapTauriDb)
