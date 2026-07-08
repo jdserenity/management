@@ -177,8 +177,10 @@ describe('summarizeTodayStretchTotals', () => {
   it('maps stretch ids to upper vs lower body', () => {
     expect(stretchBodyRegionForId('stretch-neck-roll')).toBe('upper');
     expect(stretchBodyRegionForId('stretch-lateral-shoulder-L')).toBe('upper');
+    expect(stretchBodyRegionForId('arm-rolls')).toBe('upper');
     expect(stretchBodyRegionForId('stretch-butterfly')).toBe('lower');
     expect(stretchBodyRegionForId('stretch-foot')).toBe('lower');
+    expect(stretchBodyRegionForId('stretch-forward-hang')).toBe('lower');
     expect(stretchBodyRegionForId('pushups')).toBeNull();
   });
 

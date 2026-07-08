@@ -324,7 +324,7 @@ export const STRETCH_UPPER_BODY_IDS = new Set<string>([
   'stretch-neck-roll',
   'stretch-lateral-shoulder-L',
   'stretch-lateral-shoulder-R',
-  'stretch-forward-hang'
+  'arm-rolls'
 ]);
 
 export const STRETCH_LOWER_BODY_IDS = new Set<string>([
@@ -336,7 +336,8 @@ export const STRETCH_LOWER_BODY_IDS = new Set<string>([
   'stretch-toe-one-R',
   'stretch-deep-squat',
   'stretch-quad-standing-L',
-  'stretch-quad-standing-R'
+  'stretch-quad-standing-R',
+  'stretch-forward-hang'
 ]);
 
 export const stretchBodyRegionForId = (id: string): StretchBodyRegion | null => {
