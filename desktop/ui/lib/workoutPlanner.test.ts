@@ -43,6 +43,7 @@ import {
   formatTimedSecondsTotal,
   isStretchExerciseId,
   listTodayWorkoutExerciseTotals,
+  listTodayMovementTotals,
   summarizeWorkoutLogs,
   type ExerciseRunAgg,
   type FocusLogEntry,
@@ -508,5 +509,33 @@ describe('isStretchExerciseId / listTodayWorkoutExerciseTotals', () => {
       'stretch-neck-roll': { id: 'stretch-neck-roll', label: 'Neck Roll', reps: 0, timedSeconds: 30 }
     };
     expect(listTodayWorkoutExerciseTotals(totals).map((a) => a.id)).toEqual(['pushups']);
+  });
+});
+
+describe('listTodayMovementTotals', () => {
+  it('rolls arm rolls into upper body stretching, not a separate exercise row', () => {
+    const exerciseTotals: Record<string, ExerciseRunAgg> = {
+      pushups: { id: 'pushups', label: 'Push-ups', reps: 10, timedSeconds: 0 },
+      'arm-rolls': { id: 'arm-rolls', label: 'Arm rolls', reps: 0, timedSeconds: 30 }
+    };
+    const rows = listTodayMovementTotals(exerciseTotals, { upperBodySeconds: 30, lowerBodySeconds: 0 });
+    expect(rows.map((r) => r.label)).toEqual(['Push-ups', 'Upper body stretching']);
+    expect(rows.some((r) => r.id === 'arm-rolls')).toBe(false);
+  });
+
+  it('merges strength moves with upper/lower stretch rollups', () => {
+    const exerciseTotals: Record<string, ExerciseRunAgg> = {
+      pushups: { id: 'pushups', label: 'Push-ups', reps: 20, timedSeconds: 0 },
+      squats: { id: 'squats', label: 'Air squats', reps: 40, timedSeconds: 0 }
+    };
+    const rows = listTodayMovementTotals(exerciseTotals, { upperBodySeconds: 200, lowerBodySeconds: 90 });
+    expect(rows.map((r) => r.label)).toEqual([
+      'Air squats',
+      'Lower body stretching',
+      'Push-ups',
+      'Upper body stretching'
+    ]);
+    expect(rows.find((r) => r.id === '__stretch-upper')?.timedSeconds).toBe(200);
+    expect(rows.find((r) => r.id === '__stretch-lower')?.timedSeconds).toBe(90);
   });
 });

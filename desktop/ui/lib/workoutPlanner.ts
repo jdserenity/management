@@ -352,6 +352,31 @@ export const isStretchExerciseId = (id: string): boolean => stretchBodyRegionFor
 export const listTodayWorkoutExerciseTotals = (totals: Record<string, ExerciseRunAgg>): ExerciseRunAgg[] =>
   listNonZeroExerciseTotals(totals).filter((agg) => !isStretchExerciseId(agg.id));
 
+/** Exercises plus upper/lower stretch rollups for the Daily movement totals list. */
+export const listTodayMovementTotals = (
+  exerciseTotals: Record<string, ExerciseRunAgg>,
+  stretchTotals: TodayStretchTotals
+): ExerciseRunAgg[] => {
+  const rows: ExerciseRunAgg[] = [...listTodayWorkoutExerciseTotals(exerciseTotals)];
+  if (stretchTotals.upperBodySeconds > 0) {
+    rows.push({
+      id: '__stretch-upper',
+      label: DASHBOARD_TODAY_STRETCH_ROWS[0].label,
+      reps: 0,
+      timedSeconds: stretchTotals.upperBodySeconds
+    });
+  }
+  if (stretchTotals.lowerBodySeconds > 0) {
+    rows.push({
+      id: '__stretch-lower',
+      label: DASHBOARD_TODAY_STRETCH_ROWS[1].label,
+      reps: 0,
+      timedSeconds: stretchTotals.lowerBodySeconds
+    });
+  }
+  return rows.sort((a, b) => a.label.localeCompare(b.label));
+};
+
 export interface TodayStretchTotals {
   upperBodySeconds: number;
   lowerBodySeconds: number;
