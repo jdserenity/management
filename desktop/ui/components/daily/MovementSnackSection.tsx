@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
-import { hardMovementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
-import { formatTimedDuration } from '@/lib/workoutCustomize';
+import { isEasyMovementSnackLog, movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import {
   DASHBOARD_MANUAL_EXERCISES,
-  DASHBOARD_TODAY_STRETCH_ROWS,
   formatExerciseRunAggLine,
-  listTodayWorkoutExerciseTotals,
+  listTodayMovementTotals,
   type ExerciseDefinition,
   type ExerciseUnit
 } from '@/lib/workoutPlanner';
@@ -57,12 +55,15 @@ export default function MovementSnackSection() {
   const ratio = goal > 0 ? Math.min(1, done / goal) : 0;
   const complete = done >= goal;
 
-  const hardSnackLogs = useMemo(
-    () => hardMovementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour),
+  const snackLogs = useMemo(
+    () => movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour),
     [workoutLogs, dayRolloverHour]
   );
 
-  const workoutTotals = useMemo(() => listTodayWorkoutExerciseTotals(todayExerciseTotals), [todayExerciseTotals]);
+  const movementTotals = useMemo(
+    () => listTodayMovementTotals(todayExerciseTotals, todayStretchTotals),
+    [todayExerciseTotals, todayStretchTotals]
+  );
 
   const updateDraftAmount = useCallback((kind: 'hard' | 'easy', index: number, amount: number) => {
     const rounded = Math.max(0, Math.round(amount));
@@ -107,18 +108,19 @@ export default function MovementSnackSection() {
     );
   }
 
-  hardSnackLogs.forEach((log, i) => {
+  snackLogs.forEach((log, i) => {
+    const easy = isEasyMovementSnackLog(log);
     const withConnector = chainItems.length > 0 || i > 0;
     chainItems.push(
       withConnector ? <TdeeChainConnector key={`c-snack-${log.id}`} /> : null,
       <button
         key={log.id}
         type="button"
-        className="movement-chain-btn movement-chain-done"
+        className={`movement-chain-btn movement-chain-done${easy ? ' movement-chain-done-easy' : ''}`}
         title="Click to remove"
         onClick={() => removeWorkoutLog(log.id)}
       >
-        <span className="movement-chain-label">Snack</span>
+        <span className="movement-chain-label">{easy ? 'Easy' : 'Snack'}</span>
       </button>
     );
   });
@@ -243,28 +245,18 @@ export default function MovementSnackSection() {
         </div>
       ) : null}
 
-      <div className="movement-totals">
-        {workoutTotals.length > 0 ? (
+      {movementTotals.length > 0 ? (
+        <div className="movement-totals">
           <div className="movement-region">
-            <p className="movement-region-title">Today&apos;s exercises</p>
-            {workoutTotals.map((agg) => (
+            <p className="movement-region-title">Today&apos;s movement</p>
+            {movementTotals.map((agg) => (
               <div key={agg.id} className="movement-region-row">
                 {formatExerciseRunAggLine(agg)}
               </div>
             ))}
           </div>
-        ) : null}
-        {DASHBOARD_TODAY_STRETCH_ROWS.map((row) => {
-          const seconds = row.region === 'upper' ? todayStretchTotals.upperBodySeconds : todayStretchTotals.lowerBodySeconds;
-          if (seconds <= 0) return null;
-          return (
-            <div key={row.region} className="movement-region movement-region-stretch">
-              <p className="movement-region-title">{row.label}</p>
-              <p className="movement-region-row movement-region-stretch-total">{formatTimedDuration(seconds)}</p>
-            </div>
-          );
-        })}
-      </div>
+        </div>
+      ) : null}
     </section>
   );
 }

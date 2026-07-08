@@ -129,6 +129,11 @@
   color: #fff;
 }
 
+.movement-chain-done-easy {
+  background: rgb(180, 140, 60);
+  border-color: rgb(180, 140, 60);
+}
+
 .movement-add-panel {
   border: 1px solid var(--border);
   border-radius: 8px;
