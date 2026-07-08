@@ -3,16 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { ArrowRight, Briefcase, Clock, Dumbbell, Plus, X } from 'lucide-react';
+import { ArrowRight, Briefcase, Clock, Plus, X } from 'lucide-react';
 import { useSession, type DeskPosture } from '@/context/SessionContext';
 import {
-  DASHBOARD_MANUAL_EXERCISES,
-  DASHBOARD_TODAY_STRETCH_ROWS,
   SESSION_DURATIONS_MINUTES,
   formatClock,
   formatExerciseAmount,
-  formatExerciseRunAggLine,
-  formatTimedSecondsTotal,
   formatWallTime,
   type ExerciseUnit,
   type SessionType
@@ -164,25 +160,6 @@ const Dashboard = () => {
     }
     return null;
   }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak, isStandaloneVeryLightBreak, runPomodoros, activeWorkout, cantExerciseMode]);
-
-  const unitShort = (unit: ExerciseUnit) => (unit === 'reps' ? 'reps' : unit === 'seconds' ? 'sec' : 'min');
-
-  const manualIncrementLabel = (unit: ExerciseUnit, amount: number) => {
-    if (unit === 'reps') return `+${amount}`;
-    if (unit === 'seconds') return `+${amount}s`;
-    return `+${amount}m`;
-  };
-
-  const todayRowDisplay = (id: string, name: string) => {
-    const agg = todayExerciseTotals[id];
-    if (!agg || (agg.reps <= 0 && agg.timedSeconds <= 0)) return `${name}: 0`;
-    return formatExerciseRunAggLine({ ...agg, label: name });
-  };
-
-  const todayStretchDisplay = (region: 'upper' | 'lower', label: string) => {
-    const seconds = region === 'upper' ? todayStretchTotals.upperBodySeconds : todayStretchTotals.lowerBodySeconds;
-    return `${label}: ${formatTimedSecondsTotal(seconds)}`;
-  };
 
   const nextEmoji = (t: SessionType) => (t === 'pomodoro' ? '🍅' : '🎯');
   const nextTitle = (t: SessionType) => (t === 'pomodoro' ? 'Pomodoro' : 'Deep work');
@@ -389,7 +366,7 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-1 md:items-stretch">
         <Card className="flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -406,30 +383,6 @@ const Dashboard = () => {
               <p className="font-medium">🎯 Deep work</p>
               <p className="mt-1 text-2xl font-bold tabular-nums">{focusToday.todayDeepWork}</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Dumbbell className="h-5 w-5 text-emerald-600" />
-              Today&apos;s movement
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col space-y-2">
-            {DASHBOARD_MANUAL_EXERCISES.map((ex) => (
-              <div key={ex.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
-                <span className="font-medium leading-snug">{todayRowDisplay(ex.id, ex.name)}</span>
-                <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 tabular-nums" onClick={() => addManualExercise(ex)} aria-label={`Add ${ex.amount} ${ex.unit} for ${ex.name}`}>
-                  {manualIncrementLabel(ex.unit, ex.amount)}
-                </Button>
-              </div>
-            ))}
-            {DASHBOARD_TODAY_STRETCH_ROWS.map((row) => (
-              <div key={row.region} className="rounded-md border px-3 py-2 text-sm">
-                <span className="font-medium leading-snug">{todayStretchDisplay(row.region, row.label)}</span>
-              </div>
-            ))}
           </CardContent>
         </Card>
       </div>
