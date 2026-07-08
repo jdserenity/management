@@ -6,6 +6,8 @@ import {
   defaultMovementSnackEasyExercises,
   defaultMovementSnackHardExercises,
   defaultMovementSnackPrefs,
+  MOVEMENT_SNACK_HARD_WORKOUT_ID,
+  MOVEMENT_SNACK_EASY_WORKOUT_ID,
   MOVEMENT_SNACK_WORKOUT_ID,
   normalizeMovementSnackPrefs,
 } from './movementSnack';
@@ -75,14 +77,15 @@ describe('buildMovementSnackLogEntry', () => {
   it('produces a workout log entry with the correct movement-snack workout id', () => {
     const hard = defaultMovementSnackHardExercises();
     const entry = buildMovementSnackLogEntry(hard, 'snack-1');
-    expect(entry.workoutId).toBe(MOVEMENT_SNACK_WORKOUT_ID);
+    expect(entry.workoutId).toBe(MOVEMENT_SNACK_HARD_WORKOUT_ID);
     expect(entry.workoutName).toBe('Movement snack · hard');
     expect(entry.exercises).toHaveLength(3);
     expect(entry.completionRatio).toBe(1);
   });
 
-  it('labels easy snacks in workout name', () => {
+  it('labels easy snacks with a separate workout id', () => {
     const entry = buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'snack-e', Date.now(), true);
+    expect(entry.workoutId).toBe(MOVEMENT_SNACK_EASY_WORKOUT_ID);
     expect(entry.workoutName).toBe('Movement snack · easy');
   });
 
@@ -113,5 +116,14 @@ describe('countMovementSnacksToday', () => {
 
   it('returns 0 for an empty log list', () => {
     expect(countMovementSnacksToday([])).toBe(0);
+  });
+
+  it('does not count legacy easy logs stored under the hard workout id', () => {
+    const now = Date.now();
+    const { startTs } = getStatsDayWindow(now, 5);
+    const insideTs = startTs + 1000;
+    const legacyEasy = buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'legacy', insideTs, true);
+    legacyEasy.workoutId = MOVEMENT_SNACK_HARD_WORKOUT_ID;
+    expect(countMovementSnacksToday([legacyEasy], now, 5)).toBe(0);
   });
 });
