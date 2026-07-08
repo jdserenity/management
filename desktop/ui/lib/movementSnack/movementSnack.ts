@@ -69,6 +69,9 @@ export const normalizeMovementSnackPrefs = (
 export const movementSnackLogLabel = (easy: boolean): string =>
   easy ? `${MOVEMENT_SNACK_WORKOUT_NAME} · easy` : `${MOVEMENT_SNACK_WORKOUT_NAME} · hard`;
 
+export const isHardMovementSnackLog = (log: Pick<WorkoutLogEntry, 'workoutId' | 'workoutName'>): boolean =>
+  log.workoutId === MOVEMENT_SNACK_WORKOUT_ID && !log.workoutName.includes('· easy');
+
 export const buildMovementSnackLogEntry = (
   exercises: ExerciseDefinition[],
   id: string,
@@ -103,4 +106,11 @@ export const countMovementSnacksToday = (
   logs: WorkoutLogEntry[],
   nowTimestamp = Date.now(),
   rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR
-): number => movementSnackLogsToday(logs, nowTimestamp, rolloverHour).length;
+): number =>
+  movementSnackLogsToday(logs, nowTimestamp, rolloverHour).filter(isHardMovementSnackLog).length;
+
+export const hardMovementSnackLogsToday = (
+  logs: WorkoutLogEntry[],
+  nowTimestamp = Date.now(),
+  rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR
+): WorkoutLogEntry[] => movementSnackLogsToday(logs, nowTimestamp, rolloverHour).filter(isHardMovementSnackLog);

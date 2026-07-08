@@ -41,8 +41,8 @@ import {
   stretchPickToExercises,
   STRETCH_PICK_CATALOG,
   formatTimedSecondsTotal,
-  groupTodayMovementByRegion,
-  movementBodyRegionForExerciseId,
+  isStretchExerciseId,
+  listTodayWorkoutExerciseTotals,
   summarizeWorkoutLogs,
   type ExerciseRunAgg,
   type FocusLogEntry,
@@ -497,23 +497,14 @@ describe('formatClock', () => {
   });
 });
 
-describe('movementBodyRegionForExerciseId', () => {
-  it('maps strength moves and stretches to upper or lower', () => {
-    expect(movementBodyRegionForExerciseId('pushups')).toBe('upper');
-    expect(movementBodyRegionForExerciseId('squats')).toBe('lower');
-    expect(movementBodyRegionForExerciseId('stretch-neck-roll')).toBe('upper');
-    expect(movementBodyRegionForExerciseId('stretch-butterfly')).toBe('lower');
-  });
-});
-
-describe('groupTodayMovementByRegion', () => {
-  it('splits exercise totals and stretch seconds into upper and lower', () => {
+describe('isStretchExerciseId / listTodayWorkoutExerciseTotals', () => {
+  it('treats stretch ids as stretches and lists strength moves separately', () => {
+    expect(isStretchExerciseId('stretch-neck-roll')).toBe(true);
+    expect(isStretchExerciseId('pushups')).toBe(false);
     const totals: Record<string, ExerciseRunAgg> = {
       pushups: { id: 'pushups', label: 'Push-ups', reps: 20, timedSeconds: 0 },
-      squats: { id: 'squats', label: 'Air squats', reps: 10, timedSeconds: 0 }
+      'stretch-neck-roll': { id: 'stretch-neck-roll', label: 'Neck Roll', reps: 0, timedSeconds: 30 }
     };
-    const grouped = groupTodayMovementByRegion(totals, { upperBodySeconds: 30, lowerBodySeconds: 45 });
-    expect(grouped.upper.map((a) => a.id)).toEqual(['pushups', '__stretch-upper']);
-    expect(grouped.lower.map((a) => a.id)).toEqual(['squats', '__stretch-lower']);
+    expect(listTodayWorkoutExerciseTotals(totals).map((a) => a.id)).toEqual(['pushups']);
   });
 });

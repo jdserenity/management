@@ -98,26 +98,17 @@ describe('buildMovementSnackLogEntry', () => {
 });
 
 describe('countMovementSnacksToday', () => {
-  it('counts only movement snack logs within the stats day window', () => {
+  it('filters snack logs to the stats day window', () => {
     const now = Date.now();
     const { startTs } = getStatsDayWindow(now, 5);
     const insideTs = startTs + 1000;
     const outsideTs = startTs - 1000;
     const logs = [
-      buildMovementSnackLogEntry(defaultMovementSnackHardExercises(), 'a', insideTs),
-      buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'b', insideTs),
-      buildMovementSnackLogEntry(defaultMovementSnackHardExercises(), 'c', outsideTs),
-      {
-        id: 'd',
-        workoutId: 'other',
-        workoutName: 'Other',
-        completedAt: insideTs,
-        exercises: [],
-        totalReps: 0,
-        totalTimedSeconds: 0,
-      },
+      buildMovementSnackLogEntry(defaultMovementSnackHardExercises(), 'a', insideTs, false),
+      buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'b', insideTs, true),
+      buildMovementSnackLogEntry(defaultMovementSnackHardExercises(), 'c', outsideTs, false),
     ];
-    expect(countMovementSnacksToday(logs, now, 5)).toBe(2);
+    expect(countMovementSnacksToday(logs, now, 5)).toBe(1);
   });
 
   it('returns 0 for an empty log list', () => {

@@ -1,32 +1,29 @@
 // src/components/daily/MovementSnackSection.tsx
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
-import { movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
+import { hardMovementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
+import { formatTimedDuration } from '@/lib/workoutCustomize';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import {
   DASHBOARD_MANUAL_EXERCISES,
   DASHBOARD_TODAY_STRETCH_ROWS,
-  formatExerciseAmount,
   formatExerciseRunAggLine,
-  groupTodayMovementByRegion,
+  listTodayWorkoutExerciseTotals,
   type ExerciseDefinition,
   type ExerciseUnit
 } from '@/lib/workoutPlanner';
 import './movement.css';
-
-const snackChipLabel = (workoutName: string): string => {
-  if (workoutName.includes('· easy')) return 'Easy snack';
-  if (workoutName.includes('· hard')) return 'Hard snack';
-  return 'Snack';
-};
 
 const manualIncrementLabel = (unit: ExerciseUnit, amount: number) => {
   if (unit === 'reps') return `+${amount}`;
   if (unit === 'seconds') return `+${amount}s`;
   return `+${amount}m`;
 };
+
+const cloneExercises = (exercises: ExerciseDefinition[]): ExerciseDefinition[] =>
+  exercises.map((ex) => ({ ...ex }));
 
 export default function MovementSnackSection() {
   const {
@@ -43,24 +40,38 @@ export default function MovementSnackSection() {
   } = useSession();
 
   const [addMode, setAddMode] = useState(false);
+  const [hardDraft, setHardDraft] = useState<ExerciseDefinition[]>(() => cloneExercises(movementSnackPrefs.hardExercises));
+  const [easyDraft, setEasyDraft] = useState<ExerciseDefinition[]>(() => cloneExercises(movementSnackPrefs.easyExercises));
   const [customName, setCustomName] = useState('');
   const [customAmount, setCustomAmount] = useState(10);
   const [customUnit, setCustomUnit] = useState<ExerciseUnit>('reps');
+
+  useEffect(() => {
+    if (!addMode) return;
+    setHardDraft(cloneExercises(movementSnackPrefs.hardExercises));
+    setEasyDraft(cloneExercises(movementSnackPrefs.easyExercises));
+  }, [addMode, movementSnackPrefs.hardExercises, movementSnackPrefs.easyExercises]);
 
   const goal = movementSnackPrefs.dailyGoal;
   const done = todayMovementSnacks;
   const ratio = goal > 0 ? Math.min(1, done / goal) : 0;
   const complete = done >= goal;
 
-  const snackLogs = useMemo(
-    () => movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour),
+  const hardSnackLogs = useMemo(
+    () => hardMovementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour),
     [workoutLogs, dayRolloverHour]
   );
 
-  const regions = useMemo(
-    () => groupTodayMovementByRegion(todayExerciseTotals, todayStretchTotals),
-    [todayExerciseTotals, todayStretchTotals]
-  );
+  const workoutTotals = useMemo(() => listTodayWorkoutExerciseTotals(todayExerciseTotals), [todayExerciseTotals]);
+
+  const updateDraftAmount = useCallback((kind: 'hard' | 'easy', index: number, amount: number) => {
+    const rounded = Math.max(0, Math.round(amount));
+    if (kind === 'hard') {
+      setHardDraft((rows) => rows.map((ex, i) => (i === index ? { ...ex, amount: rounded } : ex)));
+    } else {
+      setEasyDraft((rows) => rows.map((ex, i) => (i === index ? { ...ex, amount: rounded } : ex)));
+    }
+  }, []);
 
   if (!hasAppStorage()) return null;
   if (!sessionStorageReady) return <p className="movement-tracker-empty">Loading movement…</p>;
@@ -68,13 +79,12 @@ export default function MovementSnackSection() {
   const handleCustomAdd = () => {
     const name = customName.trim();
     if (!name) return;
-    const exercise: ExerciseDefinition = {
+    addManualExercise({
       id: `manual-${Date.now()}`,
       name,
       amount: Math.max(0, Math.round(customAmount)),
       unit: customUnit
-    };
-    addManualExercise(exercise);
+    });
     setCustomName('');
     setCustomAmount(10);
     setCustomUnit('reps');
@@ -92,24 +102,12 @@ export default function MovementSnackSection() {
         title="Log hard snack"
         onClick={() => logMovementSnackCompletion(false)}
       >
-        <span className="movement-chain-label">Hard</span>
-      </button>
-    );
-    chainItems.push(<TdeeChainConnector key="c-hard-easy" />);
-    chainItems.push(
-      <button
-        key="easy"
-        type="button"
-        className="movement-chain-btn"
-        title="Log easy snack"
-        onClick={() => logMovementSnackCompletion(true)}
-      >
-        <span className="movement-chain-label">Easy</span>
+        <span className="movement-chain-label">Hard snack</span>
       </button>
     );
   }
 
-  snackLogs.forEach((log, i) => {
+  hardSnackLogs.forEach((log, i) => {
     const withConnector = chainItems.length > 0 || i > 0;
     chainItems.push(
       withConnector ? <TdeeChainConnector key={`c-snack-${log.id}`} /> : null,
@@ -120,7 +118,7 @@ export default function MovementSnackSection() {
         title="Click to remove"
         onClick={() => removeWorkoutLog(log.id)}
       >
-        <span className="movement-chain-label">{snackChipLabel(log.workoutName)}</span>
+        <span className="movement-chain-label">Snack</span>
       </button>
     );
   });
@@ -131,12 +129,46 @@ export default function MovementSnackSection() {
       key="plus"
       type="button"
       className={`movement-chain-btn movement-chain-plus${addMode ? ' movement-chain-plus-disabled' : ''}`}
-      title={addMode ? 'Close add menu first' : 'Log an exercise'}
+      title={addMode ? 'Close add menu first' : 'Log exercise or modified snack'}
       disabled={addMode}
       onClick={() => setAddMode(true)}
     >
       +
     </button>
+  );
+
+  const renderSnackEditor = (kind: 'hard' | 'easy', draft: ExerciseDefinition[], primary: boolean) => (
+    <div className={`movement-snack-editor${primary ? '' : ' movement-snack-editor-fallback'}`}>
+      <p className="movement-snack-editor-title">{kind === 'hard' ? 'Hard snack' : 'Easy snack (fallback)'}</p>
+      <ul className="movement-snack-editor-rows">
+        {draft.map((ex, index) => (
+          <li key={`${kind}-${ex.id}-${index}`} className="movement-snack-editor-row">
+            <span className="movement-snack-editor-name">{ex.name}</span>
+            <label className="movement-snack-editor-amount">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                className="movement-custom-input"
+                value={ex.amount}
+                onChange={(e) => updateDraftAmount(kind, index, Number(e.target.value))}
+              />
+              <span className="movement-snack-editor-unit">{ex.unit === 'reps' ? 'reps' : ex.unit === 'seconds' ? 'sec' : 'min'}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        className={primary ? 'movement-quick-btn movement-quick-btn-primary' : 'movement-quick-btn'}
+        onClick={() => {
+          logMovementSnackCompletion(kind === 'easy', draft);
+          setAddMode(false);
+        }}
+      >
+        Log {kind} snack
+      </button>
+    </div>
   );
 
   return (
@@ -162,19 +194,13 @@ export default function MovementSnackSection() {
       {addMode ? (
         <div className="movement-add-panel">
           <div className="movement-add-header">
-            <span className="movement-add-title">Log exercise</span>
+            <span className="movement-add-title">Log movement</span>
             <button type="button" className="movement-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
               ×
             </button>
           </div>
-          <div className="movement-snack-quick">
-            <button type="button" className="movement-quick-btn movement-quick-btn-primary" onClick={() => { logMovementSnackCompletion(false); setAddMode(false); }}>
-              Hard snack
-            </button>
-            <button type="button" className="movement-quick-btn movement-quick-btn-primary" onClick={() => { logMovementSnackCompletion(true); setAddMode(false); }}>
-              Easy snack
-            </button>
-          </div>
+          {renderSnackEditor('hard', hardDraft, true)}
+          {renderSnackEditor('easy', easyDraft, false)}
           <div className="movement-snack-quick">
             {DASHBOARD_MANUAL_EXERCISES.map((ex) => (
               <button
@@ -217,23 +243,24 @@ export default function MovementSnackSection() {
         </div>
       ) : null}
 
-      <div className="movement-regions">
+      <div className="movement-totals">
+        {workoutTotals.length > 0 ? (
+          <div className="movement-region">
+            <p className="movement-region-title">Today&apos;s exercises</p>
+            {workoutTotals.map((agg) => (
+              <div key={agg.id} className="movement-region-row">
+                {formatExerciseRunAggLine(agg)}
+              </div>
+            ))}
+          </div>
+        ) : null}
         {DASHBOARD_TODAY_STRETCH_ROWS.map((row) => {
-          const items = row.region === 'upper' ? regions.upper : regions.lower;
+          const seconds = row.region === 'upper' ? todayStretchTotals.upperBodySeconds : todayStretchTotals.lowerBodySeconds;
+          if (seconds <= 0) return null;
           return (
-            <div key={row.region} className="movement-region">
+            <div key={row.region} className="movement-region movement-region-stretch">
               <p className="movement-region-title">{row.label}</p>
-              {items.length === 0 ? (
-                <p className="movement-region-empty">Nothing logged yet today.</p>
-              ) : (
-                items.map((agg) => (
-                  <div key={agg.id} className="movement-region-row">
-                    {agg.id.startsWith('__stretch-')
-                      ? `${agg.label}: ${formatExerciseAmount({ id: agg.id, name: agg.label, amount: agg.timedSeconds, unit: 'seconds' })}`
-                      : formatExerciseRunAggLine(agg)}
-                  </div>
-                ))
-              )}
+              <p className="movement-region-row movement-region-stretch-total">{formatTimedDuration(seconds)}</p>
             </div>
           );
         })}

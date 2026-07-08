@@ -152,7 +152,7 @@ interface SessionContextValue {
   logMorningStretchCompletion: (exercises: ExerciseDefinition[], completionRatio?: number) => void;
   clearMorningStretchCompletionToday: () => void;
   updateMovementSnackPrefs: (patch: Partial<MovementSnackPrefs>) => void;
-  logMovementSnackCompletion: (easy: boolean) => void;
+  logMovementSnackCompletion: (easy: boolean, exercises?: ExerciseDefinition[]) => void;
   removeWorkoutLog: (id: string) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
@@ -871,10 +871,11 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     });
   }, []);
 
-  const logMovementSnackCompletion = useCallback((easy: boolean) => {
-    const exercises = easy ? movementSnackPrefsRef.current.easyExercises : movementSnackPrefsRef.current.hardExercises;
-    if (exercises.length === 0) return;
-    const entry = buildMovementSnackLogEntry(exercises, createId('snack'), Date.now(), easy);
+  const logMovementSnackCompletion = useCallback((easy: boolean, exercises?: ExerciseDefinition[]) => {
+    const defaults = easy ? movementSnackPrefsRef.current.easyExercises : movementSnackPrefsRef.current.hardExercises;
+    const toLog = exercises && exercises.length > 0 ? exercises : defaults;
+    if (toLog.length === 0) return;
+    const entry = buildMovementSnackLogEntry(toLog, createId('snack'), Date.now(), easy);
     setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
     void persistWorkoutLog(entry).catch((error) => {
       console.error('Failed to persist movement snack:', error);

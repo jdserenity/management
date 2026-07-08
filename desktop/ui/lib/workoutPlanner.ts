@@ -345,49 +345,11 @@ export const stretchBodyRegionForId = (id: string): StretchBodyRegion | null => 
   return null;
 };
 
-const MOVEMENT_UPPER_BODY_IDS = new Set<string>([
-  ...STRETCH_UPPER_BODY_IDS,
-  'pushups',
-  'jacks',
-  'shadow',
-  'arm-rolls'
-]);
+export const isStretchExerciseId = (id: string): boolean => stretchBodyRegionForId(id) !== null;
 
-const MOVEMENT_LOWER_BODY_IDS = new Set<string>([
-  ...STRETCH_LOWER_BODY_IDS,
-  'squats',
-  'reverse-lunges',
-  'reverse-crunches',
-  'plank',
-  'march'
-]);
-
-/** Upper vs lower body bucket for today's movement totals (stretches + strength moves). */
-export const movementBodyRegionForExerciseId = (id: string): StretchBodyRegion | null => {
-  if (MOVEMENT_UPPER_BODY_IDS.has(id)) return 'upper';
-  if (MOVEMENT_LOWER_BODY_IDS.has(id)) return 'lower';
-  return null;
-};
-
-export const groupTodayMovementByRegion = (
-  totals: Record<string, ExerciseRunAgg>,
-  stretchTotals: TodayStretchTotals
-): { upper: ExerciseRunAgg[]; lower: ExerciseRunAgg[] } => {
-  const upper: ExerciseRunAgg[] = [];
-  const lower: ExerciseRunAgg[] = [];
-  listNonZeroExerciseTotals(totals).forEach((agg) => {
-    const region = movementBodyRegionForExerciseId(agg.id);
-    if (region === 'upper') upper.push(agg);
-    else if (region === 'lower') lower.push(agg);
-  });
-  if (stretchTotals.upperBodySeconds > 0) {
-    upper.push({ id: '__stretch-upper', label: 'Stretching', reps: 0, timedSeconds: stretchTotals.upperBodySeconds });
-  }
-  if (stretchTotals.lowerBodySeconds > 0) {
-    lower.push({ id: '__stretch-lower', label: 'Stretching', reps: 0, timedSeconds: stretchTotals.lowerBodySeconds });
-  }
-  return { upper, lower };
-};
+/** Strength/move counters for today — stretch moves are rolled up separately, not listed per-move. */
+export const listTodayWorkoutExerciseTotals = (totals: Record<string, ExerciseRunAgg>): ExerciseRunAgg[] =>
+  listNonZeroExerciseTotals(totals).filter((agg) => !isStretchExerciseId(agg.id));
 
 export interface TodayStretchTotals {
   upperBodySeconds: number;
