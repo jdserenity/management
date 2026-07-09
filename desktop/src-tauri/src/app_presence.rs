@@ -22,10 +22,10 @@ fn set_tray_icon(app: &AppHandle, state: &AppState, filename: &str) {
         if let Err(e) = tray.set_icon(Some(icon)) {
           error!("Failed to update tray icon: {}", e);
         }
-        // Template icons use alpha as the mask; solid black assets stay crisp (not washed-out white).
+        // Not a template: keep the asset as solid white in every state (system template tint can wash it out).
         #[cfg(target_os = "macos")]
         {
-          let _ = tray.set_icon_as_template(true);
+          let _ = tray.set_icon_as_template(false);
         }
       }
       Err(e) => error!("Failed to load tray icon {filename}: {e}"),
@@ -179,10 +179,10 @@ pub fn install_tray(app: &AppHandle, state: &AppState) -> Result<(), String> {
     .tooltip("Management")
     .menu(&menu)
     .on_menu_event(|app, event| handle_tray_menu_event(app, event.id.as_ref()));
-  // macOS: treat the asset as a template so the system paints a solid glyph (not washed-out white).
+  // Solid white PNG as-is — do not use template mode (that recolors/washes out the icon).
   #[cfg(target_os = "macos")]
   {
-    builder = builder.icon_as_template(true);
+    builder = builder.icon_as_template(false);
   }
   let tray = builder.build(app).map_err(|e| e.to_string())?;
   *lock_or_recover(&state.tray) = Some(tray);
@@ -227,6 +227,7 @@ pub fn menu_bar_only_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.menu_bar_only)
 }
 
+#[allow(dead_code)] // Still used when Settings toggles the hide-on-close preference.
 pub fn hide_to_menu_bar_on_close_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.hide_to_menu_bar_on_close)
 }

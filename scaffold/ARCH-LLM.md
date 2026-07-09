@@ -116,7 +116,7 @@ Commands (registered `main.rs`): boot settings (`set_app_presence_mode`, `set_hi
 
 Events to webview: `camera-preview-frame`, `analysis-update`, `monitoring-state-changed`, `tray-start-focus-flow`, `flow-lid-pause`/`flow-lid-resume`, `camera-yield-changed`.
 
-App presence: `dock` (Regular) vs `menu_bar` (Accessory). Window close / Cmd+Q always keep the process + menu bar tray (hide window); full exit only via tray **Quit Management**. Tray icons are black template glyphs (`tray.png` solid / `monitoring_off.png` hollow) so they stay solid, not washed-out white.
+App presence: `dock` (Regular) vs `menu_bar` (Accessory). Window close / Cmd+Q always keep the process + menu bar tray (hide window); full exit only via tray **Quit Management**. Tray icons are always solid white (`tray.png` / `monitoring_off.png` same look); not macOS template mode.
 
 ## Deploy (facts)
 

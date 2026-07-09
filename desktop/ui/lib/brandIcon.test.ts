@@ -12,17 +12,16 @@ describe('brandIcon', () => {
     expect(brandAppIconSvg()).toContain('fill="#0437F2"');
   });
 
-  it('uses a solid black rounded square for the menu bar tray icon (template)', () => {
+  it('uses a solid white rounded square for the menu bar tray icon', () => {
     const svg = brandTrayIconSvg();
-    expect(svg).toContain('fill="#000000"');
+    expect(svg).toContain('fill="#FFFFFF"');
     expect(svg).not.toContain('fill-opacity');
     expect(svg).toMatch(/rx="\d+"/);
   });
 
-  it('uses a full-opacity hollow square for monitoring-off (not faded white)', () => {
+  it('uses the same solid white square when monitoring is off (never faded)', () => {
     const svg = brandTrayMonitoringOffSvg();
-    expect(svg).toContain('stroke="#000000"');
-    expect(svg).toContain('fill="none"');
+    expect(svg).toContain('fill="#FFFFFF"');
     expect(svg).not.toContain('fill-opacity');
   });
 
