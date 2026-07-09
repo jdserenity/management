@@ -9,7 +9,7 @@ export const MOVEMENT_SNACK_HARD_WORKOUT_ID = 'movement-snack';
 export const MOVEMENT_SNACK_EASY_WORKOUT_ID = 'movement-snack-easy';
 /** @deprecated alias — hard snacks only */
 export const MOVEMENT_SNACK_WORKOUT_ID = MOVEMENT_SNACK_HARD_WORKOUT_ID;
-export const MOVEMENT_SNACK_WORKOUT_NAME = 'Movement snack';
+export const MOVEMENT_SNACK_WORKOUT_NAME = 'Movement burst';
 
 export interface MovementSnackPrefs {
   dailyGoal: number;

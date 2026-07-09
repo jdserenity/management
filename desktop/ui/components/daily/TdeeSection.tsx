@@ -23,6 +23,7 @@ import {
   loadTdeeFile,
   removeTdeeEntry
 } from '@/lib/tdeeDb';
+import { completeTasksLinkedToStaple, uncompleteTasksLinkedToStaple } from '@/lib/streak/crossLinks';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { hasAppStorage } from '@/lib/appRuntime';
@@ -91,9 +92,10 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
 
 type Props = {
   refreshKey?: number;
+  onLinkedTaskComplete?: () => void;
 };
 
-export default function TdeeSection({ refreshKey }: Props) {
+export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props) {
   const [file, setFile] = useState<TdeeFile | null>(null);
   const [addMode, setAddMode] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -148,11 +150,39 @@ export default function TdeeSection({ refreshKey }: Props) {
   const pendingStaples = file.staples.filter((s) => !isStapleLogged(file.entries, s.id));
 
   const handleRemove = async (id: string) => {
+    const entry = activeEntries(file.entries).find((e) => e.id === id);
     setFile(await removeTdeeEntry(file, id));
+    // Lockstep: removing a staple unchecks the linked habit task.
+    if (entry?.kind === 'staple' && entry.refId) {
+      try {
+        await uncompleteTasksLinkedToStaple(entry.refId);
+      } catch (e) {
+        console.error('Failed to uncomplete tasks linked to staple', entry.refId, e);
+      }
+      onLinkedTaskComplete?.();
+    }
+  };
+
+  const afterStapleLogged = async (stapleId: string) => {
+    try {
+      await completeTasksLinkedToStaple(stapleId);
+    } catch (e) {
+      console.error('Failed to complete tasks linked to staple', stapleId, e);
+    }
+    // Always re-read habits after a staple log so linked tasks show as checked.
+    onLinkedTaskComplete?.();
   };
 
   const handleStaple = async (staple: TdeeMealDef) => {
     setFile(await addStapleEntry(file, staple));
+    await afterStapleLogged(staple.id);
+  };
+
+  const handleStapleFromEditor = async (staple: TdeeMealDef, calories: number, protein: number, count: number) => {
+    // Logs as kind staple + refId so the day's staple chip is replaced (pending chip hides).
+    setFile(await addStapleEntry(file, staple, calories, protein, count));
+    setAddMode(false);
+    await afterStapleLogged(staple.id);
   };
 
   const handleRegular = async (regular: TdeeMealDef, calories: number, protein: number, count: number) => {
@@ -276,10 +306,38 @@ export default function TdeeSection({ refreshKey }: Props) {
       {addMode ? (
         <div className="tdee-add-panel">
           <div className="tdee-add-header">
-            <span className="tdee-add-title">Regulars &amp; one-off</span>
+            <span className="tdee-add-title">Staples, regulars &amp; one-off</span>
             <button type="button" className="tdee-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
               ×
             </button>
+          </div>
+          <div className="tdee-regular-list">
+            {file.staples.length === 0 ? (
+              <p className="tdee-tracker-empty">No staples configured yet. Add them in Customize → Food.</p>
+            ) : (
+              file.staples.map((staple) => {
+                const alreadyLogged = isStapleLogged(file.entries, staple.id);
+                return (
+                  <div key={staple.id} className="tdee-regular-row">
+                    <div className="tdee-regular-info">
+                      <span className="tdee-regular-name">
+                        {staple.name}
+                        {alreadyLogged ? <span className="tdee-tracker-empty"> · logged</span> : null}
+                      </span>
+                      {staple.ingredients?.length ? (
+                        <div className="tdee-regular-ingredients">{formatIngredientsList(staple.ingredients)}</div>
+                      ) : null}
+                    </div>
+                    <PortionControls
+                      defaultCalories={staple.calories}
+                      defaultProtein={staple.protein}
+                      actionLabel={alreadyLogged ? 'Add more' : 'Eat'}
+                      onAdd={(calories, protein, count) => handleStapleFromEditor(staple, calories, protein, count)}
+                    />
+                  </div>
+                );
+              })
+            )}
           </div>
           <div className="tdee-regular-list">
             {file.regulars.length === 0 ? (

@@ -140,6 +140,23 @@
   user-select: none;
 }
 
+.streak-heatmap-cell.streak-heatmap-necessary-fail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgb(239, 68, 68);
+}
+
+.streak-heatmap-fail-x {
+  font-size: clamp(6px, 70%, 12px);
+  line-height: 1;
+  font-weight: 800;
+  color: #000;
+  pointer-events: none;
+  user-select: none;
+}
+
 .streak-heatmap-cell:hover:not(.streak-heatmap-empty) {
   outline: 1px solid var(--muted-foreground);
   outline-offset: 1px;
@@ -349,6 +366,55 @@
   font-weight: 500;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+/* Subtle marker for necessary tasks (fails the day if incomplete) — sits beside the “necessary” label */
+.streak-necessary-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.streak-necessary-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgb(239, 68, 68);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.streak-overlap-part {
+  display: inline;
+}
+
+.streak-overlap-sep {
+  opacity: 0.7;
+}
+
+/* Golden check for necessary tasks when complete */
+.streak-btn-success.streak-btn-necessary.streak-btn-active {
+  background: linear-gradient(180deg, rgb(251, 191, 36), rgb(217, 119, 6));
+  color: white;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 5px rgba(245, 158, 11, 0.45);
+}
+
+.streak-btn-success.streak-btn-necessary:hover:not(.streak-btn-active) {
+  background: linear-gradient(180deg, rgba(251, 191, 36, 0.4), rgba(217, 119, 6, 0.2));
+  color: rgb(252, 211, 77);
+}
+
+.streak-day-chip.streak-day-chip-success-gold {
+  background: linear-gradient(180deg, rgb(251, 191, 36), rgb(217, 119, 6));
+  color: white;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 5px rgba(245, 158, 11, 0.45);
 }
 
 /* Activity name with links */

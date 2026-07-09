@@ -3,7 +3,7 @@ import { buildActivityCatalog, getActiveActivitiesForDay, parseScheduledDays } f
 import { clearActivityLogs, incrementResetCount, mergeResetCounts } from '@/lib/streak/activityReset';
 import { backfillArchivedAt } from '@/lib/streak/archiveBackfill';
 import { getISOWeekStart, isDateInWeek } from '@/lib/streak/dates';
-import { getDayCompletionCounts, isDayComplete, isPerfectHeatmapCell } from '@/lib/streak/heatmapHelpers';
+import { getDayCompletionCounts, isDayComplete, isDayNecessaryFailed, isPerfectHeatmapCell } from '@/lib/streak/heatmapHelpers';
 import { heatmapMonthSpans, weekColumnMonthFromDates } from '@/lib/streak/heatmapLayout';
 import { makeDeletionCell, makeLogCell, getLogState } from '@/lib/streak/logs';
 import { mergeLogs, mergeState } from '@/lib/streak/merge';
@@ -198,6 +198,55 @@ describe('heatmap', () => {
     };
     expect(getDayCompletionCounts(data, daily, '2026-05-20').historicalCount).toBe(1);
     expect(isDayComplete(data, daily, '2026-05-20')).toBe(true);
+  });
+
+  it('isDayNecessaryFailed when a necessary task is incomplete', () => {
+    const daily = [
+      { id: 'oil', necessary: true },
+      { id: 'walk', necessary: false }
+    ];
+    const dayLog: Record<string, { state: 'success'; updatedAt: string }> = {
+      walk: { state: 'success', updatedAt: 'x' }
+    };
+    const data = {
+      logs: { '2026-05-20': dayLog },
+      activityStartDates: { oil: '2026-05-01', walk: '2026-05-01' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    expect(isDayNecessaryFailed(data, daily, '2026-05-20', '2026-05-20')).toBe(true);
+    dayLog.oil = { state: 'success', updatedAt: 'x' };
+    expect(isDayNecessaryFailed(data, daily, '2026-05-20', '2026-05-20')).toBe(false);
+  });
+
+  it('isDayNecessaryFailed ignores future days that have not happened yet', () => {
+    const daily = [{ id: 'oil', necessary: true }];
+    const data = {
+      logs: {},
+      activityStartDates: { oil: '2026-05-01' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    expect(isDayNecessaryFailed(data, daily, '2026-12-01', '2026-07-09')).toBe(false);
+    expect(isDayNecessaryFailed(data, daily, '2026-07-09', '2026-07-09')).toBe(true);
+    expect(isDayNecessaryFailed(data, daily, '2026-07-08', '2026-07-09')).toBe(true);
+  });
+
+  it('isDayNecessaryFailed ignores weekly necessary tasks on the daily heatmap', () => {
+    const activities = [{ id: 'review', necessary: true, frequency: 'weekly' as const }];
+    const data = {
+      logs: {},
+      activityStartDates: { review: '2026-05-01' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    expect(isDayNecessaryFailed(data, activities, '2026-05-20', '2026-05-20')).toBe(false);
   });
 });
 

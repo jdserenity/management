@@ -22,8 +22,8 @@ const tableColumns = (db: Database.Database, table: string): string[] =>
 describe('SCHEMA_MIGRATIONS', () => {
   it('has contiguous versions through the latest schema', () => {
     const versions = SCHEMA_MIGRATIONS.map((m) => m.version);
-    expect(LATEST_SCHEMA_VERSION).toBe(11);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(LATEST_SCHEMA_VERSION).toBe(13);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
   });
 
   it('includes water tracker and streak cross-log migrations', () => {
@@ -37,6 +37,17 @@ describe('SCHEMA_MIGRATIONS', () => {
     for (const table of ['streak_activities', 'streak_activity_meta', 'nutrition_staples', 'nutrition_regulars', 'nutrition_config', 'water_config']) {
       expect(tableColumns(db, table)).toContain('updated_at');
     }
+    db.close();
+  });
+
+  it('adds necessary and link columns in migration v12–v13', async () => {
+    const db = new Database(':memory:');
+    await runSchemaMigrations(wrapSqlite(db));
+    const cols = tableColumns(db, 'streak_activities');
+    expect(cols).toContain('necessary');
+    expect(cols).toContain('linked_staple_id');
+    expect(cols).toContain('linked_water');
+    expect(cols).toContain('linked_movement_burst');
     db.close();
   });
 });

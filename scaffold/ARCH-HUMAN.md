@@ -145,7 +145,7 @@ Desktop and companion talk to `backend/` over HTTPS. Templates: `backend/mgmt-se
 | Desktop | Repo root `.env` on your Mac |
 | Local dev | Repo root `.env` |
 
-Companion Cloudflare build: `npm ci && npm run build:companion`, output directory `mobile/dist`.
+Companion Cloudflare build: deploy only when **main** updates (GitHub Actions `deploy-companion.yml`, or Cloudflare production branch = main with preview deploys off). Build: `npm ci && npm run build:companion`, output `mobile/dist`. Pull requests should not publish.
 
 **Update server code:** `git pull && npm install && sudo systemctl restart mgmt-server`
 

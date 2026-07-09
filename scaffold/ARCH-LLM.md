@@ -8,11 +8,11 @@ Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (d
 
 | Tab | Component | Role |
 | --- | --- | --- |
-| Daily | `DailyPage.tsx` | Scheduled stretches (`DailyStretchSections`), streaks, TDEE log, water log |
+| Daily | `DailyPage.tsx` | Scheduled stretches (`DailyStretchSections`), streaks, TDEE log, water log, movement bursts |
 | Work | `Dashboard.tsx` | Focus flow timer, today's work/movement totals, can't-exercise toggle |
 | Posture | `PosturePage.tsx` | Live score, charts, camera (desktop/Tauri only) |
 | Stats | `StatsPage.tsx` | All-time / monthly / weekly focus + movement aggregates |
-| Customize | `CustomizePage.tsx` | Subtabs: Exercises, Stretches, Streaks (habits), TDEE (targets) |
+| Customize | `CustomizePage.tsx` | Subtabs: Exercises (bursts at top), Stretches, Streaks (habits), TDEE (targets) |
 | Settings | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | General, alerts, posture, sync, theme, app presence |
 
 Header **Start flow** (`FlowHeaderControl.tsx` in `AppShell.tsx`): idle → start pomodoro chain; active → show phase label, click → Work tab.
@@ -30,6 +30,13 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Day boundary: `stats_day_rollover_hour_v1` (default 4 AM local) — work stats, nutrition, water, streaks.
 - Workout logged when break timer finishes (≥15s) or Complete Workout tapped (≥15s); stopping flow mid-break does not log.
 - Morning stretch: built-in id `morning-stretch`; hides after completion or hide-after hour (default 11 AM); logs to `workout_log`.
+- Stretch creator routine refs (`MorningStretchRef`) may carry optional `amount` (hold seconds) for that routine only; does not change global stretch pool / `stretchHoldSeconds`.
+- Movement bursts (UI name; internal ids still `movement-snack*`): Customize lives under Exercises tab (top); completed chips show `Hard/Easy ·` nearest half-hour (`formatNearestHalfHourLabel`).
+- Streak fire emoji only when current streak ≥ 5 days (`currentStreakFireEmojiClass`); under 5 shows the number only.
+- Water: exact goal (0 ml remaining) uses success style `water-remaining-done` (green).
+- TDEE food editor (+ menu) lists staples with portion controls; logging a staple (chip or editor) uses `kind: staple` + `refId` so the day's staple chip is replaced.
+- Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
+- Streak activities: order by `sort_order` (add order + drag reorder in Customize; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
 
 Engine: `SessionContext.tsx` + `@mgmt/core` (`flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`). Workout picking: `workoutPlanner.ts`, `exerciseBreak.ts`.
 
@@ -109,14 +116,14 @@ Commands (registered `main.rs`): boot settings (`set_app_presence_mode`, `set_hi
 
 Events to webview: `camera-preview-frame`, `analysis-update`, `monitoring-state-changed`, `tray-start-focus-flow`, `flow-lid-pause`/`flow-lid-resume`, `camera-yield-changed`.
 
-App presence: `dock` (Regular) vs `menu_bar` (Accessory, hide-on-close). `hide_to_menu_bar_on_close_v1` — Dock mode only.
+App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **once** at boot and never torn down until tray **Quit Management**. Window close / Cmd+Q only hide the main window (no tray rebuild, no activation-policy flip in dock mode). Tray icons solid white; not template mode. Flow menu updates use `set_menu` in place.
 
 ## Deploy (facts)
 
 | Client | Creds location | Deploy |
 | --- | --- | --- |
 | Desktop | root `.env` | `npm run tauri build` → `npm run app:deploy` → `/Applications/Management.app` |
-| Companion prod | Cloudflare Pages env | Git push; build `npm ci && npm run build:companion`; output `mobile/dist` |
+| Companion prod | Cloudflare Pages env / GH secrets | Deploy **only** on `main` (`.github/workflows/deploy-companion.yml`); never on PR. Output `mobile/dist` |
 | Server | `/etc/mgmt/server.env` | `npm run start:prod -w @mgmt/server` via systemd |
 
 `npm run db:backup` → `~/Library/Application Support/com.diamari.management/backups/`. App version: root `package.json` → `VITE_APP_VERSION`.

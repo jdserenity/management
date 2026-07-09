@@ -21,7 +21,8 @@ const extractTablesFromMigrations = (): string[] => {
     let match: RegExpExecArray | null;
     while ((match = re.exec(migration.sql)) !== null) {
       const name = match[1];
-      if (!name.endsWith('_new')) names.add(name);
+      // sync_outbox is local-only (not in UserData / LOCAL_DB_TABLES registry).
+      if (!name.endsWith('_new') && name !== 'sync_outbox') names.add(name);
     }
   }
   return [...names].sort();

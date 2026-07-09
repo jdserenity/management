@@ -1,0 +1,42 @@
+# Deploy the phone companion PWA to Cloudflare Pages — production only.
+# Does NOT run on pull requests (previews for every PR are noise).
+name: Deploy companion (Cloudflare Pages)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build companion
+        env:
+          # Production sync target — set these secrets in the GitHub repo settings.
+          VITE_SERVER_URL: ${{ secrets.VITE_SERVER_URL }}
+          VITE_SERVER_TOKEN: ${{ secrets.VITE_SERVER_TOKEN }}
+        run: npm run build:companion
+
+      - name: Deploy to Cloudflare Pages (main only)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy mobile/dist --project-name=mgmt-companion --branch=main

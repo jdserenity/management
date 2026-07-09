@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BRAND_ICON_COLOR, brandAppIconSvg, brandTrayIconSvg } from './brandIcon';
+import { BRAND_ICON_COLOR, brandAppIconSvg, brandTrayIconSvg, brandTrayMonitoringOffSvg } from './brandIcon';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -12,10 +12,17 @@ describe('brandIcon', () => {
     expect(brandAppIconSvg()).toContain('fill="#0437F2"');
   });
 
-  it('uses a white rounded square for the menu bar tray icon', () => {
+  it('uses a solid white rounded square for the menu bar tray icon', () => {
     const svg = brandTrayIconSvg();
     expect(svg).toContain('fill="#FFFFFF"');
+    expect(svg).not.toContain('fill-opacity');
     expect(svg).toMatch(/rx="\d+"/);
+  });
+
+  it('uses the same solid white square when monitoring is off (never faded)', () => {
+    const svg = brandTrayMonitoringOffSvg();
+    expect(svg).toContain('fill="#FFFFFF"');
+    expect(svg).not.toContain('fill-opacity');
   });
 
   it('ships generated icon assets for desktop and companion', () => {

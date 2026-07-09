@@ -22,6 +22,11 @@ fn set_tray_icon(app: &AppHandle, state: &AppState, filename: &str) {
         if let Err(e) = tray.set_icon(Some(icon)) {
           error!("Failed to update tray icon: {}", e);
         }
+        // Keep solid white pixels; template mode recolors and washes the icon out.
+        #[cfg(target_os = "macos")]
+        {
+          let _ = tray.set_icon_as_template(false);
+        }
       }
       Err(e) => error!("Failed to load tray icon {filename}: {e}"),
     }
@@ -38,7 +43,6 @@ pub fn set_tray_icon_monitoring_off(app: &AppHandle, state: &AppState) {
 
 pub const MODE_DOCK: &str = "dock";
 pub const MODE_MENU_BAR: &str = "menu_bar";
-/// Single tray id so toggling menu-bar timer off removes the same icon from the system.
 pub const TRAY_ICON_ID: &str = "management-tray";
 
 pub fn normalize_app_presence_mode(mode: &str) -> &'static str {
@@ -83,7 +87,6 @@ pub fn focus_main_window(app: &AppHandle, state: &AppState, dock_bounce: bool) {
 pub fn set_tray_session_label(_app: &AppHandle, state: &AppState, label: Option<&str>) {
   if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
     let trimmed = label.map(str::trim).filter(|s| !s.is_empty());
-    // macOS keeps the last title when set_title(None); empty string clears it.
     #[cfg(target_os = "macos")]
     let title = trimmed.or(Some(""));
     #[cfg(not(target_os = "macos"))]
@@ -95,7 +98,7 @@ pub fn set_tray_session_label(_app: &AppHandle, state: &AppState, label: Option<
 }
 
 fn build_tray_menu(app: &AppHandle, flow_active: bool) -> Result<Menu<tauri::Wry>, String> {
-  let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
+  let quit = MenuItem::with_id(app, "quit", "Quit Management", true, None::<&str>).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_flow = MenuItem::with_id(app, "start_focus_flow", "Start focus flow", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
@@ -107,10 +110,21 @@ fn build_tray_menu(app: &AppHandle, flow_active: bool) -> Result<Menu<tauri::Wry
   Menu::with_items(app, &[&start_flow, &sep, &start_monitoring_item, &stop_monitoring_item, &sep, &show, &quit]).map_err(|e| e.to_string())
 }
 
+/// Only the tray “Quit Management” item should fully terminate the process.
+pub fn request_full_exit(app: &AppHandle, state: &AppState) {
+  *lock_or_recover(&state.allow_full_exit) = true;
+  remove_tray(app, state);
+  app.exit(0);
+}
+
+pub fn allow_full_exit_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.allow_full_exit)
+}
+
 fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
   let state = app.state::<AppState>();
   match event_id {
-    "quit" => app.exit(0),
+    "quit" => request_full_exit(app, state.inner()),
     "show" => show_main_window(app, state.inner()),
     "start_focus_flow" => {
       let _ = app.emit("tray-start-focus-flow", ());
@@ -148,24 +162,49 @@ pub fn flow_active_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.flow_active)
 }
 
+/// Update flow state and refresh tray menu items in place (no remove/rebuild).
 pub fn apply_tray_flow_active(app: &AppHandle, state: &AppState, active: bool) -> Result<(), String> {
   *lock_or_recover(&state.flow_active) = active;
-  sync_tray_installation(app, state)
+  refresh_tray_menu(app, state)
 }
 
+/// Install tray once. Safe to call if already installed — no-ops without tearing down.
 pub fn install_tray(app: &AppHandle, state: &AppState) -> Result<(), String> {
-  remove_tray(app, state);
+  if lock_or_recover(&state.tray).is_some() {
+    return Ok(());
+  }
+  // Clean up any orphan system tray with our id (e.g. crash recovery), then create once.
+  if let Some(orphan) = app.remove_tray_by_id(TRAY_ICON_ID) {
+    drop(orphan);
+  }
   let flow_active = flow_active_from_state(state);
   let tray_icon = load_resource_icon(app, "tray.png")?;
   let menu = build_tray_menu(app, flow_active)?;
-  let tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
+  let mut builder = TrayIconBuilder::with_id(TRAY_ICON_ID)
     .icon(tray_icon)
     .tooltip("Management")
     .menu(&menu)
-    .on_menu_event(|app, event| handle_tray_menu_event(app, event.id.as_ref()))
-    .build(app)
-    .map_err(|e| e.to_string())?;
+    .on_menu_event(|app, event| handle_tray_menu_event(app, event.id.as_ref()));
+  #[cfg(target_os = "macos")]
+  {
+    builder = builder.icon_as_template(false);
+  }
+  let tray = builder.build(app).map_err(|e| e.to_string())?;
   *lock_or_recover(&state.tray) = Some(tray);
+  info!("Tray icon installed ({})", TRAY_ICON_ID);
+  Ok(())
+}
+
+/// Swap tray menu without destroying the icon (avoids menu-bar flicker).
+pub fn refresh_tray_menu(app: &AppHandle, state: &AppState) -> Result<(), String> {
+  if lock_or_recover(&state.tray).is_none() {
+    return install_tray(app, state);
+  }
+  let flow_active = flow_active_from_state(state);
+  let menu = build_tray_menu(app, flow_active)?;
+  if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
+    tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+  }
   Ok(())
 }
 
@@ -185,15 +224,16 @@ pub fn apply_app_presence_mode(app: &AppHandle, state: &AppState, mode: &str) ->
   }
   #[cfg(target_os = "macos")]
   {
-    let policy = if menu_bar_only || hidden_to_menu_bar_from_state(state) {
+    let policy = if menu_bar_only {
       tauri::ActivationPolicy::Accessory
     } else {
       tauri::ActivationPolicy::Regular
     };
     app.set_activation_policy(policy).map_err(|e| e.to_string())?;
   }
-  sync_tray_installation(app, state)?;
-  if !menu_bar_only && !hidden_to_menu_bar_from_state(state) {
+  // Tray is always present; only create if missing, never rebuild for mode changes.
+  install_tray(app, state)?;
+  if !menu_bar_only {
     if let Some(window) = app.get_webview_window("main") {
       let _ = window.unminimize();
       let _ = window.show();
@@ -215,49 +255,34 @@ pub fn hidden_to_menu_bar_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.hidden_to_menu_bar)
 }
 
-pub fn sync_tray_installation(app: &AppHandle, state: &AppState) -> Result<(), String> {
-  install_tray(app, state)
-}
-
-pub fn enter_hidden_to_menu_bar(app: &AppHandle, state: &AppState) -> Result<(), String> {
-  *lock_or_recover(&state.hidden_to_menu_bar) = true;
-  #[cfg(target_os = "macos")]
-  app.set_activation_policy(tauri::ActivationPolicy::Accessory).map_err(|e| e.to_string())?;
-  Ok(())
-}
-
-pub fn exit_hidden_to_menu_bar_if_needed(app: &AppHandle, state: &AppState) -> Result<(), String> {
-  if !hidden_to_menu_bar_from_state(state) || menu_bar_only_from_state(state) {
-    return Ok(());
-  }
+pub fn exit_hidden_to_menu_bar_if_needed(_app: &AppHandle, state: &AppState) -> Result<(), String> {
+  // Flag only — we no longer flip ActivationPolicy on hide/show (that recreated the Dock icon).
   *lock_or_recover(&state.hidden_to_menu_bar) = false;
-  #[cfg(target_os = "macos")]
-  app.set_activation_policy(tauri::ActivationPolicy::Regular).map_err(|e| e.to_string())?;
   Ok(())
 }
 
-pub fn apply_hide_to_menu_bar_on_close(app: &AppHandle, state: &AppState, enabled: bool) -> Result<(), String> {
+pub fn apply_hide_to_menu_bar_on_close(_app: &AppHandle, state: &AppState, enabled: bool) -> Result<(), String> {
   *lock_or_recover(&state.hide_to_menu_bar_on_close) = enabled;
-  if !enabled {
-    exit_hidden_to_menu_bar_if_needed(app, state)?;
-  }
+  let _ = hide_to_menu_bar_on_close_from_state(state);
   Ok(())
 }
 
-/// Returns true when the close event was handled (window hidden, app kept running).
+/// Window close (red X): hide the window only. Tray is never touched.
 pub fn handle_window_close_requested(app: &AppHandle, state: &AppState) -> bool {
-  if menu_bar_only_from_state(state) {
-    hide_main_window(app);
-    return true;
+  hide_main_window(app);
+  *lock_or_recover(&state.hidden_to_menu_bar) = true;
+  true
+}
+
+/// Cmd+Q / Dock Quit: hide the window and stay alive unless tray Quit set allow_full_exit.
+/// Does not rebuild the tray.
+pub fn handle_exit_requested(app: &AppHandle, state: &AppState) -> bool {
+  if allow_full_exit_from_state(state) {
+    return false;
   }
-  if hide_to_menu_bar_on_close_from_state(state) {
-    hide_main_window(app);
-    if let Err(e) = enter_hidden_to_menu_bar(app, state) {
-      error!("Failed to enter hidden-to-menu-bar mode: {e}");
-    }
-    return true;
-  }
-  false
+  hide_main_window(app);
+  *lock_or_recover(&state.hidden_to_menu_bar) = true;
+  true
 }
 
 #[cfg(test)]
@@ -276,5 +301,4 @@ mod tests {
     assert_eq!(normalize_app_presence_mode("Menu-Bar"), MODE_MENU_BAR);
     assert_eq!(normalize_app_presence_mode(" menubar "), MODE_MENU_BAR);
   }
-
 }

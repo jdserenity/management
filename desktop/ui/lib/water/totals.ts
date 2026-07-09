@@ -35,6 +35,7 @@ export const progressRatio = (total: number, target: number): number => {
 
 export const remainingDisplay = (total: number, target: number): { text: string; extraClass: string } => {
   const remaining = target - total;
-  if (remaining >= 0) return { text: `${formatMl(remaining)} ml remaining`, extraClass: '' };
+  if (remaining === 0) return { text: '0 ml remaining', extraClass: ' water-remaining-done' };
+  if (remaining > 0) return { text: `${formatMl(remaining)} ml remaining`, extraClass: '' };
   return { text: `💧 ${formatMl(Math.abs(remaining))} ml over target`, extraClass: ' water-remaining-surplus' };
 };

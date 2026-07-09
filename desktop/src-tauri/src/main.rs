@@ -63,6 +63,8 @@ pub(crate) struct AppState {
     menu_bar_only: Arc<Mutex<bool>>,
     hide_to_menu_bar_on_close: Arc<Mutex<bool>>,
     hidden_to_menu_bar: Arc<Mutex<bool>>,
+    /// When true, allow the process to terminate (only set by tray “Quit Management”).
+    allow_full_exit: Arc<Mutex<bool>>,
     flow_active: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
 }
@@ -727,6 +729,18 @@ pub fn run() {
                         sql: "CREATE TABLE IF NOT EXISTS sync_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, patch_json TEXT NOT NULL, created_at INTEGER NOT NULL);",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 12,
+                        description: "streak_activity_necessary_and_links",
+                        sql: "ALTER TABLE streak_activities ADD COLUMN necessary INTEGER NOT NULL DEFAULT 0; ALTER TABLE streak_activities ADD COLUMN linked_staple_id TEXT; ALTER TABLE streak_activities ADD COLUMN linked_water INTEGER NOT NULL DEFAULT 0;",
+                        kind: MigrationKind::Up,
+                    },
+                    Migration {
+                        version: 13,
+                        description: "streak_activity_linked_movement_burst",
+                        sql: "ALTER TABLE streak_activities ADD COLUMN linked_movement_burst INTEGER NOT NULL DEFAULT 0;",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {
@@ -757,6 +771,7 @@ pub fn run() {
                 menu_bar_only: Arc::new(Mutex::new(false)),
                 hide_to_menu_bar_on_close: Arc::new(Mutex::new(false)),
                 hidden_to_menu_bar: Arc::new(Mutex::new(false)),
+                allow_full_exit: Arc::new(Mutex::new(false)),
                 flow_active: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
             };
@@ -788,6 +803,7 @@ pub fn run() {
         .on_window_event(|window, event| match event {
             tauri::WindowEvent::CloseRequested { api, .. } => {
                 let state = window.state::<AppState>();
+                // Always keep the menu bar tray: window close never kills the process.
                 if app_presence::handle_window_close_requested(window.app_handle(), &state) {
                     api.prevent_close();
                 }
@@ -826,9 +842,23 @@ pub fn run() {
             restart_app,
             sync_http::sync_http_fetch
         ])
-        .run(tauri::generate_context!());
+        .build(tauri::generate_context!());
 
-    if let Err(error) = run_result {
-        error!("Failed to run Tauri application: {}", error);
-    }
+    let app = match run_result {
+        Ok(app) => app,
+        Err(error) => {
+            error!("Failed to build Tauri application: {}", error);
+            return;
+        }
+    };
+
+    app.run(|app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { api, .. } = event {
+            let state = app_handle.state::<AppState>();
+            // Cmd+Q / Dock quit: stay in the menu bar unless tray “Quit Management” set allow_full_exit.
+            if app_presence::handle_exit_requested(app_handle, &state) {
+                api.prevent_exit();
+            }
+        }
+    });
 }

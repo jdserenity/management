@@ -129,17 +129,17 @@ export default function CustomizeMovementSnacksPanel() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          Movement Snacks
+          Movement bursts
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Set your daily movement snack goal and customise the exercises for the hard and easy versions.
+          Set your daily movement burst goal and customise the exercises for the hard and easy versions.
         </p>
       </CardHeader>
       <CardContent className="space-y-8">
         {/* Daily goal */}
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Daily snack goal
+            Daily burst goal
             <input
               type="number"
               min={1}
@@ -156,7 +156,7 @@ export default function CustomizeMovementSnacksPanel() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-lg font-semibold">💪 Hard version</p>
-            <span className="text-xs text-muted-foreground">Ideal snack</span>
+            <span className="text-xs text-muted-foreground">Ideal burst</span>
           </div>
           {renderExerciseList('hard', hardExercises)}
           <div className="flex flex-wrap items-end gap-2">
@@ -214,7 +214,7 @@ export default function CustomizeMovementSnacksPanel() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-lg font-semibold">🌱 Easy version</p>
-            <span className="text-xs text-muted-foreground">Fallback snack</span>
+            <span className="text-xs text-muted-foreground">Fallback burst</span>
           </div>
           {renderExerciseList('easy', easyExercises)}
           <div className="flex flex-wrap items-end gap-2">

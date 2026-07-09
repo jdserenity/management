@@ -5,7 +5,7 @@ import { parseScheduledDays } from '@/lib/streak/activityCatalog';
 import { getISOWeekStart, getWeekDays, parseDate } from '@/lib/streak/dates';
 import { getLogState } from '@/lib/streak/logs';
 import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/streakDisplay';
-import { formatOverlapBadge } from '@/lib/streak/overlap';
+import { getOverlapBadgeParts } from '@/lib/streak/overlap';
 import { isElementTruncated } from '@/lib/streak/truncation';
 import type { StreakActivity, StreakActivityStats, StreakLogState, StreakState } from '@/lib/streak/types';
 
@@ -24,7 +24,9 @@ const StreakStat = ({ emoji, value, kind, title }: { emoji: string; value: numbe
   const fireCls = kind === 'current' ? currentStreakFireEmojiClass(value) : null;
   return (
     <span className={`streak-stat streak-streak-display ${kind === 'current' ? 'streak-current' : 'streak-longest'}${tierCls}`} title={title}>
-      {kind === 'current' && fireCls ? <span className={fireCls}>🔥</span> : <span className="streak-streak-emoji">{emoji}</span>}
+      {kind === 'current'
+        ? (fireCls ? <span className={fireCls}>🔥</span> : null)
+        : <span className="streak-streak-emoji">{emoji}</span>}
       <span className="streak-streak-num">{value}</span>
     </span>
   );
@@ -73,24 +75,49 @@ const ActivityName = ({
   const nameRef = useRef<HTMLDivElement>(null);
   const [nameWrap, setNameWrap] = useState(false);
   const hasDescription = !!activity.description;
-  const overlapBadge = formatOverlapBadge(activity);
+  const badgeParts = getOverlapBadgeParts(activity);
 
   const handleClick = () => {
-    if (!hasDescription) return;
-    const opening = !descOpen;
-    if (opening && nameRef.current) setNameWrap(isElementTruncated(nameRef.current));
-    else setNameWrap(false);
-    onToggleDescription(opening);
+    if (hasDescription) {
+      const opening = !descOpen;
+      if (opening && nameRef.current) setNameWrap(isElementTruncated(nameRef.current));
+      else setNameWrap(false);
+      onToggleDescription(opening);
+      return;
+    }
+    // No description: still allow expanding a truncated title so the full name is readable.
+    if (nameWrap) {
+      setNameWrap(false);
+      return;
+    }
+    if (nameRef.current && isElementTruncated(nameRef.current)) setNameWrap(true);
   };
 
   return (
     <div
       ref={nameRef}
-      className={`streak-activity-name${hasDescription ? ' clickable' : ''}${nameWrap ? ' streak-activity-name-wrap' : ''}`}
+      className={`streak-activity-name clickable${nameWrap ? ' streak-activity-name-wrap' : ''}`}
       onClick={handleClick}
+      title={hasDescription ? 'Click to show description' : 'Click to expand full title'}
     >
       {activity.name || activity.id}
-      {overlapBadge ? <span className="streak-overlap-badge">{overlapBadge}</span> : null}
+      {badgeParts.length ? (
+        <span className="streak-overlap-badge">
+          {badgeParts.map((part, i) => (
+            <span key={`${part.kind}-${part.text}-${i}`} className="streak-overlap-part">
+              {i > 0 ? <span className="streak-overlap-sep"> · </span> : null}
+              {part.kind === 'necessary' ? (
+                <span className="streak-necessary-label" title="Necessary — missing this fails the day">
+                  <span className="streak-necessary-dot" aria-hidden />
+                  necessary
+                </span>
+              ) : (
+                part.text
+              )}
+            </span>
+          ))}
+        </span>
+      ) : null}
     </div>
   );
 };
@@ -123,8 +150,9 @@ export default function StreakActivityRow({ activity, state, onLog, onEditDescri
               const isPast = dayDate < today;
               const isSuccess = getLogState(dayLog) === 'success';
               if (isSuccess) sessionCount++;
+              const necessary = !!activity.necessary;
               let cls = 'streak-day-chip streak-btn-primary';
-              if (isSuccess) cls += ' streak-day-chip-success';
+              if (isSuccess) cls += necessary ? ' streak-day-chip-success-gold' : ' streak-day-chip-success';
               else if (isPast) cls += ' streak-day-chip-failed';
               else if (isFuture) cls += ' streak-day-chip-future';
               else cls += ' streak-day-chip-today';
@@ -140,11 +168,12 @@ export default function StreakActivityRow({ activity, state, onLog, onEditDescri
               const sessionsThisWeek = weekDays.filter((day) => getLogState(state.data.logs[day]?.[activity.id]) === 'success');
               sessionCount = sessionsThisWeek.length;
               const todayLogged = sessionsThisWeek.includes(today);
+              const necessary = !!activity.necessary;
               return Array.from({ length: weeklyTarget }, (_, i) => {
                 const isActive = i < sessionCount;
                 const isNext = i === sessionCount && !todayLogged;
                 return (
-                  <button key={i} type="button" className={`streak-btn streak-btn-success streak-btn-primary${isActive ? ' streak-btn-active' : ''}${!isActive && !isNext ? ' streak-btn-locked' : ''}`} disabled={!isActive && !isNext} onClick={() => {
+                  <button key={i} type="button" className={`streak-btn streak-btn-success streak-btn-primary${necessary ? ' streak-btn-necessary' : ''}${isActive ? ' streak-btn-active' : ''}${!isActive && !isNext ? ' streak-btn-locked' : ''}`} disabled={!isActive && !isNext} onClick={() => {
                     if (isActive) onLog(activity.id, null, sessionsThisWeek[i]);
                     else if (isNext) onLog(activity.id, 'success', today);
                   }}>✓</button>
@@ -170,12 +199,20 @@ export default function StreakActivityRow({ activity, state, onLog, onEditDescri
   }
 
   const currentState = getLogState(state.data.logs[today]?.[activity.id]);
+  const necessary = !!activity.necessary;
 
   return (
     <div className={`streak-activity${isPaused ? ' streak-activity-paused' : ''}`}>
       <div className="streak-activity-header">
         <div className="streak-buttons">
-          <button type="button" className={`streak-btn streak-btn-success streak-btn-primary${currentState === 'success' ? ' streak-btn-active' : ''}`} title="Mark as success" onClick={() => onLog(activity.id, currentState === 'success' ? null : 'success')}>✓</button>
+          <button
+            type="button"
+            className={`streak-btn streak-btn-success streak-btn-primary${necessary ? ' streak-btn-necessary' : ''}${currentState === 'success' ? ' streak-btn-active' : ''}`}
+            title="Mark as success"
+            onClick={() => onLog(activity.id, currentState === 'success' ? null : 'success')}
+          >
+            ✓
+          </button>
         </div>
         <ActivityName activity={activity} descOpen={descOpen} onToggleDescription={setDescOpen} />
         <DailyStats stats={stats} />
