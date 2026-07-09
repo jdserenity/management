@@ -29,19 +29,21 @@ export const pushLocalDataToServer = async (): Promise<void> => {
   await pushUserDataDiff(serverUrl, serverToken, emptyUserData(), data);
 };
 
-const pullAndMergeFromServer = async (): Promise<void> => {
-  if (getAppKind() !== 'desktop') return;
+/** Force a merge pull from the VPS (use after phone has uploaded recovery data). */
+export const pullAndMergeFromServer = async (): Promise<boolean> => {
+  if (getAppKind() !== 'desktop') return false;
   const { serverUrl, serverToken } = creds();
   const db = await getDb();
   const ok = await pullAndMergeUserData({ logLabel: 'desktop', db, serverUrl, serverToken });
   if (!ok && serverUrl && serverToken) await notifyDataSyncError('foreground pull', new Error('pull failed'));
+  return ok;
 };
 
 const scheduleForegroundPull = (): void => {
   if (pullTimer) clearTimeout(pullTimer);
   pullTimer = setTimeout(() => {
     pullTimer = null;
-    void pullAndMergeFromServer();
+    void pullAndMergeFromServer().catch(() => {});
   }, PULL_DEBOUNCE_MS);
 };
 
@@ -53,7 +55,7 @@ export const startDesktopForegroundPull = (): (() => void) => {
   document.addEventListener('visibilitychange', onVisible);
   window.addEventListener('focus', scheduleForegroundPull);
   stopDataPolling?.();
-  stopDataPolling = startUserDataPolling({ pull: () => pullAndMergeFromServer() });
+  stopDataPolling = startUserDataPolling({ pull: () => { void pullAndMergeFromServer(); } });
   return () => {
     document.removeEventListener('visibilitychange', onVisible);
     window.removeEventListener('focus', scheduleForegroundPull);

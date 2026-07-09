@@ -25,6 +25,9 @@ export default function CompanionBoot() {
           console.error('[data-sync] companion initial sync failed', syncResult);
         }
         storage.startCompanionForegroundPull();
+        // Recovery hooks for Sync health card / Safari console
+        window.__mgmtCompanionPush = () => storage.pushCompanionSnapshotToServer();
+        window.__mgmtCompanionPull = () => storage.pullCompanionSnapshotFromServer();
         setApp(() => appMod.App);
         setPhase('ready');
       } catch (e) {
