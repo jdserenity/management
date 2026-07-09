@@ -110,7 +110,9 @@ export const extractUserData = async (db: SqlDatabase): Promise<UserData> => {
   const out = {} as UserData;
   for (const s of USER_DATA_TABLE_SCHEMAS) {
     const rows = await db.select(clientSelectSql(s));
-    (out as Record<string, unknown>)[s.field] = s.singleton ? ((rows as unknown[])[0] ?? null) : rows;
+    (out as Record<UserDataTable, UserData[UserDataTable]>)[s.field] = (
+      s.singleton ? ((rows as unknown[])[0] ?? null) : rows
+    ) as UserData[UserDataTable];
   }
   return out;
 };
