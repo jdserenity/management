@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAppKind } from '@/lib/appRuntime';
 import { pullAndMergeFromServer, pushLocalDataToServer } from '@/lib/dataSync';
 import { getBuildTimeSyncCreds, getSyncStatus, SYNC_STATUS_EVENT, type SyncStatusSnapshot } from '@mgmt/sync';
@@ -98,51 +97,47 @@ export default function SyncStatusCard() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Sync health</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <p>
-          <span className="font-medium">Server credentials:</span>{' '}
-          {credsOk ? 'configured in this build' : 'missing — add VITE_SERVER_URL + VITE_SERVER_TOKEN to root .env and restart tauri dev'}
-        </p>
-        <p><span className="font-medium">Pending local changes:</span> {status.pendingLocalChanges ? 'Yes' : 'No'}</p>
-        <p><span className="font-medium">Last operation:</span> {operationLabel(status)}</p>
-        <p><span className="font-medium">Last pull:</span> {formatAgo(status.lastPullAtMs)}</p>
-        <p><span className="font-medium">Last push:</span> {formatAgo(status.lastPushAtMs)}</p>
-        {status.lastErrorMessage ? (
-          <p className="text-amber-700 dark:text-amber-300"><span className="font-medium">Last error:</span> {status.lastErrorMessage}</p>
-        ) : null}
+    <section className="plugin-panel space-y-3 text-sm">
+      <h2 className="plugin-panel-title">Sync health</h2>
+      <p>
+        <span className="font-medium">Server credentials:</span>{' '}
+        {credsOk ? 'configured in this build' : 'missing — add VITE_SERVER_URL + VITE_SERVER_TOKEN to root .env and restart tauri dev'}
+      </p>
+      <p><span className="font-medium">Pending local changes:</span> {status.pendingLocalChanges ? 'Yes' : 'No'}</p>
+      <p><span className="font-medium">Last operation:</span> {operationLabel(status)}</p>
+      <p><span className="font-medium">Last pull:</span> {formatAgo(status.lastPullAtMs)}</p>
+      <p><span className="font-medium">Last push:</span> {formatAgo(status.lastPushAtMs)}</p>
+      {status.lastErrorMessage ? (
+        <p className="text-amber-700 dark:text-amber-300"><span className="font-medium">Last error:</span> {status.lastErrorMessage}</p>
+      ) : null}
 
-        <div className="border-t border-border pt-3 space-y-2">
-          <p className="font-medium text-foreground">Recovery</p>
-          <p className="text-xs text-muted-foreground leading-snug">
-            {kind === 'companion'
-              ? 'If this phone still shows your full habits/food/water, upload first. Then open the desktop app and pull.'
-              : 'After the phone has uploaded, pull here. Avoid “Upload this Mac” while desktop is still missing data.'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="plugin-btn plugin-btn-primary"
-              disabled={busy !== 'idle'}
-              onClick={() => { void runPush(); }}
-            >
-              {busy === 'push' ? 'Uploading…' : kind === 'companion' ? 'Upload this phone to server' : 'Upload this Mac to server'}
-            </button>
-            <button
-              type="button"
-              className="plugin-btn"
-              disabled={busy !== 'idle'}
-              onClick={() => { void runPull(); }}
-            >
-              {busy === 'pull' ? 'Pulling…' : 'Pull from server'}
-            </button>
-          </div>
-          {message ? <p className="text-xs font-medium text-foreground">{message}</p> : null}
+      <div className="space-y-2 border-t border-border pt-3">
+        <p className="font-medium">Recovery</p>
+        <p className="plugin-muted text-xs leading-snug">
+          {kind === 'companion'
+            ? 'If this phone still shows your full habits/food/water, upload first. Then open the desktop app and pull.'
+            : 'After the phone has uploaded, pull here. Avoid “Upload this Mac” while desktop is still missing data.'}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="plugin-btn plugin-btn-primary"
+            disabled={busy !== 'idle'}
+            onClick={() => { void runPush(); }}
+          >
+            {busy === 'push' ? 'Uploading…' : kind === 'companion' ? 'Upload this phone to server' : 'Upload this Mac to server'}
+          </button>
+          <button
+            type="button"
+            className="plugin-btn"
+            disabled={busy !== 'idle'}
+            onClick={() => { void runPull(); }}
+          >
+            {busy === 'pull' ? 'Pulling…' : 'Pull from server'}
+          </button>
         </div>
-      </CardContent>
-    </Card>
+        {message ? <p className="text-xs font-medium">{message}</p> : null}
+      </div>
+    </section>
   );
 }
