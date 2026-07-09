@@ -1,0 +1,299 @@
+/* Shared Daily tracker chrome (Obsidian-plugin look) — water / tdee / movement */
+
+.tdee-tracker-container,
+.water-tracker-container,
+.movement-tracker-container {
+  padding: 0;
+  font-family: inherit;
+}
+
+.water-tracker-container { --tracker-accent: rgb(56, 189, 248); }
+.movement-tracker-container { --tracker-accent: rgb(16, 185, 129); }
+.tdee-tracker-container { --tracker-accent: rgb(34, 197, 94); }
+
+.tdee-tracker-empty,
+.water-tracker-empty,
+.movement-tracker-empty {
+  color: var(--muted-foreground);
+  font-style: italic;
+  margin: 0;
+}
+
+.tdee-summary,
+.water-summary,
+.movement-summary { margin-bottom: 16px; }
+
+.tdee-counts,
+.water-counts,
+.movement-counts {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.tdee-sep, .tdee-target,
+.water-sep, .water-target,
+.movement-sep, .movement-target {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.tdee-remaining,
+.water-remaining,
+.movement-remaining {
+  margin-top: 4px;
+  font-size: 0.9em;
+  color: var(--muted-foreground);
+}
+
+.tdee-remaining-surplus { color: rgb(34, 197, 94); font-weight: 600; }
+.water-remaining-surplus { color: var(--tracker-accent); font-weight: 600; }
+.water-remaining-done,
+.movement-remaining-done { color: var(--tracker-accent, rgb(34, 197, 94)); font-weight: 600; }
+.water-remaining-done { color: rgb(34, 197, 94); }
+
+.tdee-progress,
+.water-progress,
+.movement-progress {
+  margin-top: 10px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.tdee-progress-fill,
+.water-progress-fill,
+.movement-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tracker-accent, rgb(34, 197, 94));
+  transition: width 0.2s ease;
+}
+
+.tdee-chain,
+.water-chain,
+.movement-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 12px;
+}
+
+.tdee-chain-btn,
+.water-chain-btn,
+.movement-chain-btn {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 2px;
+  min-height: 52px;
+  min-width: 44px;
+  max-width: 160px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: normal;
+  text-align: center;
+  transition: background 0.15s ease;
+}
+
+.movement-chain-btn { min-height: 44px; }
+.water-chain-btn-single { min-height: 44px; }
+
+.tdee-chain-label,
+.water-chain-label,
+.movement-chain-label {
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  max-width: 100%;
+}
+
+.tdee-chain-plus,
+.water-chain-plus,
+.movement-chain-plus {
+  min-width: 44px;
+  font-size: 1.4em;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+.tdee-chain-plus-disabled,
+.tdee-chain-plus:disabled,
+.water-chain-plus-disabled,
+.water-chain-plus:disabled,
+.movement-chain-plus-disabled,
+.movement-chain-plus:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--border);
+  color: var(--muted-foreground);
+}
+
+.tdee-chain-btn:hover:not(.tdee-chain-done),
+.water-chain-btn:hover:not(.water-chain-done),
+.movement-chain-btn:hover:not(.movement-chain-done) {
+  background: var(--accent);
+}
+
+.tdee-chain-done,
+.water-chain-done,
+.movement-chain-done {
+  background: var(--tracker-accent, rgb(34, 197, 94));
+  color: #fff;
+  border-color: var(--tracker-accent, rgb(34, 197, 94));
+}
+
+.tdee-chain-done { background: rgb(34, 197, 94); border-color: rgb(34, 197, 94); }
+
+.tdee-chain-done:hover,
+.water-chain-done:hover,
+.movement-chain-done:hover { filter: brightness(0.92); }
+
+.tdee-chain-done .tdee-chain-label,
+.tdee-chain-done .tdee-chain-kcal,
+.water-chain-done .water-chain-label,
+.movement-chain-done .movement-chain-label { color: #fff; }
+
+.movement-chain-done-easy {
+  background: rgb(180, 140, 60);
+  border-color: rgb(180, 140, 60);
+}
+
+.tdee-add-panel,
+.water-add-panel,
+.movement-add-panel {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: var(--secondary);
+}
+
+.tdee-add-header,
+.water-add-header,
+.movement-add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tdee-add-title,
+.water-add-title,
+.movement-add-title {
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.tdee-add-close,
+.water-add-close,
+.movement-add-close {
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 1.35em;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.tdee-add-close:hover,
+.water-add-close:hover,
+.movement-add-close:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.water-quick-add,
+.movement-snack-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.water-quick-btn,
+.movement-quick-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.movement-quick-btn { background: var(--background); }
+
+.water-quick-btn:hover,
+.movement-quick-btn:hover { background: var(--accent); }
+
+.movement-quick-btn-primary {
+  background: var(--tracker-accent);
+  color: #fff;
+  border-color: var(--tracker-accent);
+}
+
+.movement-quick-btn-primary:hover { filter: brightness(1.05); }
+
+.water-custom-row,
+.movement-custom-row,
+.tdee-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.water-custom-input,
+.movement-custom-input {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.movement-custom-input-wide { min-width: 10rem; flex: 1; }
+
+.water-log-btn,
+.movement-log-btn,
+.tdee-add-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.tdee-add-btn { padding: 4px 10px; font-weight: 400; }
+
+.water-log-btn:hover,
+.movement-log-btn:hover,
+.tdee-add-btn:hover { filter: brightness(1.05); }
