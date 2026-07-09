@@ -1,8 +1,8 @@
 import { getDb } from '@/lib/db';
 import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { getCurrentLogDay } from '@/lib/tdee/dates';
-import { DEFAULT_TDEE_FILE } from '@/lib/tdee/defaults';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
+import { DEFAULT_TDEE_FILE } from '@/lib/tdee/types';
 import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
 import { upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';

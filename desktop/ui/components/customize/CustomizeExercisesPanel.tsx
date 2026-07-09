@@ -26,17 +26,7 @@ import {
   type ExerciseDefinition,
   type ExerciseUnit
 } from '@/lib/workoutPlanner';
-
-const UNIT_OPTIONS: { value: ExerciseUnit; label: string }[] = [
-  { value: 'reps', label: 'reps' },
-  { value: 'seconds', label: 'sec' },
-  { value: 'minutes', label: 'min' }
-];
-
-const createCustomId = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `custom-${crypto.randomUUID()}`;
-  return `custom-${Date.now()}`;
-};
+import { EXERCISE_UNIT_OPTIONS as UNIT_OPTIONS, createPrefixedId } from '@/lib/exerciseForm';
 
 type PendingConfirm =
   | { kind: 'override'; exerciseId: string; amount: number; unit: ExerciseUnit }
@@ -92,7 +82,7 @@ export default function CustomizeExercisesPanel() {
     const name = customName.trim();
     if (!name) return;
     const exercise: ExerciseDefinition = {
-      id: createCustomId(),
+      id: createPrefixedId('custom'),
       name,
       amount: Math.max(0, Math.round(customAmount)),
       unit: customUnit

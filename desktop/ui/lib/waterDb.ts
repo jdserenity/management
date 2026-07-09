@@ -1,9 +1,8 @@
 import { getDb } from '@/lib/db';
 import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { getCurrentLogDay } from '@/lib/tdee/dates';
-import { DEFAULT_WATER_FILE } from '@/lib/water/defaults';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone, normalizeMl } from '@/lib/water/entries';
-import type { WaterEntry, WaterFile, WaterStoredEntry } from '@/lib/water/types';
+import { DEFAULT_WATER_FILE, type WaterEntry, type WaterFile, type WaterStoredEntry } from '@/lib/water/types';
 
 type ConfigRow = { target_ml: number; log_day: string; updated_at: string };
 type EntryRow = {

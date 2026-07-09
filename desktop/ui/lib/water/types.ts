@@ -15,3 +15,11 @@ export type WaterFile = {
   day: string;
   entries: WaterStoredEntry[];
 };
+
+export const DEFAULT_WATER_TARGET_ML = 2500;
+
+export const DEFAULT_WATER_FILE: WaterFile = {
+  targetMl: DEFAULT_WATER_TARGET_ML,
+  day: '',
+  entries: []
+};

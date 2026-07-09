@@ -6,17 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
 import type { ExerciseDefinition, ExerciseUnit } from '@/lib/workoutPlanner';
-
-const UNIT_OPTIONS: { value: ExerciseUnit; label: string }[] = [
-  { value: 'reps', label: 'reps' },
-  { value: 'seconds', label: 'sec' },
-  { value: 'minutes', label: 'min' }
-];
-
-const createExerciseId = (prefix: string): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `${prefix}-${crypto.randomUUID()}`;
-  return `${prefix}-${Date.now()}`;
-};
+import { EXERCISE_UNIT_OPTIONS as UNIT_OPTIONS, createPrefixedId as createExerciseId } from '@/lib/exerciseForm';
 
 type VersionKind = 'hard' | 'easy';
 

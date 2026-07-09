@@ -1,4 +1,4 @@
-import { CHAIN_CONNECTOR_SVG, CHAIN_SVG_OFFSET } from '@/lib/tdee/chainConnector';
+import { CHAIN_CONNECTOR_SVG, CHAIN_SVG_OFFSET } from '@/lib/tdee/types';
 
 export default function TdeeChainConnector() {
   return (
