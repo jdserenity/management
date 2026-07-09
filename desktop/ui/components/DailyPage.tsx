@@ -23,7 +23,7 @@ export default function DailyPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 lg:space-y-10">
+    <div className="plugin-page space-y-6 lg:space-y-8">
       <DailyStretchSections />
       <StreakSection refreshKey={streakRefreshKey} onCrossLog={handleCrossLog} />
       <TdeeSection refreshKey={tdeeRefreshKey} onLinkedTaskComplete={handleLinkedTaskComplete} />

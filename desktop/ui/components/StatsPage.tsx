@@ -40,55 +40,50 @@ const exerciseEmoji = (id: string): string => {
   return '🏋️';
 };
 
-const AllTimeStat = ({ emoji, value, label, className }: { emoji: string; value: string; label: string; className: string }) => (
-  <div className={`rounded-2xl px-2 py-4 text-center shadow-md sm:rounded-3xl sm:px-5 sm:py-6 ${className}`}>
-    <p className="text-2xl sm:text-4xl">{emoji}</p>
-    <p className="mt-1.5 text-2xl font-black tabular-nums tracking-tight sm:mt-3 sm:text-4xl lg:text-5xl">{value}</p>
-    <p className="mt-1 text-[10px] font-bold uppercase tracking-wider opacity-90 sm:mt-2 sm:text-sm">{label}</p>
+const AllTimeStat = ({ emoji, value, label }: { emoji: string; value: string; label: string }) => (
+  <div className="plugin-stat-block text-center">
+    <p className="text-xl">{emoji}</p>
+    <p className="plugin-counts mt-1">{value}</p>
+    <p className="plugin-muted mt-1 text-xs font-semibold uppercase tracking-wide">{label}</p>
   </div>
 );
 
 const AllTimeView = ({ point, exercises }: { point: PeriodStatsPoint; exercises: ReturnType<typeof listNonZeroExerciseTotals> }) => {
   const empty = !point.pomodoros && !point.deepWork && !point.focusMinutes && !point.timedSeconds && !point.workouts && exercises.length === 0;
   if (empty) {
-    return (
-      <p className="rounded-3xl border-2 border-dashed border-indigo-300/50 bg-white/60 px-6 py-16 text-center text-lg text-indigo-800/70 dark:border-indigo-500/40 dark:bg-slate-900/40 dark:text-indigo-200/80">
-        🌱 Your all-time stats will show up here once you log some work!
-      </p>
-    );
+    return <p className="plugin-panel-flat border-dashed plugin-empty py-12 text-center">🌱 Your all-time stats will show up here once you log some work!</p>;
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-violet-600 dark:text-violet-300">🧠 Focus — all time</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <AllTimeStat emoji="🍅" value={String(point.pomodoros)} label="Pomodoros" className="bg-gradient-to-br from-rose-400 to-orange-500 text-white" />
-          <AllTimeStat emoji="🎯" value={String(point.deepWork)} label="Deep work" className="bg-gradient-to-br from-violet-500 to-purple-600 text-white" />
-          <AllTimeStat emoji="⏳" value={focusMinutesLabel(point.focusMinutes)} label="Focus time" className="bg-gradient-to-br from-sky-400 to-blue-600 text-white" />
+    <div className="space-y-4">
+      <section className="plugin-panel">
+        <h3 className="plugin-panel-title">🧠 Focus — all time</h3>
+        <div className="grid grid-cols-3 gap-2">
+          <AllTimeStat emoji="🍅" value={String(point.pomodoros)} label="Pomodoros" />
+          <AllTimeStat emoji="🎯" value={String(point.deepWork)} label="Deep work" />
+          <AllTimeStat emoji="⏳" value={focusMinutesLabel(point.focusMinutes)} label="Focus time" />
         </div>
-      </div>
+      </section>
 
-      <div>
-        <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-300">💪 Movement — all time</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <AllTimeStat emoji="⏱️" value={formatTimedMovementHeadline(point.timedSeconds)} label="Move time" className="bg-gradient-to-br from-emerald-400 to-teal-600 text-white" />
-          <AllTimeStat emoji="🏋️" value={String(point.workouts)} label="Workouts logged" className="bg-gradient-to-br from-amber-400 to-orange-500 text-white" />
+      <section className="plugin-panel">
+        <h3 className="plugin-panel-title">💪 Movement — all time</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <AllTimeStat emoji="⏱️" value={formatTimedMovementHeadline(point.timedSeconds)} label="Move time" />
+          <AllTimeStat emoji="🏋️" value={String(point.workouts)} label="Workouts logged" />
         </div>
-      </div>
+      </section>
 
       {exercises.length > 0 && (
-        <div>
-          <h3 className="mb-3 text-sm font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">📝 Every exercise you&apos;ve done</h3>
-          <div className="grid grid-cols-2 gap-2">
+        <section className="plugin-panel">
+          <h3 className="plugin-panel-title">📝 Every exercise</h3>
+          <ul className="space-y-0">
             {exercises.map((agg) => (
-              <div key={agg.id} className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 py-3 text-base font-semibold shadow-sm dark:bg-slate-800/90">
-                <span className="text-2xl">{exerciseEmoji(agg.id)}</span>
-                <span className="tabular-nums">{formatExerciseRunAggLine(agg)}</span>
-              </div>
+              <li key={agg.id} className="plugin-row text-sm font-medium">
+                <span>{exerciseEmoji(agg.id)} {formatExerciseRunAggLine(agg)}</span>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
     </div>
   );
@@ -121,17 +116,17 @@ const StatsPage = () => {
   const periodTab = tab === 'weekly' || tab === 'monthly';
 
   return (
-    <div className={cn('space-y-4 rounded-3xl bg-gradient-to-br from-indigo-50 via-white to-violet-100 p-4 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 sm:p-5', periodTab && 'lg:flex lg:h-[calc(100dvh-7.25rem)] lg:flex-col lg:overflow-hidden')}>
-      <div className="flex shrink-0 items-center gap-3">
-        <span className="text-3xl">📊</span>
-        <h2 className="bg-gradient-to-r from-violet-700 to-indigo-600 bg-clip-text text-2xl font-black tracking-tight text-transparent dark:from-violet-300 dark:to-indigo-300">Stats</h2>
+    <div className={cn('plugin-page', periodTab && 'lg:flex lg:h-[calc(100dvh-7.25rem)] lg:flex-col lg:overflow-hidden lg:max-w-none')}>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-2xl">📊</span>
+        <h2 className="plugin-section-title mb-0">Stats</h2>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab} className={cn('gap-4', periodTab && 'lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden')}>
-        <TabsList className="grid h-12 w-full shrink-0 grid-cols-3 rounded-2xl bg-white/70 p-1 shadow-sm dark:bg-slate-800/70">
-          <TabsTrigger value="all" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">♾️ All time</TabsTrigger>
-          <TabsTrigger value="monthly" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">🗓️ Monthly</TabsTrigger>
-          <TabsTrigger value="weekly" className="rounded-xl text-sm font-bold data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">📅 Weekly</TabsTrigger>
+      <Tabs value={tab} onValueChange={setTab} className={cn('gap-3', periodTab && 'lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden')}>
+        <TabsList className="grid w-full shrink-0 grid-cols-3">
+          <TabsTrigger value="all">♾️ All time</TabsTrigger>
+          <TabsTrigger value="monthly">🗓️ Monthly</TabsTrigger>
+          <TabsTrigger value="weekly">📅 Weekly</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="mt-0">

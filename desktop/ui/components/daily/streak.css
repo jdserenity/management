@@ -36,18 +36,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-
-.streak-nav-btn:hover:not(.streak-nav-btn-disabled) {
-  background: var(--accent);
-  color: var(--foreground);
-}
-
-.streak-nav-btn-disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
+.streak-nav-btn:hover:not(.streak-nav-btn-disabled) { background: var(--accent); color: var(--foreground); }
+.streak-nav-btn-disabled { opacity: 0.3; cursor: not-allowed; }
 
 .streak-year-label {
   font-weight: 600;

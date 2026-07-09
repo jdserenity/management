@@ -423,10 +423,10 @@ const PosturePage: React.FC = () => {
   }, [isMonitoring]);
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="plugin-page plugin-page-wide space-y-4 pb-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{'Posture'}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{'Live score, detailed metrics, session stats, and history from your posture log.'}</p>
+        <h1 className="plugin-section-title text-xl">{'Posture'}</h1>
+        <p className="plugin-muted mt-1">{'Live score, detailed metrics, session stats, and history from your posture log.'}</p>
         {isMonitoring && cameraYieldPaused && (
           <p className="text-sm text-amber-700 dark:text-amber-400 mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
             {'Tracking is paused while another app uses the camera (e.g. a video call). It will resume automatically.'}

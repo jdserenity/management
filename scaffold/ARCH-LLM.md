@@ -38,7 +38,9 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
 - Streak activities: order by `sort_order` (add order + drag reorder in Customize; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
 
-Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/core` (`flowEngine.ts`, `flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`, `exerciseMode.ts`). Workout picking: `workoutPlanner.ts`.
+Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/core` (`flowEngine.ts`, `flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`, `exerciseMode.ts`). Workout modules: `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` (break picking + stretch helpers).
+
+**UI look:** Obsidian-plugin Daily language is app-wide — `desktop/ui/plugin-ui.css` + tokens in `App.css`. Shell/Work/Stats/Settings/Customize/Posture use plugin panels/chips/nav (not gradient shadcn chrome).
 
 ## Repo layout
 

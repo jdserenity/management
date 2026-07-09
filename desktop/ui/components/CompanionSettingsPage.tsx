@@ -6,7 +6,7 @@ import SessionAlertSettingsCard from '@/components/settings/SessionAlertSettings
 
 export default function CompanionSettingsPage() {
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-4">
+    <div className="plugin-page space-y-3">
       <SyncStatusCard />
       <StatsDaySettingsCard />
       <SessionAlertSettingsCard surface="companion" />
