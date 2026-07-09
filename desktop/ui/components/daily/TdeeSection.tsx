@@ -243,24 +243,25 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
         remainingClass={kcalRemaining.extraClass}
         progressRatio={ratio}
         showProgress={tdee > 0}
-      />
-      <div className="tdee-counts tdee-protein-counts">
-        <span className="tdee-today">{formatProtein(proteinTotal)} g</span>
-        {proteinTarget > 0 ? (
-          <>
-            <span className="tdee-sep"> / </span>
-            <span className="tdee-target">{formatProtein(proteinTarget)} protein 🥩</span>
-          </>
-        ) : null}
-      </div>
-      <div className={`tdee-remaining${proteinRemaining.extraClass}`}>
-        {proteinTarget > 0 ? proteinRemaining.text : 'Set protein target in Customize → Food'}
-      </div>
-      {proteinTarget > 0 ? (
-        <div className="tdee-progress">
-          <div className="tdee-progress-fill" style={{ width: `${Math.round(proteinRatio * 100)}%` }} />
+      >
+        <div className="tdee-counts tdee-protein-counts">
+          <span className="tdee-today">{formatProtein(proteinTotal)} g</span>
+          {proteinTarget > 0 ? (
+            <>
+              <span className="tdee-sep"> / </span>
+              <span className="tdee-target">{formatProtein(proteinTarget)} protein 🥩</span>
+            </>
+          ) : null}
         </div>
-      ) : null}
+        <div className={`tdee-remaining${proteinRemaining.extraClass}`}>
+          {proteinTarget > 0 ? proteinRemaining.text : 'Set protein target in Customize → Food'}
+        </div>
+        {proteinTarget > 0 ? (
+          <div className="tdee-progress">
+            <div className="tdee-progress-fill" style={{ width: `${Math.round(proteinRatio * 100)}%` }} />
+          </div>
+        ) : null}
+      </TrackerSummary>
       <div className="tdee-chain">{chainItems}</div>
       {addMode ? (
         <TrackerAddPanel prefix="tdee" title={<>Staples, regulars &amp; one-off</>} onClose={() => setAddMode(false)}>

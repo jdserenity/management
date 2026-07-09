@@ -63,7 +63,7 @@ export function TrackerAddPanel({
   );
 }
 
-/** Summary header: counts + remaining line + optional progress bar. */
+/** Summary header: counts + remaining line + optional progress bar. Extra rows (e.g. protein) go in `children` so summary margin stays below them. */
 export function TrackerSummary({
   prefix,
   today,
@@ -71,7 +71,8 @@ export function TrackerSummary({
   remainingText,
   remainingClass = '',
   progressRatio,
-  showProgress
+  showProgress,
+  children
 }: {
   prefix: TrackerPrefix;
   today: ReactNode;
@@ -80,6 +81,7 @@ export function TrackerSummary({
   remainingClass?: string;
   progressRatio?: number;
   showProgress?: boolean;
+  children?: ReactNode;
 }) {
   return (
     <div className={`${prefix}-summary`}>
@@ -98,6 +100,7 @@ export function TrackerSummary({
           <div className={`${prefix}-progress-fill`} style={{ width: `${Math.round(progressRatio * 100)}%` }} />
         </div>
       ) : null}
+      {children}
     </div>
   );
 }
