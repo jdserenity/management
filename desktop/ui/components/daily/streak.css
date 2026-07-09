@@ -368,6 +368,23 @@
   white-space: nowrap;
 }
 
+/* Subtle marker for necessary tasks (fails the day if incomplete) */
+.streak-necessary-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: rgb(239, 68, 68);
+  opacity: 0.85;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.streak-activity-name.streak-activity-necessary {
+  /* Keep the name readable; the dot + badge carry the meaning */
+}
+
 /* Activity name with links */
 .streak-activity-name.clickable-parts {
   cursor: default;

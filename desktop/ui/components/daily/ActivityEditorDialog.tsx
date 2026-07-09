@@ -65,14 +65,15 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
       id: actId,
       name: trimmedName,
       frequency,
+      // Always send explicit flags so a save never "forgets" to clear/set them.
+      necessary,
+      linkedWater,
       ...(description.trim() ? { description: description.trim() } : {}),
       ...(frequency === 'weekly' ? {
         weeklyTarget: Math.max(1, parseInt(weeklyTarget, 10) || 1),
         scheduledDays: scheduledDays.split(',').map((d) => d.trim()).filter(Boolean)
       } : {}),
-      ...(necessary ? { necessary: true } : {}),
-      ...(linkedStapleId ? { linkedStapleId } : {}),
-      ...(linkedWater ? { linkedWater: true } : {}),
+      ...(linkedStapleId.trim() ? { linkedStapleId: linkedStapleId.trim() } : {}),
       ...(Number(extraCalories) > 0 ? { extraCalories: Math.round(Number(extraCalories)) } : {}),
       ...(Number(extraProtein) > 0 ? { extraProtein: Number(extraProtein) } : {}),
       ...(Number(extraWaterMl) > 0 ? { extraWaterMl: Math.round(Number(extraWaterMl)) } : {})

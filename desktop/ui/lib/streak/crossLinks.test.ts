@@ -7,7 +7,7 @@ const { loadStreakState, saveStreakLog } = vi.hoisted(() => ({
 
 vi.mock('@/lib/streakDb', () => ({ loadStreakState, saveStreakLog }));
 
-import { completeTasksLinkedToStaple, completeTasksLinkedToWater } from '@/lib/streak/crossLinks';
+import { activityLinksToStaple, completeTasksLinkedToStaple, completeTasksLinkedToWater } from '@/lib/streak/crossLinks';
 import type { StreakState } from '@/lib/streak/types';
 
 const baseState = (overrides?: Partial<StreakState['config']>): StreakState => ({
@@ -36,6 +36,13 @@ describe('crossLinks', () => {
   beforeEach(() => {
     loadStreakState.mockReset();
     saveStreakLog.mockReset();
+  });
+
+  it('activityLinksToStaple matches trimmed linkedStapleId', () => {
+    expect(activityLinksToStaple({ id: 'oil', linkedStapleId: 'olive-oil' }, 'olive-oil')).toBe(true);
+    expect(activityLinksToStaple({ id: 'oil', linkedStapleId: ' eggs ' }, 'eggs')).toBe(true);
+    expect(activityLinksToStaple({ id: 'oil', linkedStapleId: 'peanuts' }, 'eggs')).toBe(false);
+    expect(activityLinksToStaple({ id: 'oil' }, 'olive-oil')).toBe(false);
   });
 
   it('completeTasksLinkedToStaple marks linked incomplete tasks success', async () => {

@@ -76,6 +76,7 @@ const ActivityName = ({
   const [nameWrap, setNameWrap] = useState(false);
   const hasDescription = !!activity.description;
   const overlapBadge = formatOverlapBadge(activity);
+  const necessary = !!activity.necessary;
 
   const handleClick = () => {
     if (hasDescription) {
@@ -96,10 +97,11 @@ const ActivityName = ({
   return (
     <div
       ref={nameRef}
-      className={`streak-activity-name clickable${nameWrap ? ' streak-activity-name-wrap' : ''}`}
+      className={`streak-activity-name clickable${nameWrap ? ' streak-activity-name-wrap' : ''}${necessary ? ' streak-activity-necessary' : ''}`}
       onClick={handleClick}
       title={hasDescription ? 'Click to show description' : 'Click to expand full title'}
     >
+      {necessary ? <span className="streak-necessary-dot" title="Necessary — missing this fails the day" aria-hidden /> : null}
       {activity.name || activity.id}
       {overlapBadge ? <span className="streak-overlap-badge">{overlapBadge}</span> : null}
     </div>

@@ -154,8 +154,13 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
   };
 
   const afterStapleLogged = async (stapleId: string) => {
-    const changed = await completeTasksLinkedToStaple(stapleId);
-    if (changed) onLinkedTaskComplete?.();
+    try {
+      await completeTasksLinkedToStaple(stapleId);
+    } catch (e) {
+      console.error('Failed to complete tasks linked to staple', stapleId, e);
+    }
+    // Always re-read habits after a staple log so linked tasks show as checked.
+    onLinkedTaskComplete?.();
   };
 
   const handleStaple = async (staple: TdeeMealDef) => {

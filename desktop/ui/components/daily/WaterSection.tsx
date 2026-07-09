@@ -76,8 +76,12 @@ export default function WaterSection({ refreshKey, onLinkedTaskComplete }: Props
     setFile(await addWaterEntry(file, label || formatWaterLabel(ml), ml, 1));
     setCustomMl('');
     setAddMode(false);
-    const changed = await completeTasksLinkedToWater();
-    if (changed) onLinkedTaskComplete?.();
+    try {
+      await completeTasksLinkedToWater();
+    } catch (e) {
+      console.error('Failed to complete tasks linked to water', e);
+    }
+    onLinkedTaskComplete?.();
   };
 
   const renderChip = (entry: WaterEntry, withConnector: boolean) => {

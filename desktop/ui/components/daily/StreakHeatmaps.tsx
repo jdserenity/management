@@ -44,7 +44,7 @@ export function StreakDailyHeatmap({ state, year, onYearChange, heatmapColor }: 
         const dateStr = formatDate(currentDate);
         if (year === currentCalendarYear && dateStr === today) anchor = true;
         const { successCount, historicalCount } = getDayCompletionCounts(state.data, catalog, dateStr);
-        const necessaryFailed = isDayNecessaryFailed(state.data, catalog, dateStr);
+        const necessaryFailed = isDayNecessaryFailed(state.data, catalog, dateStr, today);
         const level = necessaryFailed ? 0 : heatmapLevel(successCount, historicalCount);
         const perfect = !necessaryFailed && isPerfectHeatmapCell(successCount, historicalCount);
         const title = necessaryFailed

@@ -28,12 +28,15 @@ export const isDayComplete = (data: StreakData, activities: StreakActivity[], da
 /**
  * A necessary daily task that is active but not success fails the whole day
  * (heatmap shows red with an X instead of any green shade).
+ * Only applies to days that have already started (≤ today) — future days are not failures.
  */
 export const isDayNecessaryFailed = (
   data: StreakData,
   activities: StreakActivity[],
-  dayStr: string
+  dayStr: string,
+  todayStr?: string
 ): boolean => {
+  if (todayStr && dayStr > todayStr) return false;
   const log = data.logs[dayStr] || {};
   for (const activity of activities) {
     if (!activity.necessary) continue;

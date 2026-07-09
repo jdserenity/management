@@ -38,15 +38,18 @@ type MetaRow = {
 
 const syncNow = (): string => new Date().toISOString();
 
+/** Coerce SQLite int / string / bool flags from the SQL plugin. */
+const sqlFlag = (value: unknown): boolean => value === true || value === 1 || value === '1';
+
 const activityFromRow = (row: ActivityRow): StreakActivity => {
   const a: StreakActivity = {
     id: row.id,
     name: row.name,
     frequency: row.frequency === 'weekly' ? 'weekly' : 'daily',
-    canFail: row.can_fail === 1,
-    necessary: row.necessary === 1,
-    linkedWater: row.linked_water === 1
+    canFail: sqlFlag(row.can_fail)
   };
+  if (sqlFlag(row.necessary)) a.necessary = true;
+  if (sqlFlag(row.linked_water)) a.linkedWater = true;
   if (row.description) a.description = row.description;
   if (row.weekly_target != null) a.weeklyTarget = row.weekly_target;
   if (row.scheduled_days_json) {
@@ -56,7 +59,8 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     } catch { /* ignore */ }
   }
   if (row.archived_at) a.archivedAt = row.archived_at;
-  if (row.linked_staple_id) a.linkedStapleId = row.linked_staple_id;
+  const linkedStaple = typeof row.linked_staple_id === 'string' ? row.linked_staple_id.trim() : '';
+  if (linkedStaple) a.linkedStapleId = linkedStaple;
   if (row.extra_calories != null && row.extra_calories > 0) a.extraCalories = row.extra_calories;
   if (row.extra_protein != null && row.extra_protein > 0) a.extraProtein = row.extra_protein;
   if (row.extra_water_ml != null && row.extra_water_ml > 0) a.extraWaterMl = row.extra_water_ml;
@@ -369,24 +373,35 @@ export const archiveStreakActivity = async (state: StreakState, activityId: stri
   return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
+const mergeActivityFields = (prev: StreakActivity, incoming: StreakActivity): StreakActivity => {
+  const next: StreakActivity = {
+    ...prev,
+    ...incoming,
+    // Always take the editor's explicit flag values (including false/cleared).
+    necessary: !!incoming.necessary,
+    linkedWater: !!incoming.linkedWater
+  };
+  if (!incoming.extraCalories) delete next.extraCalories;
+  if (!incoming.extraProtein) delete next.extraProtein;
+  if (!incoming.extraWaterMl) delete next.extraWaterMl;
+  if (incoming.linkedStapleId) next.linkedStapleId = incoming.linkedStapleId;
+  else delete next.linkedStapleId;
+  if (!next.necessary) delete next.necessary;
+  if (!next.linkedWater) delete next.linkedWater;
+  return next;
+};
+
 export const upsertStreakActivity = async (state: StreakState, activity: StreakActivity, isNew: boolean): Promise<StreakState> => {
   if (isNew) {
-    state.config.activities = [...state.config.activities, activity];
+    const created = mergeActivityFields({ id: activity.id }, activity);
+    state.config.activities = [...state.config.activities, created];
     state.data.activityStartDates = { ...state.data.activityStartDates, [activity.id]: state.currentDay };
-    await upsertActivityRow(activity, false, state.config.activities.length - 1);
+    await upsertActivityRow(created, false, state.config.activities.length - 1);
     await upsertMetaRow(activity.id, state.data);
   } else {
-    state.config.activities = state.config.activities.map((a) => {
-      if (a.id !== activity.id) return a;
-      const next: StreakActivity = { ...a, ...activity };
-      if (!activity.extraCalories) delete next.extraCalories;
-      if (!activity.extraProtein) delete next.extraProtein;
-      if (!activity.extraWaterMl) delete next.extraWaterMl;
-      if (!activity.linkedStapleId) delete next.linkedStapleId;
-      if (!activity.linkedWater) delete next.linkedWater;
-      if (!activity.necessary) delete next.necessary;
-      return next;
-    });
+    state.config.activities = state.config.activities.map((a) =>
+      a.id === activity.id ? mergeActivityFields(a, activity) : a
+    );
     const idx = state.config.activities.findIndex((a) => a.id === activity.id);
     const merged = state.config.activities[idx];
     if (merged) await upsertActivityRow(merged, false, idx);

@@ -216,9 +216,24 @@ describe('heatmap', () => {
       activityResetCounts: {},
       stats: {}
     };
-    expect(isDayNecessaryFailed(data, daily, '2026-05-20')).toBe(true);
+    expect(isDayNecessaryFailed(data, daily, '2026-05-20', '2026-05-20')).toBe(true);
     dayLog.oil = { state: 'success', updatedAt: 'x' };
-    expect(isDayNecessaryFailed(data, daily, '2026-05-20')).toBe(false);
+    expect(isDayNecessaryFailed(data, daily, '2026-05-20', '2026-05-20')).toBe(false);
+  });
+
+  it('isDayNecessaryFailed ignores future days that have not happened yet', () => {
+    const daily = [{ id: 'oil', necessary: true }];
+    const data = {
+      logs: {},
+      activityStartDates: { oil: '2026-05-01' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    expect(isDayNecessaryFailed(data, daily, '2026-12-01', '2026-07-09')).toBe(false);
+    expect(isDayNecessaryFailed(data, daily, '2026-07-09', '2026-07-09')).toBe(true);
+    expect(isDayNecessaryFailed(data, daily, '2026-07-08', '2026-07-09')).toBe(true);
   });
 
   it('isDayNecessaryFailed ignores weekly necessary tasks on the daily heatmap', () => {
@@ -231,7 +246,7 @@ describe('heatmap', () => {
       activityResetCounts: {},
       stats: {}
     };
-    expect(isDayNecessaryFailed(data, activities, '2026-05-20')).toBe(false);
+    expect(isDayNecessaryFailed(data, activities, '2026-05-20', '2026-05-20')).toBe(false);
   });
 });
 

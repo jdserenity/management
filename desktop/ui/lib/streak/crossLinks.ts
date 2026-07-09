@@ -1,6 +1,13 @@
 import { getLogState } from '@/lib/streak/logs';
-import type { StreakState } from '@/lib/streak/types';
+import type { StreakActivity, StreakState } from '@/lib/streak/types';
 import { loadStreakState, saveStreakLog } from '@/lib/streakDb';
+
+/** True when this activity is networked to the given nutrition staple id. */
+export const activityLinksToStaple = (activity: StreakActivity, stapleId: string): boolean => {
+  if (!stapleId) return false;
+  const linked = (activity.linkedStapleId || '').trim();
+  return linked.length > 0 && linked === stapleId;
+};
 
 /** Complete every uncompleted task linked to this nutrition staple (same day). */
 export const completeTasksLinkedToStaple = async (stapleId: string): Promise<StreakState | null> => {
@@ -9,7 +16,7 @@ export const completeTasksLinkedToStaple = async (stapleId: string): Promise<Str
   const day = state.currentDay;
   let changed = false;
   for (const activity of state.config.activities) {
-    if (activity.linkedStapleId !== stapleId) continue;
+    if (!activityLinksToStaple(activity, stapleId)) continue;
     if (getLogState(state.data.logs[day]?.[activity.id]) === 'success') continue;
     state = await saveStreakLog(state, activity.id, 'success', day);
     changed = true;
