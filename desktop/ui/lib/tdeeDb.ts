@@ -217,13 +217,20 @@ export const removeTdeeEntry = async (file: TdeeFile, id: string): Promise<TdeeF
   return loadTdeeFile();
 };
 
-export const addStapleEntry = async (file: TdeeFile, staple: TdeeMealDef): Promise<TdeeFile> => {
+export const addStapleEntry = async (
+  file: TdeeFile,
+  staple: TdeeMealDef,
+  calories?: number,
+  protein?: number,
+  count?: number
+): Promise<TdeeFile> => {
   const entry = makeEntry({
     kind: 'staple',
     refId: staple.id,
     label: staple.name,
-    calories: staple.calories,
-    protein: staple.protein
+    calories: calories ?? staple.calories,
+    protein: protein ?? staple.protein,
+    count
   });
   return addTdeeEntry(file, entry);
 };

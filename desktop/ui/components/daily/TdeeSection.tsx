@@ -155,6 +155,12 @@ export default function TdeeSection({ refreshKey }: Props) {
     setFile(await addStapleEntry(file, staple));
   };
 
+  const handleStapleFromEditor = async (staple: TdeeMealDef, calories: number, protein: number, count: number) => {
+    // Logs as kind staple + refId so the day's staple chip is replaced (pending chip hides).
+    setFile(await addStapleEntry(file, staple, calories, protein, count));
+    setAddMode(false);
+  };
+
   const handleRegular = async (regular: TdeeMealDef, calories: number, protein: number, count: number) => {
     setFile(await addRegularEntry(file, regular, calories, protein, count));
     setAddMode(false);
@@ -276,10 +282,38 @@ export default function TdeeSection({ refreshKey }: Props) {
       {addMode ? (
         <div className="tdee-add-panel">
           <div className="tdee-add-header">
-            <span className="tdee-add-title">Regulars &amp; one-off</span>
+            <span className="tdee-add-title">Staples, regulars &amp; one-off</span>
             <button type="button" className="tdee-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
               ×
             </button>
+          </div>
+          <div className="tdee-regular-list">
+            {file.staples.length === 0 ? (
+              <p className="tdee-tracker-empty">No staples configured yet. Add them in Customize → Food.</p>
+            ) : (
+              file.staples.map((staple) => {
+                const alreadyLogged = isStapleLogged(file.entries, staple.id);
+                return (
+                  <div key={staple.id} className="tdee-regular-row">
+                    <div className="tdee-regular-info">
+                      <span className="tdee-regular-name">
+                        {staple.name}
+                        {alreadyLogged ? <span className="tdee-tracker-empty"> · logged</span> : null}
+                      </span>
+                      {staple.ingredients?.length ? (
+                        <div className="tdee-regular-ingredients">{formatIngredientsList(staple.ingredients)}</div>
+                      ) : null}
+                    </div>
+                    <PortionControls
+                      defaultCalories={staple.calories}
+                      defaultProtein={staple.protein}
+                      actionLabel={alreadyLogged ? 'Add more' : 'Eat'}
+                      onAdd={(calories, protein, count) => handleStapleFromEditor(staple, calories, protein, count)}
+                    />
+                  </div>
+                );
+              })
+            )}
           </div>
           <div className="tdee-regular-list">
             {file.regulars.length === 0 ? (
