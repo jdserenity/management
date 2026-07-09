@@ -22,6 +22,11 @@ fn set_tray_icon(app: &AppHandle, state: &AppState, filename: &str) {
         if let Err(e) = tray.set_icon(Some(icon)) {
           error!("Failed to update tray icon: {}", e);
         }
+        // Template icons use alpha as the mask; solid black assets stay crisp (not washed-out white).
+        #[cfg(target_os = "macos")]
+        {
+          let _ = tray.set_icon_as_template(true);
+        }
       }
       Err(e) => error!("Failed to load tray icon {filename}: {e}"),
     }
@@ -95,7 +100,8 @@ pub fn set_tray_session_label(_app: &AppHandle, state: &AppState, label: Option<
 }
 
 fn build_tray_menu(app: &AppHandle, flow_active: bool) -> Result<Menu<tauri::Wry>, String> {
-  let quit = PredefinedMenuItem::quit(app, Some("Quit Management")).map_err(|e| e.to_string())?;
+  // Custom quit (not PredefinedMenuItem::quit) so we can allow a real exit only from this path.
+  let quit = MenuItem::with_id(app, "quit", "Quit Management", true, None::<&str>).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_flow = MenuItem::with_id(app, "start_focus_flow", "Start focus flow", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
@@ -107,10 +113,20 @@ fn build_tray_menu(app: &AppHandle, flow_active: bool) -> Result<Menu<tauri::Wry
   Menu::with_items(app, &[&start_flow, &sep, &start_monitoring_item, &stop_monitoring_item, &sep, &show, &quit]).map_err(|e| e.to_string())
 }
 
+/// Only the tray “Quit Management” item should fully terminate the process.
+pub fn request_full_exit(app: &AppHandle, state: &AppState) {
+  *lock_or_recover(&state.allow_full_exit) = true;
+  app.exit(0);
+}
+
+pub fn allow_full_exit_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.allow_full_exit)
+}
+
 fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
   let state = app.state::<AppState>();
   match event_id {
-    "quit" => app.exit(0),
+    "quit" => request_full_exit(app, state.inner()),
     "show" => show_main_window(app, state.inner()),
     "start_focus_flow" => {
       let _ = app.emit("tray-start-focus-flow", ());
@@ -158,13 +174,17 @@ pub fn install_tray(app: &AppHandle, state: &AppState) -> Result<(), String> {
   let flow_active = flow_active_from_state(state);
   let tray_icon = load_resource_icon(app, "tray.png")?;
   let menu = build_tray_menu(app, flow_active)?;
-  let tray = TrayIconBuilder::with_id(TRAY_ICON_ID)
+  let mut builder = TrayIconBuilder::with_id(TRAY_ICON_ID)
     .icon(tray_icon)
     .tooltip("Management")
     .menu(&menu)
-    .on_menu_event(|app, event| handle_tray_menu_event(app, event.id.as_ref()))
-    .build(app)
-    .map_err(|e| e.to_string())?;
+    .on_menu_event(|app, event| handle_tray_menu_event(app, event.id.as_ref()));
+  // macOS: treat the asset as a template so the system paints a solid glyph (not washed-out white).
+  #[cfg(target_os = "macos")]
+  {
+    builder = builder.icon_as_template(true);
+  }
+  let tray = builder.build(app).map_err(|e| e.to_string())?;
   *lock_or_recover(&state.tray) = Some(tray);
   Ok(())
 }
@@ -244,20 +264,35 @@ pub fn apply_hide_to_menu_bar_on_close(app: &AppHandle, state: &AppState, enable
   Ok(())
 }
 
-/// Returns true when the close event was handled (window hidden, app kept running).
+/// Always keep the process (and menu bar tray) alive when the window is closed.
+/// Returns true so the caller can prevent_close — use tray “Quit Management” to fully exit.
 pub fn handle_window_close_requested(app: &AppHandle, state: &AppState) -> bool {
-  if menu_bar_only_from_state(state) {
-    hide_main_window(app);
-    return true;
+  hide_main_window(app);
+  // Ensure tray stays installed and app is Accessory when window is gone (no Dock-only “quit”).
+  if let Err(e) = install_tray(app, state) {
+    error!("Failed to ensure tray after window close: {e}");
   }
-  if hide_to_menu_bar_on_close_from_state(state) {
-    hide_main_window(app);
+  if !menu_bar_only_from_state(state) {
     if let Err(e) = enter_hidden_to_menu_bar(app, state) {
       error!("Failed to enter hidden-to-menu-bar mode: {e}");
     }
-    return true;
   }
-  false
+  true
+}
+
+/// Cmd+Q / app termination that is not tray-quit: hide to menu bar instead of dying.
+pub fn handle_exit_requested(app: &AppHandle, state: &AppState) -> bool {
+  if allow_full_exit_from_state(state) {
+    return false; // allow process exit
+  }
+  hide_main_window(app);
+  if let Err(e) = install_tray(app, state) {
+    error!("Failed to ensure tray after exit request: {e}");
+  }
+  if let Err(e) = enter_hidden_to_menu_bar(app, state) {
+    error!("Failed to enter hidden-to-menu-bar on exit request: {e}");
+  }
+  true // caller should prevent_exit
 }
 
 #[cfg(test)]

@@ -116,14 +116,14 @@ Commands (registered `main.rs`): boot settings (`set_app_presence_mode`, `set_hi
 
 Events to webview: `camera-preview-frame`, `analysis-update`, `monitoring-state-changed`, `tray-start-focus-flow`, `flow-lid-pause`/`flow-lid-resume`, `camera-yield-changed`.
 
-App presence: `dock` (Regular) vs `menu_bar` (Accessory, hide-on-close). `hide_to_menu_bar_on_close_v1` — Dock mode only.
+App presence: `dock` (Regular) vs `menu_bar` (Accessory). Window close / Cmd+Q always keep the process + menu bar tray (hide window); full exit only via tray **Quit Management**. Tray icons are black template glyphs (`tray.png` solid / `monitoring_off.png` hollow) so they stay solid, not washed-out white.
 
 ## Deploy (facts)
 
 | Client | Creds location | Deploy |
 | --- | --- | --- |
 | Desktop | root `.env` | `npm run tauri build` → `npm run app:deploy` → `/Applications/Management.app` |
-| Companion prod | Cloudflare Pages env | Git push; build `npm ci && npm run build:companion`; output `mobile/dist` |
+| Companion prod | Cloudflare Pages env / GH secrets | Deploy **only** on `main` (`.github/workflows/deploy-companion.yml`); never on PR. Output `mobile/dist` |
 | Server | `/etc/mgmt/server.env` | `npm run start:prod -w @mgmt/server` via systemd |
 
 `npm run db:backup` → `~/Library/Application Support/com.diamari.management/backups/`. App version: root `package.json` → `VITE_APP_VERSION`.

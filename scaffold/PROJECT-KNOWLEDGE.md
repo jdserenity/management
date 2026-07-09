@@ -26,7 +26,15 @@ Vite `root` is `desktop/ui/`, so the default Vite `outDir` would be `desktop/ui/
 
 ## Cloudflare Pages (companion)
 
-Build output directory is `mobile/dist`. Production env vars (`VITE_SERVER_URL`, `VITE_SERVER_TOKEN`) live in the Cloudflare dashboard, not in the repo `.env` (gitignored on builders). After changing dashboard vars, trigger a new deployment.
+Build output directory is `mobile/dist`. Production env vars (`VITE_SERVER_URL`, `VITE_SERVER_TOKEN`) live in the Cloudflare dashboard (or GitHub Actions secrets for the deploy workflow), not in the repo `.env` (gitignored on builders).
+
+**Deploy only from `main` — not on pull requests.** Preview deploys for every PR are wasteful and confusing.
+
+1. Prefer GitHub Actions: `.github/workflows/deploy-companion.yml` runs only on `push` to `main` (and manual dispatch). Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `VITE_SERVER_URL`, `VITE_SERVER_TOKEN`.
+2. If the project is still connected to Cloudflare’s automatic Git builds, in the Cloudflare dashboard for **mgmt-companion**:
+   - **Settings → Builds & deployments → Production branch** = `main`
+   - **Preview deployments** = **None** (or off) so opening a PR does not publish
+   - Ideally disable automatic Git deploys entirely and rely on the Actions workflow, so you only get one production deploy path
 
 Optional manual deploy from Mac: `npm run deploy:companion` (local `.env` + `wrangler pages deploy`).
 
