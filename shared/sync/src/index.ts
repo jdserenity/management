@@ -7,6 +7,7 @@ export * from './memoryClient';
 export * from './httpClient';
 export * from './createSyncClient';
 export * from './userData';
+export * from './userDataSchema';
 export * from './userDataSafety';
 export * from './mergeUserData';
 export * from './dataSyncEvents';

@@ -87,6 +87,8 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 **Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards.
 
+**Table SQL truth:** `shared/sync/src/userDataSchema.ts` — column lists, bind order, client select/insert, server select/insert/patch/delete. `backend/src/dataStore.ts` and client `extractUserData`/`hydrateDb` loop the schema (no per-table SQL copies).
+
 **Leader:** Companion auto-claims during exercise breaks; desktop viewer mode (`sessionSync.ts` `isSyncViewer`).
 
 **Active session:** `active_flow_singleton` on server — live `ActiveFlowDocument` (phase, break workout, leader). Not in user-data snapshot.
@@ -135,6 +137,8 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Nav | `desktop/ui/lib/navConfig.ts` |
 | Session state | `desktop/ui/context/SessionContext.tsx`, `shared/core/src/` |
 | Feature DBs | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/` |
+| app_kv prefs | `desktop/ui/lib/appKv.ts` (get/set + bool/json/int factories); thin `*Pref.ts` wrappers |
 | Sync wiring | `dataSync.ts`, `dataSyncBootstrap.ts`, `shared/sync/src/` |
+| UserData SQL schema | `shared/sync/src/userDataSchema.ts` |
 | Migrations (desktop) | `desktop/src-tauri/src/main.rs` |
 | Shared schema | `shared/storage/src/migrations.ts` |
