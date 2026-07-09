@@ -12,7 +12,7 @@ Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (d
 | Work | `Dashboard.tsx` | Focus flow timer, today's work/movement totals, can't-exercise toggle |
 | Posture | `PosturePage.tsx` | Live score, charts, camera (desktop/Tauri only) |
 | Stats | `StatsPage.tsx` | All-time / monthly / weekly focus + movement aggregates |
-| Customize | `CustomizePage.tsx` | Subtabs: Exercises, Stretches, Streaks (habits), TDEE (targets) |
+| Customize | `CustomizePage.tsx` | Subtabs: Exercises (bursts at top), Stretches, Streaks (habits), TDEE (targets) |
 | Settings | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | General, alerts, posture, sync, theme, app presence |
 
 Header **Start flow** (`FlowHeaderControl.tsx` in `AppShell.tsx`): idle → start pomodoro chain; active → show phase label, click → Work tab.
@@ -31,11 +31,12 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Workout logged when break timer finishes (≥15s) or Complete Workout tapped (≥15s); stopping flow mid-break does not log.
 - Morning stretch: built-in id `morning-stretch`; hides after completion or hide-after hour (default 11 AM); logs to `workout_log`.
 - Stretch creator routine refs (`MorningStretchRef`) may carry optional `amount` (hold seconds) for that routine only; does not change global stretch pool / `stretchHoldSeconds`.
-- Movement bursts (UI name; internal ids still `movement-snack*`): daily goal chips; completed chips show nearest half-hour label (`formatNearestHalfHourLabel`).
+- Movement bursts (UI name; internal ids still `movement-snack*`): Customize lives under Exercises tab (top); completed chips show `Hard/Easy ·` nearest half-hour (`formatNearestHalfHourLabel`).
 - Streak fire emoji only when current streak ≥ 5 days (`currentStreakFireEmojiClass`); under 5 shows the number only.
 - Water: exact goal (0 ml remaining) uses success style `water-remaining-done` (green).
 - TDEE food editor (+ menu) lists staples with portion controls; logging a staple (chip or editor) uses `kind: staple` + `refId` so the day's staple chip is replaced.
 - Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
+- Streak activities: order by `sort_order` (add order + drag reorder in Customize; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`), `linked_staple_id` / `linked_water` (food chip or water log completes task; task success can log linked staple). Schema migration v12.
 
 Engine: `SessionContext.tsx` + `@mgmt/core` (`flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`). Workout picking: `workoutPlanner.ts`, `exerciseBreak.ts`.
 
