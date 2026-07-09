@@ -11,46 +11,13 @@
   z-index: 0;
   color: var(--muted-foreground);
   pointer-events: none;
-}
-
-.tdee-chain-connector-svg {
-  width: 34px;
-  height: 14px;
-  margin-left: var(--tdee-chain-svg-offset, -10px);
-  display: block;
-  flex-shrink: 0;
-}
-
-.tdee-chain-kcal {
-  font-size: 0.75em;
-  font-weight: 500;
-  color: var(--muted-foreground);
-}
-
-.tdee-regular-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.tdee-regular-row,
-.tdee-custom-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 4px 12px;
-}
+}.tdee-chain-connector-svg { width: 34px; height: 14px; margin-left: var(--tdee-chain-svg-offset, -10px); display: block; flex-shrink: 0; }.tdee-chain-kcal { font-size: 0.75em; font-weight: 500; color: var(--muted-foreground); }.tdee-regular-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }.tdee-regular-row,
+.tdee-custom-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; }
 
 .tdee-regular-info { min-width: 0; }
-.tdee-regular-name { display: block; font-weight: 500; }
+.tdee-regular-name {display: block; font-weight: 500; }
 
-.tdee-regular-ingredients {
-  margin-top: 2px;
-  font-size: 0.72em;
-  line-height: 1.35;
-  color: var(--muted-foreground);
-}
+.tdee-regular-ingredients { margin-top: 2px; font-size: 0.72em; line-height: 1.35; color: var(--muted-foreground); }
 
 .tdee-meal-title-input {
   width: 100%;
@@ -61,31 +28,6 @@
   color: var(--foreground);
   font-size: 0.9em;
   font-weight: 500;
-}
-
-.tdee-portion-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  flex-wrap: nowrap;
-  justify-self: end;
-}
-
-.tdee-portion-x {
-  color: var(--muted-foreground);
-  font-size: 0.95em;
-  line-height: 1;
-  user-select: none;
-}
-
-.tdee-portion-input {
-  width: 72px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--background);
-  color: var(--foreground);
-}
+}.tdee-portion-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: nowrap; justify-self: end; }.tdee-portion-x { color: var(--muted-foreground); font-size: 0.95em; line-height: 1; user-select: none; }.tdee-portion-input { width: 72px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); }
 
 .tdee-portion-qty { width: 52px; }

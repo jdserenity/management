@@ -138,17 +138,9 @@
 }
 
 /* Subtle marker for necessary tasks (fails the day if incomplete) — sits beside the “necessary” label */
-.streak-necessary-label { display: inline-flex; align-items: center; gap: 5px; }
+.streak-necessary-label {display: inline-flex; align-items: center; gap: 5px; }
 
-.streak-necessary-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: rgb(239, 68, 68);
-  opacity: 0.85;
-  flex-shrink: 0;
-}
+.streak-necessary-dot { display: inline-block; width: 7px; height: 7px; border-radius: 999px; background: rgb(239, 68, 68); opacity: 0.85; flex-shrink: 0; }
 
 .streak-overlap-part { display: inline; }
 
@@ -379,18 +371,10 @@
 /* Pause button — orange theme */
 .streak-btn-pause { background: var(--border); color: var(--muted-foreground); }
 .streak-btn-pause:hover { background: rgba(249, 115, 22, 0.2); color: rgb(249, 115, 22); }
-.streak-btn-pause:active { background: rgba(249, 115, 22, 0.35); color: rgb(249, 115, 22); }
+.streak-btn-pause:active {background: rgba(249, 115, 22, 0.35); color: rgb(249, 115, 22); }
 
 /* Reset stats button — icon + reset count */
-.streak-btn-reset {
-  background: var(--border);
-  color: var(--muted-foreground);
-  align-items: center;
-  gap: 0.2em;
-  padding: 0 0.35em;
-  font-size: 0.85em;
-  line-height: 1;
-}
+.streak-btn-reset { background: var(--border); color: var(--muted-foreground); align-items: center; gap: 0.2em; padding: 0 0.35em; font-size: 0.85em; line-height: 1; }
 .streak-reset-icon {font-size: 1.05em; }
 .streak-reset-count { font-variant-numeric: tabular-nums; min-width: 0.9em; }
 .streak-btn-reset:hover { background: rgba(234, 179, 8, 0.2); color: rgb(234, 179, 8); }
