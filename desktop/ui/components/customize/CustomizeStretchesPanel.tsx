@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import MorningStretchRoutineEditor from '@/components/daily/MorningStretchRoutineEditor';
+import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
 import { formatDayRolloverHourLabel } from '@/lib/dayBoundary';
@@ -103,194 +102,186 @@ export default function CustomizeStretchesPanel() {
     }
   };
 
-  if (!hasAppStorage()) return <p className="text-sm text-muted-foreground">Storage is not ready yet.</p>;
+  if (!hasAppStorage()) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
-  if (!stretches) return <p className="text-sm text-muted-foreground">Loading stretches…</p>;
+  if (!stretches) return <p className="plugin-muted text-sm">Loading stretches…</p>;
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
-          <div>
-            <CardTitle>Stretch creator</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">Build themed stretch routines. Morning stretch ships with the app; add your own (e.g. after a run).</p>
-          </div>
-          <Button size="sm" onClick={addStretch}><Plus className="h-4 w-4" />New stretch</Button>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            {stretches.map((stretch) => {
-              const style = STRETCH_GRADIENT_STYLES[stretch.gradientId];
-              const triggerLabel = stretch.trigger.mode === 'scheduled'
-                ? `Daily until ${formatDayRolloverHourLabel(stretch.trigger.hideAfterHour)}`
-                : 'Manual only';
-              return (
-                <li key={stretch.id} className={`flex flex-col gap-2 rounded-md border px-3 py-3 ring-1 ${style.cardClass} ${style.ringClass}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{stretch.emoji} {stretch.name}{stretch.builtIn ? ' · built-in' : ''}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {stretch.exerciseRefs.length} moves · {stretch.durationMinutes} min · {triggerLabel}{!stretch.enabled ? ' · off' : ''}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => openEditor(stretch)}>Edit</Button>
-                      {!stretch.builtIn && (
-                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={saving} onClick={() => void deleteStretch(stretch.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+      <CustomizePanel
+        title={
+          <span className="flex w-full flex-wrap items-center justify-between gap-2">
+            Stretch creator
+            <button type="button" className="plugin-btn plugin-btn-primary text-sm font-semibold" onClick={addStretch}>
+              <Plus className="mr-1 inline h-4 w-4" />New stretch
+            </button>
+          </span>
+        }
+        description="Build themed stretch routines. Morning stretch ships with the app; add your own (e.g. after a run)."
+      >
+        <ul className="space-y-2">
+          {stretches.map((stretch) => {
+            const style = STRETCH_GRADIENT_STYLES[stretch.gradientId];
+            const triggerLabel = stretch.trigger.mode === 'scheduled'
+              ? `Daily until ${formatDayRolloverHourLabel(stretch.trigger.hideAfterHour)}`
+              : 'Manual only';
+            return (
+              <li key={stretch.id} className={`plugin-panel-flat space-y-2 ring-1 ${style.cardClass} ${style.ringClass}`}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium">{stretch.emoji} {stretch.name}{stretch.builtIn ? ' · built-in' : ''}</p>
+                    <p className="plugin-muted text-xs">
+                      {stretch.exerciseRefs.length} moves · {stretch.durationMinutes} min · {triggerLabel}{!stretch.enabled ? ' · off' : ''}
+                    </p>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        </CardContent>
-      </Card>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="plugin-btn text-sm" onClick={() => openEditor(stretch)}>Edit</button>
+                    {!stretch.builtIn && (
+                      <button type="button" className="plugin-btn-ghost p-1 text-destructive" disabled={saving} aria-label={`Delete ${stretch.name}`} onClick={() => void deleteStretch(stretch.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </CustomizePanel>
 
       {activeDraft && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit stretch</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium">Name</span>
-                <input className="rounded-md border border-input bg-background px-2 py-1.5 text-sm" value={activeDraft.name} onChange={(e) => updateDraft({ name: e.target.value })} />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium">Emoji</span>
-                <input className="w-20 rounded-md border border-input bg-background px-2 py-1.5 text-sm" value={activeDraft.emoji} maxLength={4} onChange={(e) => updateDraft({ emoji: e.target.value })} />
-              </label>
-            </div>
+        <CustomizePanel title="Edit stretch">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-xs plugin-muted">
+              Name
+              <input className="plugin-input text-sm text-foreground" value={activeDraft.name} onChange={(e) => updateDraft({ name: e.target.value })} />
+            </label>
+            <label className="flex flex-col gap-1 text-xs plugin-muted">
+              Emoji
+              <input className="plugin-input w-20 text-sm text-foreground" value={activeDraft.emoji} maxLength={4} onChange={(e) => updateDraft({ emoji: e.target.value })} />
+            </label>
+          </div>
 
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Colour gradient</span>
-              <div className="flex flex-wrap gap-2">
-                {STRETCH_GRADIENT_IDS.map((id) => {
-                  const style = STRETCH_GRADIENT_STYLES[id];
-                  const selected = activeDraft.gradientId === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      className={`h-10 min-w-[5.5rem] rounded-md border px-3 text-xs font-medium ring-2 ring-offset-2 ring-offset-background ${style.cardClass} ${selected ? style.ringClass.replace('ring-', 'ring-2 ring-') : 'ring-transparent'}`}
-                      onClick={() => updateDraft({ gradientId: id as StretchGradientId })}
-                    >
-                      {style.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="font-medium">Enabled</span>
-                <p className="text-sm text-muted-foreground">When off, scheduled stretches stay hidden on Daily.</p>
-              </div>
-              <Switch checked={activeDraft.enabled} onCheckedChange={(checked) => updateDraft({ enabled: checked })} />
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <span className="font-medium">Block duration</span>
-              </div>
-              <Select value={String(activeDraft.durationMinutes)} onValueChange={(v) => updateDraft({ durationMinutes: Number(v) })}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {durationOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-3">
-              <span className="font-medium">When to show</span>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={activeDraft.trigger.mode === 'scheduled' ? 'default' : 'outline'}
-                  onClick={() => updateDraft({ trigger: { mode: 'scheduled', hideAfterHour: activeDraft.trigger.mode === 'scheduled' ? activeDraft.trigger.hideAfterHour : 11 } })}
-                >
-                  Daily tab (scheduled)
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={activeDraft.trigger.mode === 'manual' ? 'default' : 'outline'}
-                  onClick={() => updateDraft({ trigger: { mode: 'manual' } })}
-                >
-                  Manual only
-                </Button>
-              </div>
-              {activeDraft.trigger.mode === 'scheduled' && (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-muted-foreground">Hide after this time if not finished (next stats day resets).</p>
-                  <Select
-                    value={String(activeDraft.trigger.hideAfterHour)}
-                    onValueChange={(v) => updateDraft({ trigger: { mode: 'scheduled', hideAfterHour: Number(v) } })}
-                  >
-                    <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {hourOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {activeDraft.trigger.mode === 'manual' && (
-                <p className="text-sm text-muted-foreground">Manual stretches are not on Daily yet — we still need a launch point elsewhere in the app.</p>
-              )}
-            </div>
-
-            <MorningStretchRoutineEditor
-              routine={{ exerciseRefs: activeDraft.exerciseRefs }}
-              availableToAdd={availableToAdd}
-              saving={saving}
-              labelForRef={labelForMorningStretchRef}
-              defaultAmountForRef={(ref) => defaultAmountForStretchRef(ref, workoutCustomizePrefs)}
-              onAdd={(ref) => {
-                if (activeDraft.exerciseRefs.some((r) => refKey(r) === refKey(ref))) return;
-                updateDraft({ exerciseRefs: [...activeDraft.exerciseRefs, ref] });
-              }}
-              onRemove={(index) => updateDraft({ exerciseRefs: activeDraft.exerciseRefs.filter((_, i) => i !== index) })}
-              onMove={(index, dir) => {
-                const next = [...activeDraft.exerciseRefs];
-                const target = index + dir;
-                if (target < 0 || target >= next.length) return;
-                [next[index], next[target]] = [next[target], next[index]];
-                updateDraft({ exerciseRefs: next });
-              }}
-              onAmountChange={(index, amount) => {
-                const next = activeDraft.exerciseRefs.map((ref, i) => {
-                  if (i !== index) return ref;
-                  if (amount == null) {
-                    const { amount: _drop, ...rest } = ref;
-                    return rest;
-                  }
-                  return { ...ref, amount };
-                });
-                updateDraft({ exerciseRefs: next });
-              }}
-            />
-
+          <div className="space-y-2">
+            <span className="text-sm font-medium">Colour gradient</span>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => void persistDraft()} disabled={saving}>Save stretch</Button>
-              <Button variant="outline" onClick={closeEditor} disabled={saving}>Cancel</Button>
-              {!activeDraft.builtIn && activeDraft.id.startsWith('stretch-') && (
-                <Button variant="ghost" className="text-destructive hover:text-destructive" disabled={saving} onClick={() => void deleteStretch(activeDraft.id)}>
-                  Delete
-                </Button>
-              )}
+              {STRETCH_GRADIENT_IDS.map((id) => {
+                const style = STRETCH_GRADIENT_STYLES[id];
+                const selected = activeDraft.gradientId === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`h-10 min-w-[5.5rem] rounded-md border px-3 text-xs font-medium ring-2 ring-offset-2 ring-offset-background ${style.cardClass} ${selected ? style.ringClass.replace('ring-', 'ring-2 ring-') : 'ring-transparent'}`}
+                    onClick={() => updateDraft({ gradientId: id as StretchGradientId })}
+                  >
+                    {style.label}
+                  </button>
+                );
+              })}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="font-medium">Enabled</span>
+              <p className="plugin-muted text-sm">When off, scheduled stretches stay hidden on Daily.</p>
+            </div>
+            <Switch checked={activeDraft.enabled} onCheckedChange={(checked) => updateDraft({ enabled: checked })} />
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-medium">Block duration</span>
+            <Select value={String(activeDraft.durationMinutes)} onValueChange={(v) => updateDraft({ durationMinutes: Number(v) })}>
+              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {durationOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-3">
+            <span className="font-medium">When to show</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={`plugin-btn text-sm${activeDraft.trigger.mode === 'scheduled' ? ' plugin-btn-primary' : ''}`}
+                onClick={() => updateDraft({ trigger: { mode: 'scheduled', hideAfterHour: activeDraft.trigger.mode === 'scheduled' ? activeDraft.trigger.hideAfterHour : 11 } })}
+              >
+                Daily tab (scheduled)
+              </button>
+              <button
+                type="button"
+                className={`plugin-btn text-sm${activeDraft.trigger.mode === 'manual' ? ' plugin-btn-primary' : ''}`}
+                onClick={() => updateDraft({ trigger: { mode: 'manual' } })}
+              >
+                Manual only
+              </button>
+            </div>
+            {activeDraft.trigger.mode === 'scheduled' && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="plugin-muted text-sm">Hide after this time if not finished (next stats day resets).</p>
+                <Select
+                  value={String(activeDraft.trigger.hideAfterHour)}
+                  onValueChange={(v) => updateDraft({ trigger: { mode: 'scheduled', hideAfterHour: Number(v) } })}
+                >
+                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {hourOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {activeDraft.trigger.mode === 'manual' && (
+              <p className="plugin-muted text-sm">Manual stretches are not on Daily yet — we still need a launch point elsewhere in the app.</p>
+            )}
+          </div>
+
+          <MorningStretchRoutineEditor
+            routine={{ exerciseRefs: activeDraft.exerciseRefs }}
+            availableToAdd={availableToAdd}
+            saving={saving}
+            labelForRef={labelForMorningStretchRef}
+            defaultAmountForRef={(ref) => defaultAmountForStretchRef(ref, workoutCustomizePrefs)}
+            onAdd={(ref) => {
+              if (activeDraft.exerciseRefs.some((r) => refKey(r) === refKey(ref))) return;
+              updateDraft({ exerciseRefs: [...activeDraft.exerciseRefs, ref] });
+            }}
+            onRemove={(index) => updateDraft({ exerciseRefs: activeDraft.exerciseRefs.filter((_, i) => i !== index) })}
+            onMove={(index, dir) => {
+              const next = [...activeDraft.exerciseRefs];
+              const target = index + dir;
+              if (target < 0 || target >= next.length) return;
+              [next[index], next[target]] = [next[target], next[index]];
+              updateDraft({ exerciseRefs: next });
+            }}
+            onAmountChange={(index, amount) => {
+              const next = activeDraft.exerciseRefs.map((ref, i) => {
+                if (i !== index) return ref;
+                if (amount == null) {
+                  const { amount: _drop, ...rest } = ref;
+                  return rest;
+                }
+                return { ...ref, amount };
+              });
+              updateDraft({ exerciseRefs: next });
+            }}
+          />
+
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="plugin-btn plugin-btn-primary" onClick={() => void persistDraft()} disabled={saving}>Save stretch</button>
+            <button type="button" className="plugin-btn" onClick={closeEditor} disabled={saving}>Cancel</button>
+            {!activeDraft.builtIn && activeDraft.id.startsWith('stretch-') && (
+              <button type="button" className="plugin-btn-ghost text-destructive" disabled={saving} onClick={() => void deleteStretch(activeDraft.id)}>
+                Delete
+              </button>
+            )}
+          </div>
+        </CustomizePanel>
       )}
       <StretchPoolSection />
     </div>
