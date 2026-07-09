@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAppKind } from '@/lib/appRuntime';
 import { pullAndMergeFromServer, pushLocalDataToServer } from '@/lib/dataSync';
-import { getSyncStatus, SYNC_STATUS_EVENT, type SyncStatusSnapshot } from '@mgmt/sync';
+import { getBuildTimeSyncCreds, getSyncStatus, SYNC_STATUS_EVENT, type SyncStatusSnapshot } from '@mgmt/sync';
 
 /** Companion boot registers these so shared UI can force upload without importing mobile paths. */
 declare global {
@@ -44,6 +44,8 @@ export default function SyncStatusCard() {
   const [busy, setBusy] = useState<'idle' | 'push' | 'pull'>('idle');
   const [message, setMessage] = useState<string | null>(null);
   const kind = getAppKind();
+  const creds = getBuildTimeSyncCreds();
+  const credsOk = Boolean(creds.serverUrl && creds.serverToken);
 
   useEffect(() => {
     const refresh = () => { setStatus(getSyncStatus()); };
@@ -84,8 +86,7 @@ export default function SyncStatusCard() {
         window.location.reload();
         return;
       }
-      const ok = await pullAndMergeFromServer();
-      if (!ok) throw new Error('Pull failed — check network / sync credentials.');
+      await pullAndMergeFromServer();
       setMessage('Merged from server. Open Daily — habits/food/water should update. Reload the app if not.');
       window.dispatchEvent(new Event('mgmt-data-sync-refresh'));
     } catch (err) {
@@ -102,6 +103,10 @@ export default function SyncStatusCard() {
         <CardTitle>Sync health</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
+        <p>
+          <span className="font-medium">Server credentials:</span>{' '}
+          {credsOk ? 'configured in this build' : 'missing — add VITE_SERVER_URL + VITE_SERVER_TOKEN to root .env and restart tauri dev'}
+        </p>
         <p><span className="font-medium">Pending local changes:</span> {status.pendingLocalChanges ? 'Yes' : 'No'}</p>
         <p><span className="font-medium">Last operation:</span> {operationLabel(status)}</p>
         <p><span className="font-medium">Last pull:</span> {formatAgo(status.lastPullAtMs)}</p>

@@ -29,21 +29,33 @@ export const pushLocalDataToServer = async (): Promise<void> => {
   await pushUserDataDiff(serverUrl, serverToken, emptyUserData(), data);
 };
 
-/** Force a merge pull from the VPS (use after phone has uploaded recovery data). */
+/** Force a merge pull from the VPS (use after phone has uploaded recovery data). Throws with a clear reason on failure. */
 export const pullAndMergeFromServer = async (): Promise<boolean> => {
-  if (getAppKind() !== 'desktop') return false;
+  if (getAppKind() !== 'desktop') throw new Error('Pull is only available in the desktop app.');
   const { serverUrl, serverToken } = creds();
+  if (!serverUrl || !serverToken) {
+    throw new Error(
+      'Sync credentials are not baked into this app build. Add VITE_SERVER_URL and VITE_SERVER_TOKEN to the repo root .env, then fully quit and re-run `npm run tauri dev` (or rebuild).'
+    );
+  }
   const db = await getDb();
   const ok = await pullAndMergeUserData({ logLabel: 'desktop', db, serverUrl, serverToken });
-  if (!ok && serverUrl && serverToken) await notifyDataSyncError('foreground pull', new Error('pull failed'));
-  return ok;
+  if (!ok) {
+    await notifyDataSyncError('foreground pull', new Error('pull failed'));
+    throw new Error(
+      `Could not reach or merge from ${serverUrl}. Check Wi‑Fi/VPN, that the VPS is up (GET /health), and that the token matches SERVER_TOKEN on the server.`
+    );
+  }
+  return true;
 };
 
 const scheduleForegroundPull = (): void => {
   if (pullTimer) clearTimeout(pullTimer);
   pullTimer = setTimeout(() => {
     pullTimer = null;
-    void pullAndMergeFromServer().catch(() => {});
+    void pullAndMergeFromServer().catch((err) => {
+      console.warn('[data-sync] background pull failed', err);
+    });
   }, PULL_DEBOUNCE_MS);
 };
 
