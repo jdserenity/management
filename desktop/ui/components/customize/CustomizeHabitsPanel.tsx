@@ -1,40 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
 import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
-import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { resetButtonLabel } from '@/lib/streak/display';
-import type { StreakActivity, StreakState } from '@/lib/streak/types';
+import type { StreakActivity } from '@/lib/streak/types';
 import { archiveStreakActivity, loadStreakState, reorderStreakActivities, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
 import { GripVertical } from 'lucide-react';
 
 export default function CustomizeHabitsPanel() {
-  const [state, setState] = useState<StreakState | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { data: state, loadError, setData: setState, storageReady } = useAppDataLoad(
+    loadStreakState,
+    'Failed to load habits',
+    { intervalMs: null }
+  );
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<StreakActivity | null>(null);
   const [isNewActivity, setIsNewActivity] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) { setLoadError(null); setState(null); return; }
-    try {
-      setLoadError(null);
-      setState(await loadStreakState());
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load habits');
-    }
-  }, []);
-
-  useEffect(() => { void refresh(); }, [refresh]);
-  useEffect(() => {
-    const onRemoteRefresh = () => { void refresh(); };
-    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    return () => window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-  }, [refresh]);
-
-  if (!hasAppStorage()) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
+  if (!storageReady) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!state) return <p className="plugin-muted text-sm">Loading habits…</p>;
 

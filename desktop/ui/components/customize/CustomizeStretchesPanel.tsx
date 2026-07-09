@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import MorningStretchRoutineEditor from '@/components/daily/MorningStretchRoutineEditor';
 import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 import { useSession } from '@/context/SessionContext';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { formatDayRolloverHourLabel } from '@/lib/dayBoundary';
 import {
   defaultAmountForStretchRef,
@@ -30,24 +30,18 @@ const hourOptions = Array.from({ length: 24 }, (_, hour) => ({ value: String(hou
 
 export default function CustomizeStretchesPanel() {
   const { workoutCustomizePrefs } = useSession();
-  const [stretches, setStretches] = useState<StretchDefinition[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const load = useCallback(
+    () => loadStretchDefinitions(workoutCustomizePrefs),
+    [workoutCustomizePrefs]
+  );
+  const { data: stretches, loadError, setData: setStretches, storageReady } = useAppDataLoad(
+    load,
+    'Failed to load stretches',
+    { intervalMs: null, listenSync: false }
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<StretchDefinition | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) { setLoadError(null); setStretches(null); return; }
-    try {
-      setLoadError(null);
-      setStretches(await loadStretchDefinitions(workoutCustomizePrefs));
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load stretches');
-    }
-  }, [workoutCustomizePrefs]);
-
-  useEffect(() => { void refresh(); }, [refresh]);
 
   const catalog = useMemo(() => listMorningStretchCatalog(workoutCustomizePrefs), [workoutCustomizePrefs]);
   const editing = stretches?.find((s) => s.id === editingId) ?? null;
@@ -102,7 +96,7 @@ export default function CustomizeStretchesPanel() {
     }
   };
 
-  if (!hasAppStorage()) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
+  if (!storageReady) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!stretches) return <p className="plugin-muted text-sm">Loading stretches…</p>;
 

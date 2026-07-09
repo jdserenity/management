@@ -15,7 +15,7 @@ import {
 } from '@/lib/tdeeDb';
 import { loadWaterFile, saveWaterTarget } from '@/lib/waterDb';
 import { litresToMl, mlToLitres } from '@/lib/water/totals';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { useAppDataLoad } from '@/lib/useAppDataLoad';
 
 type IngredientDraft = { name: string; calories: string; protein: string };
 type MealDraft = { name: string; ingredients: IngredientDraft[]; simpleCalories: string; simpleProtein: string };
@@ -186,9 +186,18 @@ const MealList = ({
   );
 };
 
+type FoodBundle = { file: TdeeFile; waterTargetDraft: string };
+
 export default function CustomizeFoodPanel() {
-  const [file, setFile] = useState<TdeeFile | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadBundle = useCallback(async (): Promise<FoodBundle> => {
+    const [file, water] = await Promise.all([loadTdeeFile(), loadWaterFile()]);
+    return { file, waterTargetDraft: water.targetMl ? String(mlToLitres(water.targetMl)) : '' };
+  }, []);
+  const { data, loadError, setData, storageReady } = useAppDataLoad(loadBundle, 'Failed to load nutrition data', { intervalMs: null, listenSync: false });
+  const file = data?.file ?? null;
+  const setFile = (next: TdeeFile | Promise<TdeeFile>) => {
+    void Promise.resolve(next).then((f) => setData((b) => (b ? { ...b, file: f } : { file: f, waterTargetDraft: '' })));
+  };
   const [tdeeDraft, setTdeeDraft] = useState('');
   const [proteinDraft, setProteinDraft] = useState('');
   const [stapleDraft, setStapleDraft] = useState<MealDraft>(emptyDraft);
@@ -197,22 +206,12 @@ export default function CustomizeFoodPanel() {
   const [regularEditId, setRegularEditId] = useState<string | null>(null);
   const [waterTargetDraft, setWaterTargetDraft] = useState('');
 
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
-    try {
-      setLoadError(null);
-      const [next, water] = await Promise.all([loadTdeeFile(), loadWaterFile()]);
-      setFile(next);
-      setTdeeDraft(String(next.tdee || ''));
-      setProteinDraft(String(next.protein || ''));
-      setWaterTargetDraft(water.targetMl ? String(mlToLitres(water.targetMl)) : '');
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load nutrition data');
-    }
-  }, []);
-
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!data) return;
+    setTdeeDraft(String(data.file.tdee || ''));
+    setProteinDraft(String(data.file.protein || ''));
+    setWaterTargetDraft(data.waterTargetDraft);
+  }, [data]);
 
   const saveMeal = async (
     draft: MealDraft,
@@ -228,7 +227,7 @@ export default function CustomizeFoodPanel() {
     clear();
   };
 
-  if (!hasAppStorage()) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
+  if (!storageReady) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!file) return <p className="plugin-muted text-sm">Loading food…</p>;
 

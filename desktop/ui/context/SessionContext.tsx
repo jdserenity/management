@@ -269,6 +269,13 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     if (bumpCount) bumpFocusCount(sessionType);
   }, [bumpFocusCount]);
 
+  const appendWorkoutLog = useCallback((entry: WorkoutLogEntry, errLabel: string) => {
+    setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
+    void persistWorkoutLog(entry).catch((error) => {
+      console.error(errLabel, error);
+    });
+  }, []);
+
   const logActiveWorkoutIfNeeded = useCallback((completionRatio: number) => {
     const f = flowRef.current;
     if (!isPhaseLongEnoughToLog(f.phaseStartedAtMs)) return;
@@ -279,7 +286,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     const scaled = scaleExercisesByRatio(workout.exercises, ratio);
     if (scaled.length === 0) return;
     const { reps, timedSeconds } = sumExerciseVolume(scaled);
-    const workoutLog: WorkoutLogEntry = {
+    appendWorkoutLog({
       id: createPrefixedId('workout'),
       workoutId: workout.id,
       workoutName: workout.name,
@@ -288,17 +295,13 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       totalReps: reps,
       totalTimedSeconds: timedSeconds,
       completionRatio: ratio
-    };
-    setWorkoutLogs((current) => [workoutLog, ...current].slice(0, MAX_HISTORY_ITEMS));
-    void persistWorkoutLog(workoutLog).catch((error) => {
-      console.error('Failed to persist workout log:', error);
-    });
+    }, 'Failed to persist workout log:');
     setFlow((prev) => ({
       ...prev,
       workoutLogged: true,
       runExerciseTotals: mergeWorkoutExercisesIntoTotals(prev.runExerciseTotals, scaled)
     }));
-  }, []);
+  }, [appendWorkoutLog]);
 
   const resetToIdle = useCallback(() => {
     void clearActiveFlowState().catch((error) => {
@@ -604,27 +607,22 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   }, [logActiveWorkoutIfNeeded, advanceCurrentBreak]);
 
   const addManualExercise = useCallback((exercise: ExerciseDefinition) => {
-    const entry = buildManualExerciseLogEntry(exercise, createPrefixedId('workout'));
-    setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
-    void persistWorkoutLog(entry).catch((error) => {
-      console.error('Failed to persist manual exercise:', error);
-    });
+    appendWorkoutLog(buildManualExerciseLogEntry(exercise, createPrefixedId('workout')), 'Failed to persist manual exercise:');
     if (flowRef.current.phase !== 'idle') {
       setFlow((prev) => ({
         ...prev,
         runExerciseTotals: mergeWorkoutExercisesIntoTotals(prev.runExerciseTotals, [exercise])
       }));
     }
-  }, []);
+  }, [appendWorkoutLog]);
 
   const logStretchCompletion = useCallback((stretch: StretchDefinition, exercises: ExerciseDefinition[], completionRatio: number = 1) => {
     if (exercises.length === 0) return;
-    const entry = buildStretchLogEntry(stretch, exercises, createPrefixedId('workout'), Date.now(), completionRatio);
-    setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
-    void persistWorkoutLog(entry).catch((error) => {
-      console.error('Failed to persist stretch log:', error);
-    });
-  }, []);
+    appendWorkoutLog(
+      buildStretchLogEntry(stretch, exercises, createPrefixedId('workout'), Date.now(), completionRatio),
+      'Failed to persist stretch log:'
+    );
+  }, [appendWorkoutLog]);
 
   const logMorningStretchCompletion = useCallback((exercises: ExerciseDefinition[], completionRatio: number = 1) => {
     logStretchCompletion(defaultBuiltinMorningStretch(), exercises, completionRatio);
@@ -658,12 +656,11 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     const defaults = easy ? movementSnackPrefsRef.current.easyExercises : movementSnackPrefsRef.current.hardExercises;
     const toLog = exercises && exercises.length > 0 ? exercises : defaults;
     if (toLog.length === 0) return;
-    const entry = buildMovementSnackLogEntry(toLog, createPrefixedId('snack'), Date.now(), easy);
-    setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
-    void persistWorkoutLog(entry).catch((error) => {
-      console.error('Failed to persist movement snack:', error);
-    });
-  }, []);
+    appendWorkoutLog(
+      buildMovementSnackLogEntry(toLog, createPrefixedId('snack'), Date.now(), easy),
+      'Failed to persist movement snack:'
+    );
+  }, [appendWorkoutLog]);
 
   const removeWorkoutLog = useCallback((id: string) => {
     setWorkoutLogs((current) => current.filter((log) => log.id !== id));
