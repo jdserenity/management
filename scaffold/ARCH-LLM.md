@@ -139,6 +139,8 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Nav | `desktop/ui/lib/navConfig.ts` |
 | Session state | `desktop/ui/context/SessionContext.tsx` (holds one `PersistedFlowState`); pure transitions in `@mgmt/core` `flowEngine.ts` / `exerciseMode.ts` |
 | Feature DBs | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/` |
+| Workout modules | `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` |
+| Plugin UI | `desktop/ui/plugin-ui.css`, tokens in `App.css` |
 | app_kv prefs | `desktop/ui/lib/appKv.ts` (get/set + bool/json/int factories); thin `*Pref.ts` wrappers |
 | Sync wiring | `dataSync.ts`, `dataSyncBootstrap.ts`, `shared/sync/src/` |
 | UserData SQL schema | `shared/sync/src/userDataSchema.ts` |

@@ -1,6 +1,5 @@
 import { getDb } from '@/lib/db';
-import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
-import { getCurrentLogDay } from '@/lib/tdee/dates';
+import { loadCurrentFeatureDay } from '@/lib/featureDay';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/types';
 import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
@@ -136,8 +135,7 @@ const ensureConfigRow = async (): Promise<void> => {
 export const loadTdeeFile = async (): Promise<TdeeFile> => {
   await ensureConfigRow();
   const db = await getDb();
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   const configRows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
   const config = configRows[0] ?? { tdee: 0, protein: 0, log_day: '', updated_at: syncNow() };
   const stapleRows = await db.select<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order, updated_at FROM nutrition_staples ORDER BY sort_order, name');
@@ -190,8 +188,7 @@ const saveEntriesForDay = async (day: string, entries: TdeeStoredEntry[]): Promi
 
 export const saveTdeeFile = async (file: TdeeFile): Promise<void> => {
   await ensureConfigRow();
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   const normalized = normalizeFile(file);
   ensureCurrentDay(normalized, currentDay);
   await upsertConfig(normalized.tdee, normalized.protein, currentDay);
@@ -202,8 +199,7 @@ export const saveTdeeFile = async (file: TdeeFile): Promise<void> => {
 
 export const addTdeeEntry = async (file: TdeeFile, entry: TdeeLogEntry): Promise<TdeeFile> => {
   void file;
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   await upsertNutritionEntry(currentDay, entry);
   return loadTdeeFile();
 };
@@ -211,8 +207,7 @@ export const addTdeeEntry = async (file: TdeeFile, entry: TdeeLogEntry): Promise
 export const removeTdeeEntry = async (file: TdeeFile, id: string): Promise<TdeeFile> => {
   const idx = file.entries.findIndex((e) => e.id === id);
   if (idx < 0) return file;
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   await upsertNutritionEntry(currentDay, makeTombstone(id));
   return loadTdeeFile();
 };
@@ -281,8 +276,7 @@ export const removeTdeeStaple = async (file: TdeeFile, id: string): Promise<Tdee
 
 export const updateTdeeTargets = async (file: TdeeFile, tdee: number, protein: number): Promise<TdeeFile> => {
   void file;
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   await upsertConfig(normalizeCalories(tdee), normalizeMacro(protein), currentDay);
   return loadTdeeFile();
 };

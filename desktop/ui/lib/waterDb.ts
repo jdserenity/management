@@ -1,6 +1,5 @@
 import { getDb } from '@/lib/db';
-import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
-import { getCurrentLogDay } from '@/lib/tdee/dates';
+import { loadCurrentFeatureDay } from '@/lib/featureDay';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone, normalizeMl } from '@/lib/water/entries';
 import { DEFAULT_WATER_FILE, type WaterEntry, type WaterFile, type WaterStoredEntry } from '@/lib/water/types';
 
@@ -70,8 +69,7 @@ const ensureConfigRow = async (): Promise<void> => {
 export const loadWaterFile = async (): Promise<WaterFile> => {
   await ensureConfigRow();
   const db = await getDb();
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   const configRows = await db.select<ConfigRow[]>('SELECT target_ml, log_day, updated_at FROM water_config WHERE id = 1');
   const config = configRows[0] ?? { target_ml: 2500, log_day: '', updated_at: syncNow() };
   let entryRows: EntryRow[] = [];
@@ -109,8 +107,7 @@ const saveEntriesForDay = async (day: string, entries: WaterStoredEntry[]): Prom
 
 export const saveWaterFile = async (file: WaterFile): Promise<void> => {
   await ensureConfigRow();
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   ensureCurrentDay(file, currentDay);
   await upsertWaterConfig(normalizeMl(file.targetMl), currentDay);
   await saveEntriesForDay(currentDay, file.entries);
@@ -119,8 +116,7 @@ export const saveWaterFile = async (file: WaterFile): Promise<void> => {
 export const addWaterEntry = async (file: WaterFile, label: string, ml: number, count = 1): Promise<WaterFile> => {
   void file;
   const entry = makeEntry({ label: label.trim() || 'Water', ml, count });
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   await upsertWaterEntry(currentDay, entry);
   return loadWaterFile();
 };
@@ -128,16 +124,14 @@ export const addWaterEntry = async (file: WaterFile, label: string, ml: number, 
 export const removeWaterEntry = async (file: WaterFile, id: string): Promise<WaterFile> => {
   const idx = file.entries.findIndex((e) => e.id === id);
   if (idx < 0) return file;
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   await upsertWaterEntry(currentDay, makeTombstone(id));
   return loadWaterFile();
 };
 
 export const saveWaterTarget = async (file: WaterFile, targetMl: number): Promise<WaterFile> => {
   void file;
-  const rolloverHour = await loadDayRolloverHourPref();
-  const currentDay = getCurrentLogDay(new Date(), rolloverHour);
+  const { day: currentDay } = await loadCurrentFeatureDay();
   await upsertWaterConfig(normalizeMl(targetMl), currentDay);
   return loadWaterFile();
 };
