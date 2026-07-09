@@ -8,7 +8,7 @@ Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (d
 
 | Tab | Component | Role |
 | --- | --- | --- |
-| Daily | `DailyPage.tsx` | Scheduled stretches (`DailyStretchSections`), streaks, TDEE log, water log |
+| Daily | `DailyPage.tsx` | Scheduled stretches (`DailyStretchSections`), streaks, TDEE log, water log, movement bursts |
 | Work | `Dashboard.tsx` | Focus flow timer, today's work/movement totals, can't-exercise toggle |
 | Posture | `PosturePage.tsx` | Live score, charts, camera (desktop/Tauri only) |
 | Stats | `StatsPage.tsx` | All-time / monthly / weekly focus + movement aggregates |
@@ -30,6 +30,12 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Day boundary: `stats_day_rollover_hour_v1` (default 4 AM local) — work stats, nutrition, water, streaks.
 - Workout logged when break timer finishes (≥15s) or Complete Workout tapped (≥15s); stopping flow mid-break does not log.
 - Morning stretch: built-in id `morning-stretch`; hides after completion or hide-after hour (default 11 AM); logs to `workout_log`.
+- Stretch creator routine refs (`MorningStretchRef`) may carry optional `amount` (hold seconds) for that routine only; does not change global stretch pool / `stretchHoldSeconds`.
+- Movement bursts (UI name; internal ids still `movement-snack*`): daily goal chips; completed chips show nearest half-hour label (`formatNearestHalfHourLabel`).
+- Streak fire emoji only when current streak ≥ 5 days (`currentStreakFireEmojiClass`); under 5 shows the number only.
+- Water: exact goal (0 ml remaining) uses success style `water-remaining-done` (green).
+- TDEE food editor (+ menu) lists staples with portion controls; logging a staple (chip or editor) uses `kind: staple` + `refId` so the day's staple chip is replaced.
+- Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
 
 Engine: `SessionContext.tsx` + `@mgmt/core` (`flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`). Workout picking: `workoutPlanner.ts`, `exerciseBreak.ts`.
 

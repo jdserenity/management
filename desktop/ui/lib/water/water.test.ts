@@ -36,6 +36,12 @@ describe('water totals', () => {
     expect(d.extraClass).toBe('');
   });
 
+  it('remainingDisplay marks exact goal as success (green)', () => {
+    const d = remainingDisplay(2500, 2500);
+    expect(d.text).toBe('0 ml remaining');
+    expect(d.extraClass).toBe(' water-remaining-done');
+  });
+
   it('remainingDisplay celebrates surplus over target', () => {
     const d = remainingDisplay(2800, 2500);
     expect(d.text).toBe('💧 300 ml over target');
