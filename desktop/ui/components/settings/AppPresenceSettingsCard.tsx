@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import {
   getAppPresenceModePref,
@@ -35,13 +34,13 @@ export default function AppPresenceSettingsCard() {
   }, []);
 
   return (
-    <Card>
-      <CardHeader><CardTitle>App icon location</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
+    <section className="plugin-panel space-y-3">
+      <h2 className="plugin-panel-title">App icon location</h2>
+      <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <span className="font-medium">Menu bar only</span>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm plugin-muted">
               Off: Management appears in the Dock and App Switcher. On: icon stays in the menu bar; closing the window hides the app instead of quitting.
             </p>
           </div>
@@ -53,7 +52,7 @@ export default function AppPresenceSettingsCard() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <span className="font-medium">Hide to menu bar on close</span>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm plugin-muted">
               When off, closing the window quits the app (Dock mode). When on, the close button hides the window; use the menu bar icon to reopen or quit.
             </p>
           </div>
@@ -66,7 +65,7 @@ export default function AppPresenceSettingsCard() {
             disabled={!loaded || menuBarOnly}
           />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

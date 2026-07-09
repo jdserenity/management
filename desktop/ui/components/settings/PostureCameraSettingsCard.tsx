@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
@@ -84,10 +83,10 @@ export default function PostureCameraSettingsCard() {
   };
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Camera</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
+    <section className="plugin-panel space-y-3">
+      <h2 className="plugin-panel-title">Camera</h2>
+      <div className="space-y-4">
+        <p className="text-sm plugin-muted">
           If the camera does not work, allow Management in system camera settings.{' '}
           <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => void openSystemSettings('camera')}>
             Open camera settings
@@ -106,7 +105,7 @@ export default function PostureCameraSettingsCard() {
             </SelectContent>
           </Select>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

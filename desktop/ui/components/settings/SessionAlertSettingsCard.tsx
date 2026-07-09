@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -48,9 +47,9 @@ export default function SessionAlertSettingsCard({ surface }: SessionAlertSettin
   if (!prefs) return null;
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Focus & break alerts</CardTitle></CardHeader>
-      <CardContent className="space-y-6">
+    <section className="plugin-panel space-y-3">
+      <h2 className="plugin-panel-title">Focus & break alerts</h2>
+      <div className="space-y-6">
         {keys.map((key) => {
           const copy = alertCopy[key];
           const disabled = key === 'dockBounce' && !prefs.focusWindow;
@@ -58,21 +57,21 @@ export default function SessionAlertSettingsCard({ surface }: SessionAlertSettin
             <div key={key} className="flex items-center justify-between gap-4">
               <div className="space-y-1">
                 <span className="font-medium">{copy.title}</span>
-                <p className="text-sm text-muted-foreground">{copy.desc}</p>
+                <p className="text-sm plugin-muted">{copy.desc}</p>
               </div>
               <Switch checked={prefs[key]} onCheckedChange={(v) => patch(key, v)} disabled={disabled} />
             </div>
           );
         })}
         {surface === 'desktop' && prefs.notify ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm plugin-muted">
             If notifications do not arrive, allow Management in system notification settings.{' '}
             <Button type="button" variant="link" className="h-auto p-0 text-sm" onClick={() => void openSystemSettings('notifications')}>
               Open notification settings
             </Button>
           </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
