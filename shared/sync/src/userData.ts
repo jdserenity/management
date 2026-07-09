@@ -151,16 +151,33 @@ export const hydrateDbFromServer = async (
   return 'hydrated';
 };
 
+/**
+ * Replace local synced tables with a snapshot.
+ * Safety:
+ * - Runs without data-sync outbox side effects (full-table DELETE must not push "delete every row").
+ * - Never replaces a non-empty local table with an empty snapshot (accidental wipe guard).
+ */
 export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> => {
-  for (const s of USER_DATA_TABLE_SCHEMAS) {
-    await db.execute(`DELETE FROM ${s.sqlTable}`);
-  }
-  for (const s of USER_DATA_TABLE_SCHEMAS) {
-    const sql = clientInsertSql(s);
-    for (const row of s.getRows(data)) {
-      await db.execute(sql, s.bind(row as never));
+  await runWithoutDataSync(async () => {
+    const local = await extractUserData(db);
+    for (const s of USER_DATA_TABLE_SCHEMAS) {
+      const incoming = s.getRows(data);
+      const existing = s.getRows(local);
+      let rowsToWrite = incoming;
+      if (incoming.length === 0 && existing.length > 0) {
+        logSyncInfo('hydrateDb kept local rows (refusing empty wipe)', {
+          table: s.sqlTable,
+          localRows: existing.length
+        });
+        rowsToWrite = existing;
+      }
+      await db.execute(`DELETE FROM ${s.sqlTable}`);
+      const sql = clientInsertSql(s);
+      for (const row of rowsToWrite) {
+        await db.execute(sql, s.bind(row as never));
+      }
     }
-  }
+  });
 };
 
 // ── HTTP helpers ───────────────────────────────────────────────────────────────
@@ -403,6 +420,18 @@ const isMutationQuery = (query: string): boolean =>
 export type SyncCreds = { serverUrl?: string; token?: string };
 export type SyncCredsProvider = () => SyncCreds | Promise<SyncCreds>;
 
+/** Nestable: while > 0, wrapWithDataSync execute is pass-through (no outbox). Used by hydrateDb. */
+let dataSyncSuppressDepth = 0;
+
+export const runWithoutDataSync = async <T>(fn: () => Promise<T>): Promise<T> => {
+  dataSyncSuppressDepth += 1;
+  try {
+    return await fn();
+  } finally {
+    dataSyncSuppressDepth -= 1;
+  }
+};
+
 export const wrapWithDataSync = (
   db: SqlDatabase,
   getCreds: SyncCredsProvider,
@@ -416,6 +445,7 @@ export const wrapWithDataSync = (
   const beforeMutationSnapshot: UserDataPatch = {};
 
   const scheduleSync = () => {
+    if (dataSyncSuppressDepth > 0) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
@@ -460,6 +490,7 @@ export const wrapWithDataSync = (
   return {
     select: (q, bind) => db.select(q, bind),
     execute: async (q, bind) => {
+      if (dataSyncSuppressDepth > 0) return db.execute(q, bind);
       const touchedTables = inferSyncUserDataTablesFromSql(q);
       const mutation = isMutationQuery(q);
       if (mutation && touchedTables.length > 0) {
