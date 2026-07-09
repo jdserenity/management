@@ -152,7 +152,7 @@
   font-size: clamp(6px, 70%, 12px);
   line-height: 1;
   font-weight: 800;
-  color: #fff;
+  color: #000;
   pointer-events: none;
   user-select: none;
 }
