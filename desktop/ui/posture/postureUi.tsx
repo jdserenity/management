@@ -45,6 +45,13 @@ export async function resolveSelectedCameraDeviceId(): Promise<string | undefine
   return nextDeviceId;
 }
 
+export const getPostureRingClass = (score?: number | null): string => {
+  if (score == null) return 'ring-slate-300';
+  if (score >= 80) return 'ring-emerald-500';
+  if (score >= 60) return 'ring-amber-500';
+  return 'ring-red-500';
+};
+
 export function MetricBars({ m }: { m: PostureMetricsSnapshot }) {
   const rows: { label: string; v: number }[] = [
     { label: 'Head tilt (depth)', v: m.head_tilt_score },

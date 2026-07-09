@@ -10,20 +10,20 @@ import { clearPostureBaselineMetrics, POSTURE_BASELINE_IMAGE_STORE_KEY, POSTURE_
 import { analyzeDataUrl, initPoseLandmarker } from '@/posture/postureEngine';
 import type { PostureMetricsSnapshot } from '@/posture/batesPostureScore';
 import { usePostureSession } from '@/context/PostureSessionContext';
-import { fetchPostureLogsLastDays, rowsToCsv, type PostureLogRow } from '@/posture/postureLogDb';
-import { dailyAverageScores, longestGoodStreakCount, sessionStats } from '@/posture/postureAggregates';
+import { fetchPostureLogsLastDays, type PostureLogRow } from '@/posture/postureLogDb';
 import {
+  getPostureRingClass,
   isValidPreviewFramePayload,
   MetricBars,
   resolveSelectedCameraDeviceId
 } from '@/posture/postureUi';
+import { MGMT_LS } from '@/lib/mgmtLocalStorage';
+import PostureHistoryPanel from '@/components/posture/PostureHistoryPanel';
+import PostureSessionPanel from '@/components/posture/PostureSessionPanel';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Camera, CameraOff, Activity, Target, StopCircle, Lightbulb, Cpu, ZoomIn, Download, RefreshCw, X } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-
-const GOOD_STREAK_SCORE = 65;
+import { Camera, CameraOff, Activity, Target, StopCircle, Lightbulb, Cpu, ZoomIn, X } from 'lucide-react';
 
 interface MonitoringStatus {
   active: boolean;
@@ -290,47 +290,7 @@ const PosturePage: React.FC = () => {
     setError('Could not access the webcam.');
   }, [isMonitoring]);
 
-  const getPostureRingClass = (score?: number | null): string => {
-    if (score == null) return 'ring-slate-300';
-    if (score >= 80) return 'ring-emerald-500';
-    if (score >= 60) return 'ring-amber-500';
-    return 'ring-red-500';
-  };
-
   const isReadyForUI = isWebcamReady && isModelInitialized;
-
-  const sessionDbRows = useMemo(() => {
-    if (!monitoringSinceSec) return [];
-    return historyRows.filter((r) => r.timestamp >= monitoringSinceSec);
-  }, [historyRows, monitoringSinceSec]);
-
-  const sessionAgg = useMemo(() => {
-    const fromDb = sessionStats(sessionDbRows.map((r) => ({ score: r.score })));
-    if (fromDb && fromDb.count > 0) return fromDb;
-    return sessionStats(scoreHistory.map((s) => ({ score: s })));
-  }, [sessionDbRows, scoreHistory]);
-
-  const streakSamples = useMemo(() => {
-    if (sessionDbRows.length)
-      return longestGoodStreakCount(sessionDbRows.map((r) => ({ score: r.score })), GOOD_STREAK_SCORE);
-    return longestGoodStreakCount(scoreHistory.map((s) => ({ score: s })), GOOD_STREAK_SCORE);
-  }, [sessionDbRows, scoreHistory]);
-
-  const chartData = useMemo(() => {
-    const pts = historyRows.map((r) => ({ score: r.score, timestamp: r.timestamp }));
-    return dailyAverageScores(pts, 14).map((d) => ({ label: d.day.slice(5), avg: d.avg, n: d.count }));
-  }, [historyRows]);
-
-  const exportCsv = useCallback(() => {
-    const csv = rowsToCsv(historyRows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `posture_export_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [historyRows]);
 
   const poorThreshold = Number.parseInt(localStorage.getItem(MGMT_LS.poorPostureThreshold) || '60', 10);
 
@@ -413,79 +373,17 @@ const PosturePage: React.FC = () => {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{'This session'}</CardTitle>
-                <CardDescription>{'While tray tracking is on, samples are stored to your posture log.'}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                {!isMonitoring ? (
-                  <p className="text-muted-foreground">{'Use the button below to start posture tracking.'}</p>
-                ) : sessionAgg ? (
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    <dt className="text-muted-foreground">{'Avg score'}</dt>
-                    <dd className="font-semibold tabular-nums text-right">{sessionAgg.avg}</dd>
-                    <dt className="text-muted-foreground">{'Min'}</dt>
-                    <dd className="font-semibold tabular-nums text-right">{sessionAgg.min}</dd>
-                    <dt className="text-muted-foreground">{'Max'}</dt>
-                    <dd className="font-semibold tabular-nums text-right">{sessionAgg.max}</dd>
-                    <dt className="text-muted-foreground">{'Samples'}</dt>
-                    <dd className="font-semibold tabular-nums text-right">{sessionAgg.count}</dd>
-                  </dl>
-                ) : (
-                  <p className="text-muted-foreground">{'No samples yet.'}</p>
-                )}
-                <div className="pt-2 border-t border-border">
-                  <p className="text-xs text-muted-foreground mb-1">{'Good-posture streak'}</p>
-                  <p className="text-lg font-semibold tabular-nums">
-                    {streakSamples}{' '}
-                    <span className="text-sm font-normal text-muted-foreground">
-                      {'consecutive samples'} ≥ {GOOD_STREAK_SCORE}
-                    </span>
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">{'Bates-style streak: consecutive stored samples at or above the good threshold.'}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div>
-                  <CardTitle>{'History'}</CardTitle>
-                  <CardDescription>{'Daily average score (last 14 days with data).'}</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => void refreshHistory()} disabled={historyLoading}>
-                    <RefreshCw className={`h-4 w-4 mr-1 ${historyLoading ? 'animate-spin' : ''}`} />
-                    {'Refresh'}
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={exportCsv} disabled={!historyRows.length}>
-                    <Download className="h-4 w-4 mr-1" />
-                    {'Export CSV'}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="h-56">
-                {chartData.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center">{'No posture log data yet.'}</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={32} />
-                      <Tooltip
-                        formatter={(value) => {
-                          const n = typeof value === 'number' ? value : Number(value);
-                          return [`${Number.isFinite(n) ? n : '—'}`, 'Daily avg'];
-                        }}
-                      />
-                      <Line type="monotone" dataKey="avg" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name={'Avg score'} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
+            <PostureSessionPanel
+              isMonitoring={isMonitoring}
+              historyRows={historyRows}
+              monitoringSinceSec={monitoringSinceSec}
+              scoreHistory={scoreHistory}
+            />
+            <PostureHistoryPanel
+              historyRows={historyRows}
+              historyLoading={historyLoading}
+              onRefresh={() => void refreshHistory()}
+            />
           </div>
 
           {isMonitoring && scoreHistory.length > 1 && (
