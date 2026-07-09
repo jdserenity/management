@@ -15,15 +15,17 @@ import {
   saveStreakLog,
   updateStreakActivityDescription
 } from '@/lib/streakDb';
-import { addCustomEntry, loadTdeeFile } from '@/lib/tdeeDb';
+import { isStapleLogged } from '@/lib/tdee/entries';
+import { addCustomEntry, addStapleEntry, loadTdeeFile } from '@/lib/tdeeDb';
 import { addWaterEntry, loadWaterFile } from '@/lib/waterDb';
 import './streak.css';
 
 type Props = {
+  refreshKey?: number;
   onCrossLog?: (kind: 'tdee' | 'water') => void;
 };
 
-export default function StreakSection({ onCrossLog }: Props) {
+export default function StreakSection({ refreshKey, onCrossLog }: Props) {
   const [state, setState] = useState<StreakState | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [heatmapColor, setHeatmapColor] = useState<string | null>(null);
@@ -57,6 +59,10 @@ export default function StreakSection({ onCrossLog }: Props) {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (refreshKey != null) void refresh();
+  }, [refreshKey, refresh]);
+
   const handleLog = async (activityId: string, newState: StreakLogState | null, day?: string) => {
     if (!state) return;
     const targetDay = day || state.currentDay;
@@ -67,7 +73,14 @@ export default function StreakSection({ onCrossLog }: Props) {
     if (!wasComplete && nowComplete && newState === 'success') fireDayCompleteConfetti();
     if (newState === 'success') {
       const activity = next.config.activities.find((a) => a.id === activityId);
-      if (activity?.extraCalories) {
+      if (activity?.linkedStapleId) {
+        const tdeeFile = await loadTdeeFile();
+        if (!isStapleLogged(tdeeFile.entries, activity.linkedStapleId)) {
+          const staple = tdeeFile.staples.find((s) => s.id === activity.linkedStapleId);
+          if (staple) await addStapleEntry(tdeeFile, staple);
+        }
+        onCrossLog?.('tdee');
+      } else if (activity?.extraCalories) {
         const tdeeFile = await loadTdeeFile();
         await addCustomEntry(tdeeFile, activity.name || activity.id, activity.extraCalories, activity.extraProtein ?? 0, 1);
         onCrossLog?.('tdee');

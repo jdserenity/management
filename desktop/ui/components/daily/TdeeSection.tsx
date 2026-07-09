@@ -23,6 +23,7 @@ import {
   loadTdeeFile,
   removeTdeeEntry
 } from '@/lib/tdeeDb';
+import { completeTasksLinkedToStaple } from '@/lib/streak/crossLinks';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { hasAppStorage } from '@/lib/appRuntime';
@@ -91,9 +92,10 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
 
 type Props = {
   refreshKey?: number;
+  onLinkedTaskComplete?: () => void;
 };
 
-export default function TdeeSection({ refreshKey }: Props) {
+export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props) {
   const [file, setFile] = useState<TdeeFile | null>(null);
   const [addMode, setAddMode] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -151,14 +153,21 @@ export default function TdeeSection({ refreshKey }: Props) {
     setFile(await removeTdeeEntry(file, id));
   };
 
+  const afterStapleLogged = async (stapleId: string) => {
+    const changed = await completeTasksLinkedToStaple(stapleId);
+    if (changed) onLinkedTaskComplete?.();
+  };
+
   const handleStaple = async (staple: TdeeMealDef) => {
     setFile(await addStapleEntry(file, staple));
+    await afterStapleLogged(staple.id);
   };
 
   const handleStapleFromEditor = async (staple: TdeeMealDef, calories: number, protein: number, count: number) => {
     // Logs as kind staple + refId so the day's staple chip is replaced (pending chip hides).
     setFile(await addStapleEntry(file, staple, calories, protein, count));
     setAddMode(false);
+    await afterStapleLogged(staple.id);
   };
 
   const handleRegular = async (regular: TdeeMealDef, calories: number, protein: number, count: number) => {
