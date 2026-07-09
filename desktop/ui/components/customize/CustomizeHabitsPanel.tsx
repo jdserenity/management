@@ -86,6 +86,7 @@ export default function CustomizeHabitsPanel() {
                 if (activity.necessary) linkBits.push('Necessary');
                 if (activity.linkedStapleId) linkBits.push('→ staple');
                 if (activity.linkedWater) linkBits.push('→ water');
+                if (activity.linkedMovementBurst) linkBits.push('→ burst');
                 return (
                   <li
                     key={activity.id}

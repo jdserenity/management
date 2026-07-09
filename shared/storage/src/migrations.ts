@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v12). */
+/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v13). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -61,6 +61,11 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 12,
     description: 'streak_activity_necessary_and_links',
     sql: 'ALTER TABLE streak_activities ADD COLUMN necessary INTEGER NOT NULL DEFAULT 0; ALTER TABLE streak_activities ADD COLUMN linked_staple_id TEXT; ALTER TABLE streak_activities ADD COLUMN linked_water INTEGER NOT NULL DEFAULT 0;'
+  },
+  {
+    version: 13,
+    description: 'streak_activity_linked_movement_burst',
+    sql: 'ALTER TABLE streak_activities ADD COLUMN linked_movement_burst INTEGER NOT NULL DEFAULT 0;'
   }
 ];
 

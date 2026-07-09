@@ -29,6 +29,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
   const [necessary, setNecessary] = useState(false);
   const [linkedStapleId, setLinkedStapleId] = useState('');
   const [linkedWater, setLinkedWater] = useState(false);
+  const [linkedMovementBurst, setLinkedMovementBurst] = useState(false);
   const [extraCalories, setExtraCalories] = useState('');
   const [extraProtein, setExtraProtein] = useState('');
   const [extraWaterMl, setExtraWaterMl] = useState('');
@@ -45,6 +46,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
     setNecessary(!!activity?.necessary);
     setLinkedStapleId(activity?.linkedStapleId || '');
     setLinkedWater(!!activity?.linkedWater);
+    setLinkedMovementBurst(!!activity?.linkedMovementBurst);
     setExtraCalories(activity?.extraCalories ? String(activity.extraCalories) : '');
     setExtraProtein(activity?.extraProtein ? String(activity.extraProtein) : '');
     setExtraWaterMl(activity?.extraWaterMl ? String(activity.extraWaterMl) : '');
@@ -68,6 +70,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
       // Always send explicit flags so a save never "forgets" to clear/set them.
       necessary,
       linkedWater,
+      linkedMovementBurst,
       ...(description.trim() ? { description: description.trim() } : {}),
       ...(frequency === 'weekly' ? {
         weeklyTarget: Math.max(1, parseInt(weeklyTarget, 10) || 1),
@@ -153,7 +156,11 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={linkedWater} onChange={(e) => setLinkedWater(e.target.checked)} />
-              <span className="text-xs">Linked to water tracker (logging water checks this task off)</span>
+              <span className="text-xs">Linked to water tracker (same thing as this task — lockstep)</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={linkedMovementBurst} onChange={(e) => setLinkedMovementBurst(e.target.checked)} />
+              <span className="text-xs">Linked to movement bursts (at least one burst today = this task)</span>
             </label>
           </div>
 

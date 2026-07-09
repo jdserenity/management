@@ -5,7 +5,7 @@ import { activeEntries } from '@/lib/water/entries';
 import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
 import type { WaterEntry, WaterFile } from '@/lib/water/types';
 import { addWaterEntry, loadWaterFile, removeWaterEntry } from '@/lib/waterDb';
-import { completeTasksLinkedToWater } from '@/lib/streak/crossLinks';
+import { completeTasksLinkedToWater, uncompleteTasksLinkedToWater } from '@/lib/streak/crossLinks';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { hasAppStorage } from '@/lib/appRuntime';
@@ -68,7 +68,17 @@ export default function WaterSection({ refreshKey, onLinkedTaskComplete }: Props
   const waterRemaining = remainingDisplay(total, target);
 
   const handleRemove = async (id: string) => {
-    setFile(await removeWaterEntry(file, id));
+    const next = await removeWaterEntry(file, id);
+    setFile(next);
+    // Lockstep: no water left for the day → water-linked tasks uncheck.
+    if (activeEntries(next.entries).length === 0) {
+      try {
+        await uncompleteTasksLinkedToWater();
+      } catch (e) {
+        console.error('Failed to uncomplete tasks linked to water', e);
+      }
+      onLinkedTaskComplete?.();
+    }
   };
 
   const handleAdd = async (ml: number, label?: string) => {

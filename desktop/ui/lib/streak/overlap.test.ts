@@ -17,9 +17,14 @@ describe('streak overlap', () => {
     expect(formatOverlapBadge({ ...base, extraCalories: 200, extraProtein: 8, extraWaterMl: 300 })).toBe('200 kcal · 8g protein · 300 ml');
   });
 
-  it('formatOverlapBadge shows necessary and network links', () => {
-    expect(formatOverlapBadge({ ...base, necessary: true, linkedStapleId: 'olive-oil', linkedWater: true }))
-      .toBe('necessary · 🍽 olive oil · 💧 water');
+  it('formatOverlapBadge shows necessary and network links without dish emoji', () => {
+    expect(formatOverlapBadge({
+      ...base,
+      necessary: true,
+      linkedStapleId: 'olive-oil',
+      linkedWater: true,
+      linkedMovementBurst: true
+    })).toBe('necessary · olive oil · water · burst');
   });
 
   it('labelFromStapleId humanizes ids', () => {

@@ -38,7 +38,8 @@ vi.mock('@/lib/db', () => ({
           necessary: params[7],
           linked_staple_id: params[10],
           linked_water: params[11],
-          updated_at: params[15]
+          linked_movement_burst: params[12],
+          updated_at: params[16]
         });
       }
       if (sql.includes('INSERT INTO streak_log_cells')) {
@@ -102,6 +103,7 @@ describe('streakDb row-level saves', () => {
       sort_order: 0,
       linked_staple_id: null,
       linked_water: 0,
+      linked_movement_burst: 0,
       extra_calories: null,
       extra_protein: null,
       extra_water_ml: null,

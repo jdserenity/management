@@ -733,6 +733,12 @@ pub fn run() {
                         sql: "ALTER TABLE streak_activities ADD COLUMN necessary INTEGER NOT NULL DEFAULT 0; ALTER TABLE streak_activities ADD COLUMN linked_staple_id TEXT; ALTER TABLE streak_activities ADD COLUMN linked_water INTEGER NOT NULL DEFAULT 0;",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 13,
+                        description: "streak_activity_linked_movement_burst",
+                        sql: "ALTER TABLE streak_activities ADD COLUMN linked_movement_burst INTEGER NOT NULL DEFAULT 0;",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {

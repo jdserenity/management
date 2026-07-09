@@ -23,7 +23,7 @@ import {
   loadTdeeFile,
   removeTdeeEntry
 } from '@/lib/tdeeDb';
-import { completeTasksLinkedToStaple } from '@/lib/streak/crossLinks';
+import { completeTasksLinkedToStaple, uncompleteTasksLinkedToStaple } from '@/lib/streak/crossLinks';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { hasAppStorage } from '@/lib/appRuntime';
@@ -150,7 +150,17 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
   const pendingStaples = file.staples.filter((s) => !isStapleLogged(file.entries, s.id));
 
   const handleRemove = async (id: string) => {
+    const entry = activeEntries(file.entries).find((e) => e.id === id);
     setFile(await removeTdeeEntry(file, id));
+    // Lockstep: removing a staple unchecks the linked habit task.
+    if (entry?.kind === 'staple' && entry.refId) {
+      try {
+        await uncompleteTasksLinkedToStaple(entry.refId);
+      } catch (e) {
+        console.error('Failed to uncomplete tasks linked to staple', entry.refId, e);
+      }
+      onLinkedTaskComplete?.();
+    }
   };
 
   const afterStapleLogged = async (stapleId: string) => {

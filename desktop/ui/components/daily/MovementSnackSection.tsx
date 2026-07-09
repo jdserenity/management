@@ -5,6 +5,10 @@ import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
 import { isEasyMovementSnackLog, movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
 import { formatNearestHalfHourLabel } from '@/lib/movementSnack/nearestHalfHour';
+import {
+  completeTasksLinkedToMovementBurst,
+  uncompleteTasksLinkedToMovementBurst
+} from '@/lib/streak/crossLinks';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import {
   DASHBOARD_MANUAL_EXERCISES,
@@ -24,7 +28,11 @@ const manualIncrementLabel = (unit: ExerciseUnit, amount: number) => {
 const cloneExercises = (exercises: ExerciseDefinition[]): ExerciseDefinition[] =>
   exercises.map((ex) => ({ ...ex }));
 
-export default function MovementSnackSection() {
+type Props = {
+  onLinkedTaskComplete?: () => void;
+};
+
+export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
   const {
     movementSnackPrefs,
     todayMovementSnacks,
@@ -78,6 +86,30 @@ export default function MovementSnackSection() {
   if (!hasAppStorage()) return null;
   if (!sessionStorageReady) return <p className="movement-tracker-empty">Loading movement…</p>;
 
+  const afterBurstLogged = async () => {
+    try {
+      await completeTasksLinkedToMovementBurst();
+    } catch (e) {
+      console.error('Failed to complete tasks linked to movement burst', e);
+    }
+    onLinkedTaskComplete?.();
+  };
+
+  const handleLogHard = () => {
+    logMovementSnackCompletion(false);
+    void afterBurstLogged();
+  };
+
+  const handleRemoveSnack = (logId: string) => {
+    const remainingAfter = snackLogs.filter((l) => l.id !== logId).length;
+    removeWorkoutLog(logId);
+    if (remainingAfter === 0) {
+      void uncompleteTasksLinkedToMovementBurst()
+        .catch((e) => console.error('Failed to uncomplete tasks linked to movement burst', e))
+        .finally(() => onLinkedTaskComplete?.());
+    }
+  };
+
   const handleCustomAdd = () => {
     const name = customName.trim();
     if (!name) return;
@@ -102,7 +134,7 @@ export default function MovementSnackSection() {
         type="button"
         className="movement-chain-btn"
         title="Log hard movement burst"
-        onClick={() => logMovementSnackCompletion(false)}
+        onClick={handleLogHard}
       >
         <span className="movement-chain-label">Hard burst</span>
       </button>
@@ -120,7 +152,7 @@ export default function MovementSnackSection() {
         type="button"
         className={`movement-chain-btn movement-chain-done${easy ? ' movement-chain-done-easy' : ''}`}
         title={`${easy ? 'Easy' : 'Hard'} burst · ${timeLabel} — click to remove`}
-        onClick={() => removeWorkoutLog(log.id)}
+        onClick={() => handleRemoveSnack(log.id)}
       >
         <span className="movement-chain-label">{easy ? 'Easy' : 'Hard'} · {timeLabel}</span>
       </button>
@@ -168,6 +200,7 @@ export default function MovementSnackSection() {
         onClick={() => {
           logMovementSnackCompletion(kind === 'easy', draft);
           setAddMode(false);
+          void afterBurstLogged();
         }}
       >
         Log {kind} burst

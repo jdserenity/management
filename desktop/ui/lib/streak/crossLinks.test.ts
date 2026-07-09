@@ -7,23 +7,31 @@ const { loadStreakState, saveStreakLog } = vi.hoisted(() => ({
 
 vi.mock('@/lib/streakDb', () => ({ loadStreakState, saveStreakLog }));
 
-import { activityLinksToStaple, completeTasksLinkedToStaple, completeTasksLinkedToWater } from '@/lib/streak/crossLinks';
+import {
+  activityLinksToStaple,
+  completeTasksLinkedToMovementBurst,
+  completeTasksLinkedToStaple,
+  completeTasksLinkedToWater,
+  uncompleteTasksLinkedToMovementBurst,
+  uncompleteTasksLinkedToStaple,
+  uncompleteTasksLinkedToWater
+} from '@/lib/streak/crossLinks';
 import type { StreakState } from '@/lib/streak/types';
 
-const baseState = (overrides?: Partial<StreakState['config']>): StreakState => ({
+const baseState = (): StreakState => ({
   currentDay: '2026-07-07',
   config: {
     activities: [
       { id: 'oil', name: 'Olive oil', linkedStapleId: 'olive-oil' },
       { id: 'water', name: 'Water', linkedWater: true },
+      { id: 'burst', name: 'First burst', linkedMovementBurst: true },
       { id: 'other', name: 'Other' }
     ],
-    archivedActivities: [],
-    ...overrides
+    archivedActivities: []
   },
   data: {
     logs: {},
-    activityStartDates: { oil: '2026-07-01', water: '2026-07-01', other: '2026-07-01' },
+    activityStartDates: { oil: '2026-07-01', water: '2026-07-01', burst: '2026-07-01', other: '2026-07-01' },
     pausedActivities: {},
     unpausedActivities: {},
     activityResetCounts: {},
@@ -61,21 +69,40 @@ describe('crossLinks', () => {
     expect(result).toBe(after);
   });
 
-  it('completeTasksLinkedToStaple no-ops when already success', async () => {
+  it('uncompleteTasksLinkedToStaple clears linked success', async () => {
     const state = baseState();
     state.data.logs = { '2026-07-07': { oil: { state: 'success', updatedAt: 'x' } } };
     loadStreakState.mockResolvedValue(state);
-    const result = await completeTasksLinkedToStaple('olive-oil');
-    expect(saveStreakLog).not.toHaveBeenCalled();
-    expect(result).toBeNull();
+    saveStreakLog.mockResolvedValue(state);
+    await uncompleteTasksLinkedToStaple('olive-oil');
+    expect(saveStreakLog).toHaveBeenCalledWith(state, 'oil', null, '2026-07-07');
   });
 
   it('completeTasksLinkedToWater marks water-linked tasks', async () => {
     const state = baseState();
     loadStreakState.mockResolvedValue(state);
-    const after = { ...state };
-    saveStreakLog.mockResolvedValue(after);
+    saveStreakLog.mockResolvedValue(state);
     await completeTasksLinkedToWater();
     expect(saveStreakLog).toHaveBeenCalledWith(state, 'water', 'success', '2026-07-07');
+  });
+
+  it('uncompleteTasksLinkedToWater clears water-linked tasks', async () => {
+    const state = baseState();
+    state.data.logs = { '2026-07-07': { water: { state: 'success', updatedAt: 'x' } } };
+    loadStreakState.mockResolvedValue(state);
+    saveStreakLog.mockResolvedValue(state);
+    await uncompleteTasksLinkedToWater();
+    expect(saveStreakLog).toHaveBeenCalledWith(state, 'water', null, '2026-07-07');
+  });
+
+  it('complete and uncomplete movement-burst-linked tasks', async () => {
+    const state = baseState();
+    loadStreakState.mockResolvedValue(state);
+    saveStreakLog.mockResolvedValue(state);
+    await completeTasksLinkedToMovementBurst();
+    expect(saveStreakLog).toHaveBeenCalledWith(state, 'burst', 'success', '2026-07-07');
+    state.data.logs = { '2026-07-07': { burst: { state: 'success', updatedAt: 'x' } } };
+    await uncompleteTasksLinkedToMovementBurst();
+    expect(saveStreakLog).toHaveBeenCalledWith(expect.anything(), 'burst', null, '2026-07-07');
   });
 });

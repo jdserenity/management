@@ -20,6 +20,7 @@ type ActivityRow = {
   sort_order: number;
   linked_staple_id: string | null;
   linked_water: number;
+  linked_movement_burst: number;
   extra_calories: number | null;
   extra_protein: number | null;
   extra_water_ml: number | null;
@@ -50,6 +51,7 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
   };
   if (sqlFlag(row.necessary)) a.necessary = true;
   if (sqlFlag(row.linked_water)) a.linkedWater = true;
+  if (sqlFlag(row.linked_movement_burst)) a.linkedMovementBurst = true;
   if (row.description) a.description = row.description;
   if (row.weekly_target != null) a.weeklyTarget = row.weekly_target;
   if (row.scheduled_days_json) {
@@ -82,6 +84,7 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
     sortOrder,
     a.linkedStapleId ?? null,
     a.linkedWater ? 1 : 0,
+    a.linkedMovementBurst ? 1 : 0,
     a.extraCalories ?? null,
     a.extraProtein ?? null,
     a.extraWaterMl ?? null,
@@ -89,8 +92,8 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
   ];
 };
 
-const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, extra_calories, extra_protein, extra_water_ml, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 ON CONFLICT(id) DO UPDATE SET
   name=excluded.name,
   description=excluded.description,
@@ -103,6 +106,7 @@ ON CONFLICT(id) DO UPDATE SET
   sort_order=excluded.sort_order,
   linked_staple_id=excluded.linked_staple_id,
   linked_water=excluded.linked_water,
+  linked_movement_burst=excluded.linked_movement_burst,
   extra_calories=excluded.extra_calories,
   extra_protein=excluded.extra_protein,
   extra_water_ml=excluded.extra_water_ml,
@@ -170,7 +174,7 @@ const buildState = (config: StreakConfig, data: StreakData, currentDay: string, 
 const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakData, 'stats'> }> => {
   const db = await getDb();
   const activityRows = await db.select<ActivityRow[]>(
-    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, extra_calories, extra_protein, extra_water_ml, updated_at FROM streak_activities ORDER BY sort_order, name'
+    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, updated_at FROM streak_activities ORDER BY sort_order, name'
   );
   const activities: StreakActivity[] = [];
   const archivedActivities: StreakActivity[] = [];
@@ -379,7 +383,8 @@ const mergeActivityFields = (prev: StreakActivity, incoming: StreakActivity): St
     ...incoming,
     // Always take the editor's explicit flag values (including false/cleared).
     necessary: !!incoming.necessary,
-    linkedWater: !!incoming.linkedWater
+    linkedWater: !!incoming.linkedWater,
+    linkedMovementBurst: !!incoming.linkedMovementBurst
   };
   if (!incoming.extraCalories) delete next.extraCalories;
   if (!incoming.extraProtein) delete next.extraProtein;
@@ -388,6 +393,7 @@ const mergeActivityFields = (prev: StreakActivity, incoming: StreakActivity): St
   else delete next.linkedStapleId;
   if (!next.necessary) delete next.necessary;
   if (!next.linkedWater) delete next.linkedWater;
+  if (!next.linkedMovementBurst) delete next.linkedMovementBurst;
   return next;
 };
 

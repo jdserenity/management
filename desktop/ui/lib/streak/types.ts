@@ -13,10 +13,12 @@ export type StreakActivity = {
   /** If true, missing success on this activity fails the whole day on the heatmap (red X). */
   necessary?: boolean;
   archivedAt?: string | null;
-  /** Link to a nutrition staple id — logging that staple (or this task) keeps both in sync. */
+  /** Link to a nutrition staple id — task and staple act as one thing (lockstep). */
   linkedStapleId?: string;
-  /** Link to the water tracker — logging water completes this task. */
+  /** Link to the water tracker — task and water for the day act as one thing (lockstep). */
   linkedWater?: boolean;
+  /** Link to movement bursts — task and “at least one burst today” act as one thing (lockstep). */
+  linkedMovementBurst?: boolean;
   extraCalories?: number;
   extraProtein?: number;
   extraWaterMl?: number;

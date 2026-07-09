@@ -16,6 +16,7 @@ const normalizeActivity = (raw: unknown): StreakActivity | null => {
     archivedAt: typeof a.archivedAt === 'string' ? a.archivedAt : a.archivedAt === null ? null : undefined,
     linkedStapleId: typeof a.linkedStapleId === 'string' && a.linkedStapleId.trim() ? a.linkedStapleId.trim() : undefined,
     linkedWater: !!a.linkedWater,
+    linkedMovementBurst: !!a.linkedMovementBurst,
     extraCalories: typeof a.extraCalories === 'number' && a.extraCalories > 0 ? a.extraCalories : undefined,
     extraProtein: typeof a.extraProtein === 'number' && a.extraProtein > 0 ? a.extraProtein : undefined,
     extraWaterMl: typeof a.extraWaterMl === 'number' && a.extraWaterMl > 0 ? a.extraWaterMl : undefined

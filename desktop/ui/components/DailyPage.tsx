@@ -12,9 +12,10 @@ export default function DailyPage() {
   const [waterRefreshKey, setWaterRefreshKey] = useState(0);
   const [streakRefreshKey, setStreakRefreshKey] = useState(0);
 
-  const handleCrossLog = (kind: 'tdee' | 'water') => {
+  const handleCrossLog = (kind: 'tdee' | 'water' | 'movement') => {
     if (kind === 'tdee') setTdeeRefreshKey((k) => k + 1);
     if (kind === 'water') setWaterRefreshKey((k) => k + 1);
+    // Movement burst list lives in SessionContext — no key needed; streak already updated.
   };
 
   const handleLinkedTaskComplete = () => {
@@ -27,7 +28,7 @@ export default function DailyPage() {
       <StreakSection refreshKey={streakRefreshKey} onCrossLog={handleCrossLog} />
       <TdeeSection refreshKey={tdeeRefreshKey} onLinkedTaskComplete={handleLinkedTaskComplete} />
       <WaterSection refreshKey={waterRefreshKey} onLinkedTaskComplete={handleLinkedTaskComplete} />
-      <MovementSnackSection />
+      <MovementSnackSection onLinkedTaskComplete={handleLinkedTaskComplete} />
     </div>
   );
 }
