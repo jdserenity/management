@@ -122,7 +122,7 @@ export default function MovementSnackSection() {
         title={`${easy ? 'Easy' : 'Hard'} burst · ${timeLabel} — click to remove`}
         onClick={() => removeWorkoutLog(log.id)}
       >
-        <span className="movement-chain-label">{timeLabel}</span>
+        <span className="movement-chain-label">{easy ? 'Easy' : 'Hard'} · {timeLabel}</span>
       </button>
     );
   });
