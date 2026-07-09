@@ -8,6 +8,7 @@ import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
 import { formatDayRolloverHourLabel } from '@/lib/dayBoundary';
 import {
+  defaultAmountForStretchRef,
   labelForMorningStretchRef,
   listMorningStretchCatalog,
   type MorningStretchRef
@@ -253,6 +254,7 @@ export default function CustomizeStretchesPanel() {
               availableToAdd={availableToAdd}
               saving={saving}
               labelForRef={labelForMorningStretchRef}
+              defaultAmountForRef={(ref) => defaultAmountForStretchRef(ref, workoutCustomizePrefs)}
               onAdd={(ref) => {
                 if (activeDraft.exerciseRefs.some((r) => refKey(r) === refKey(ref))) return;
                 updateDraft({ exerciseRefs: [...activeDraft.exerciseRefs, ref] });
@@ -263,6 +265,17 @@ export default function CustomizeStretchesPanel() {
                 const target = index + dir;
                 if (target < 0 || target >= next.length) return;
                 [next[index], next[target]] = [next[target], next[index]];
+                updateDraft({ exerciseRefs: next });
+              }}
+              onAmountChange={(index, amount) => {
+                const next = activeDraft.exerciseRefs.map((ref, i) => {
+                  if (i !== index) return ref;
+                  if (amount == null) {
+                    const { amount: _drop, ...rest } = ref;
+                    return rest;
+                  }
+                  return { ...ref, amount };
+                });
                 updateDraft({ exerciseRefs: next });
               }}
             />

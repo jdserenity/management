@@ -120,6 +120,49 @@ describe('resolveMorningStretchExercises', () => {
     expect(exercises[0]).toMatchObject({ id: 'pushups', amount: 5, unit: 'reps' });
     expect(exercises[1]).toMatchObject({ id: 'stretch-neck-roll', amount: 30, unit: 'seconds' });
   });
+
+  it('uses per-routine amount overrides without changing pool defaults', () => {
+    const prefs = defaultWorkoutCustomizePrefs();
+    prefs.stretchHoldSeconds = 20;
+    // Pool-level override would normally apply — routine amount should win instead.
+    prefs.exerciseOverrides['stretch-forward-hang'] = { amount: 20, unit: 'seconds' };
+    const exercises = resolveMorningStretchExercises(
+      {
+        exerciseRefs: [
+          { kind: 'stretchPick', id: 'stretch-forward-hang', amount: 60 },
+          { kind: 'stretchPick', id: 'stretch-neck-roll' }
+        ]
+      },
+      prefs
+    );
+    expect(exercises.find((e) => e.id === 'stretch-forward-hang')).toMatchObject({ amount: 60, unit: 'seconds' });
+    // Default roll hold is 30s when no routine amount is set.
+    expect(exercises.find((e) => e.id === 'stretch-neck-roll')).toMatchObject({ amount: 30, unit: 'seconds' });
+    // Pool default itself is unchanged.
+    expect(prefs.stretchHoldSeconds).toBe(20);
+    expect(prefs.exerciseOverrides['stretch-forward-hang'].amount).toBe(20);
+  });
+});
+
+describe('normalizeMorningStretchRoutine amount', () => {
+  it('preserves positive per-ref amount and drops invalid amounts', () => {
+    const prefs = defaultWorkoutCustomizePrefs();
+    const routine = normalizeMorningStretchRoutine(
+      {
+        exerciseRefs: [
+          { kind: 'stretchPick', id: 'stretch-forward-hang', amount: 60.4 },
+          { kind: 'stretchPick', id: 'stretch-neck-roll', amount: 0 },
+          { kind: 'stretchPick', id: 'stretch-hip-roll', amount: -5 }
+        ]
+      },
+      prefs
+    );
+    expect(routine.exerciseRefs).toEqual([
+      { kind: 'stretchPick', id: 'stretch-forward-hang', amount: 60 },
+      { kind: 'stretchPick', id: 'stretch-neck-roll' },
+      { kind: 'stretchPick', id: 'stretch-hip-roll' }
+    ]);
+  });
 });
 
 describe('isMorningStretchCompletedToday', () => {

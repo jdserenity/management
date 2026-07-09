@@ -27,6 +27,8 @@ export type MorningStretchRefKind = 'predefined' | 'stretchPick' | 'custom';
 export type MorningStretchRef = {
   kind: MorningStretchRefKind;
   id: string;
+  /** Optional amount for this routine only (hold seconds for stretch picks). Does not change the global stretch pool. */
+  amount?: number;
 };
 
 export type MorningStretchRoutine = {
@@ -104,17 +106,43 @@ const catalogRefSet = (prefs: WorkoutCustomizePrefs): Set<string> =>
 export const isMorningStretchRefAvailable = (ref: MorningStretchRef, prefs: WorkoutCustomizePrefs): boolean =>
   catalogRefSet(prefs).has(refKey(ref));
 
+const normalizeRefAmount = (raw: unknown): number | undefined => {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return undefined;
+  const n = Math.round(raw);
+  return n > 0 ? n : undefined;
+};
+
+export const normalizeMorningStretchRef = (
+  ref: Partial<MorningStretchRef> | null | undefined,
+  prefs: WorkoutCustomizePrefs
+): MorningStretchRef | null => {
+  if (!ref?.id || !ref?.kind) return null;
+  const base: MorningStretchRef = { kind: ref.kind, id: ref.id };
+  if (!isStretchExerciseRefValid(base, prefs)) return null;
+  const amount = normalizeRefAmount(ref.amount);
+  return amount != null ? { ...base, amount } : base;
+};
+
 export const normalizeMorningStretchRoutine = (
   raw: Partial<MorningStretchRoutine> | null | undefined,
   prefs: WorkoutCustomizePrefs
 ): MorningStretchRoutine => {
   const refs = Array.isArray(raw?.exerciseRefs)
-    ? raw!.exerciseRefs.filter(
-        (ref): ref is MorningStretchRef =>
-          Boolean(ref?.id && ref?.kind && isStretchExerciseRefValid({ kind: ref.kind, id: ref.id }, prefs))
-      )
+    ? raw!.exerciseRefs
+        .map((ref) => normalizeMorningStretchRef(ref, prefs))
+        .filter((ref): ref is MorningStretchRef => ref != null)
     : [];
   return { exerciseRefs: refs };
+};
+
+/** Default hold/amount shown when a routine has no per-ref override. */
+export const defaultAmountForStretchRef = (ref: MorningStretchRef, prefs: WorkoutCustomizePrefs): number | null => {
+  if (ref.kind === 'stretchPick') return stretchHoldSecondsForPickKey(ref.id, prefs);
+  if (ref.kind === 'custom') {
+    const custom = prefs.customExercises.find((ex) => ex.id === ref.id);
+    return custom ? custom.amount : null;
+  }
+  return null;
 };
 
 const resolveRefExercises = (ref: MorningStretchRef, prefs: WorkoutCustomizePrefs): ExerciseDefinition[] => {
@@ -126,11 +154,17 @@ const resolveRefExercises = (ref: MorningStretchRef, prefs: WorkoutCustomizePref
   if (ref.kind === 'stretchPick') {
     const row = STRETCH_PICK_CATALOG.find((r) => r.key === ref.id);
     if (!row) return [];
-    const hold = stretchHoldSecondsForPickKey(row.key, prefs);
-    return stretchPickToExercises(row.pick, hold).map((ex) => applyExerciseOverride(ex, prefs.exerciseOverrides));
+    const routineHold = normalizeRefAmount(ref.amount);
+    const hold = routineHold ?? stretchHoldSecondsForPickKey(row.key, prefs);
+    const exercises = stretchPickToExercises(row.pick, hold);
+    // Routine-local hold replaces pool defaults; skip global exercise overrides so pool edits stay separate.
+    if (routineHold != null) return exercises;
+    return exercises.map((ex) => applyExerciseOverride(ex, prefs.exerciseOverrides));
   }
   const custom = prefs.customExercises.find((ex) => ex.id === ref.id);
   if (!custom) return [];
+  const routineAmount = normalizeRefAmount(ref.amount);
+  if (routineAmount != null) return [{ ...custom, amount: routineAmount }];
   return [applyExerciseOverride(custom, prefs.exerciseOverrides)];
 };
 
