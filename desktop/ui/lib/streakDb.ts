@@ -1,7 +1,7 @@
 import { getDb } from '@/lib/db';
 import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { buildActivityConfigMap } from '@/lib/streak/activityCatalog';
-import { clearActivityLogs, incrementResetCount } from '@/lib/streak/activityReset';
+import { clearActivityLogs, incrementResetCount } from '@/lib/streak/domain';
 import { dayEndTimeFromRolloverHour, getCurrentDay } from '@/lib/streak/dates';
 import { makeDeletionCell, makeLogCell, normalizeLogs } from '@/lib/streak/logs';
 import { recalculateAllStats } from '@/lib/streak/stats';

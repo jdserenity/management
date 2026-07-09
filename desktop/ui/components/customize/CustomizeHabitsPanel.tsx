@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
 import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { hasAppStorage } from '@/lib/appRuntime';
-import { resetButtonLabel } from '@/lib/streak/resetDisplay';
+import { resetButtonLabel } from '@/lib/streak/display';
 import type { StreakActivity, StreakState } from '@/lib/streak/types';
 import { archiveStreakActivity, loadStreakState, reorderStreakActivities, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
 import { GripVertical } from 'lucide-react';

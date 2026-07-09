@@ -1,18 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { buildActivityCatalog, getActiveActivitiesForDay, parseScheduledDays } from '@/lib/streak/activityCatalog';
-import { clearActivityLogs, incrementResetCount, mergeResetCounts } from '@/lib/streak/activityReset';
-import { backfillArchivedAt } from '@/lib/streak/archiveBackfill';
+import {
+  backfillArchivedAt,
+  clearActivityLogs,
+  incrementResetCount,
+  mergePausedOnIncoming,
+  mergeResetCounts,
+  normalizeConfig,
+  pausedStateFromVault
+} from '@/lib/streak/domain';
 import { getISOWeekStart, isDateInWeek } from '@/lib/streak/dates';
-import { getDayCompletionCounts, isDayComplete, isDayNecessaryFailed, isPerfectHeatmapCell } from '@/lib/streak/heatmapHelpers';
-import { heatmapMonthSpans, weekColumnMonthFromDates } from '@/lib/streak/heatmapLayout';
+import {
+  getDayCompletionCounts,
+  heatmapMonthSpans,
+  isDayComplete,
+  isDayNecessaryFailed,
+  isPerfectHeatmapCell,
+  weekColumnMonthFromDates
+} from '@/lib/streak/heatmap';
 import { makeDeletionCell, makeLogCell, getLogState } from '@/lib/streak/logs';
 import { mergeLogs, mergeState } from '@/lib/streak/merge';
-import { normalizeConfig } from '@/lib/streak/normalize';
-import { pausedStateFromVault, mergePausedOnIncoming } from '@/lib/streak/pauseSync';
 import { calculateStats } from '@/lib/streak/stats';
-import { resetButtonLabel } from '@/lib/streak/resetDisplay';
-import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/streakDisplay';
-import { isElementTruncated } from '@/lib/streak/truncation';
+import { currentStreakFireEmojiClass, isElementTruncated, resetButtonLabel, streakDisplayTier } from '@/lib/streak/display';
 import type { StreakActivityStats, StreakConfig, StreakData } from '@/lib/streak/types';
 import configFixture from '@/lib/streak/fixtures/streak-config.json';
 

@@ -3,10 +3,10 @@
 import { useMemo } from 'react';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { formatDate, getISOWeekStart, getWeekDays, isDateInWeek, parseDate } from '@/lib/streak/dates';
-import { getDayCompletionCounts, isDayNecessaryFailed, isPerfectHeatmapCell } from '@/lib/streak/heatmapHelpers';
-import { heatmapMonthSpans, weekColumnMonthFromDates } from '@/lib/streak/heatmapLayout';
+import { getDayCompletionCounts, isDayNecessaryFailed, isPerfectHeatmapCell } from '@/lib/streak/heatmap';
+import { heatmapMonthSpans, weekColumnMonthFromDates } from '@/lib/streak/heatmap';
 import { getLogState } from '@/lib/streak/logs';
-import { getWeeklyYearsWithData, getYearsWithData, heatmapLevel, hexToRgba } from '@/lib/streak/heatmapUi';
+import { getWeeklyYearsWithData, getYearsWithData, heatmapLevel, hexToRgba } from '@/lib/streak/heatmap';
 import type { StreakState } from '@/lib/streak/types';
 
 type Props = {

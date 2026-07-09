@@ -4,9 +4,9 @@ import { useRef, useState } from 'react';
 import { parseScheduledDays } from '@/lib/streak/activityCatalog';
 import { getISOWeekStart, getWeekDays, parseDate } from '@/lib/streak/dates';
 import { getLogState } from '@/lib/streak/logs';
-import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/streakDisplay';
+import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/display';
 import { getOverlapBadgeParts } from '@/lib/streak/overlap';
-import { isElementTruncated } from '@/lib/streak/truncation';
+import { isElementTruncated } from '@/lib/streak/display';
 import type { StreakActivity, StreakActivityStats, StreakLogState, StreakState } from '@/lib/streak/types';
 
 const DAY_ABBR = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
