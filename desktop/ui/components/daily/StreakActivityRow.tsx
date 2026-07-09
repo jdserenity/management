@@ -24,7 +24,9 @@ const StreakStat = ({ emoji, value, kind, title }: { emoji: string; value: numbe
   const fireCls = kind === 'current' ? currentStreakFireEmojiClass(value) : null;
   return (
     <span className={`streak-stat streak-streak-display ${kind === 'current' ? 'streak-current' : 'streak-longest'}${tierCls}`} title={title}>
-      {kind === 'current' && fireCls ? <span className={fireCls}>🔥</span> : <span className="streak-streak-emoji">{emoji}</span>}
+      {kind === 'current'
+        ? (fireCls ? <span className={fireCls}>🔥</span> : null)
+        : <span className="streak-streak-emoji">{emoji}</span>}
       <span className="streak-streak-num">{value}</span>
     </span>
   );
@@ -76,18 +78,27 @@ const ActivityName = ({
   const overlapBadge = formatOverlapBadge(activity);
 
   const handleClick = () => {
-    if (!hasDescription) return;
-    const opening = !descOpen;
-    if (opening && nameRef.current) setNameWrap(isElementTruncated(nameRef.current));
-    else setNameWrap(false);
-    onToggleDescription(opening);
+    if (hasDescription) {
+      const opening = !descOpen;
+      if (opening && nameRef.current) setNameWrap(isElementTruncated(nameRef.current));
+      else setNameWrap(false);
+      onToggleDescription(opening);
+      return;
+    }
+    // No description: still allow expanding a truncated title so the full name is readable.
+    if (nameWrap) {
+      setNameWrap(false);
+      return;
+    }
+    if (nameRef.current && isElementTruncated(nameRef.current)) setNameWrap(true);
   };
 
   return (
     <div
       ref={nameRef}
-      className={`streak-activity-name${hasDescription ? ' clickable' : ''}${nameWrap ? ' streak-activity-name-wrap' : ''}`}
+      className={`streak-activity-name clickable${nameWrap ? ' streak-activity-name-wrap' : ''}`}
       onClick={handleClick}
+      title={hasDescription ? 'Click to show description' : 'Click to expand full title'}
     >
       {activity.name || activity.id}
       {overlapBadge ? <span className="streak-overlap-badge">{overlapBadge}</span> : null}
