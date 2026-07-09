@@ -1,6 +1,6 @@
 // src/components/daily/TdeeSection.tsx
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { activeEntries, isStapleLogged } from '@/lib/tdee/entries';
 import { formatIngredientsList, normalizeMacro } from '@/lib/tdee/ingredients';
 import {
@@ -15,7 +15,7 @@ import {
   totalCalories,
   totalProtein
 } from '@/lib/tdee/totals';
-import type { TdeeFile, TdeeLogEntry, TdeeMealDef } from '@/lib/tdee/types';
+import type { TdeeLogEntry, TdeeMealDef } from '@/lib/tdee/types';
 import {
   addCustomEntry,
   addRegularEntry,
@@ -25,8 +25,7 @@ import {
 } from '@/lib/tdeeDb';
 import { completeTasksLinkedToStaple, uncompleteTasksLinkedToStaple } from '@/lib/streak/crossLinks';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
-import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { useFeatureFileRefresh } from '@/lib/useFeatureFileRefresh';
 import './tdee.css';
 
 type PortionControlsProps = {
@@ -96,38 +95,11 @@ type Props = {
 };
 
 export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props) {
-  const [file, setFile] = useState<TdeeFile | null>(null);
+  const { file, loadError, setFile, storageReady } = useFeatureFileRefresh(loadTdeeFile, 'Failed to load nutrition data', refreshKey);
   const [addMode, setAddMode] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState('');
 
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
-    try {
-      setLoadError(null);
-      setFile(await loadTdeeFile());
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load nutrition data');
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    const id = window.setInterval(() => void refresh(), 60_000);
-    const onRemoteRefresh = () => { void refresh(); };
-    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    };
-  }, [refresh]);
-
-  useEffect(() => {
-    if (refreshKey != null) void refresh();
-  }, [refreshKey, refresh]);
-
-  if (!hasAppStorage()) {
+  if (!storageReady) {
     return (
       <section className="tdee-tracker-container" aria-label="Nutrition">
         <p className="tdee-tracker-empty text-sm">Storage is not ready yet.</p>

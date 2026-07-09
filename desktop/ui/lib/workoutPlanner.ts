@@ -6,7 +6,6 @@ export * from './sessionStats';
 import {
   applyExerciseOverride,
   defaultWorkoutCustomizePrefs,
-  formatTimedDuration,
   normalizeWorkoutCustomizePrefs,
   stretchHoldSecondsForPickKey,
   STRETCH_DEFAULT_SECONDS,
@@ -15,6 +14,7 @@ import {
 import type { ExerciseRunAgg } from '@mgmt/core';
 import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary';
 import {
+  DEFAULT_ALLOWED_WORKOUT_IDS,
   PREDEFINED_WORKOUTS,
   STRETCH_PICK_CATALOG,
   type StretchPick
@@ -22,18 +22,14 @@ import {
 import {
   type ExerciseDefinition,
   type ExerciseUnit,
-  type StoredExercise,
   type WorkoutDefinition,
   type WorkoutLogEntry
 } from './workoutTypes';
 import {
-  exerciseRepsPart,
   exerciseTimedSecondsPart,
   listNonZeroExerciseTotals,
-  mergeWorkoutExercisesIntoTotals,
   sumExerciseVolume
 } from './sessionStats';
-import { DEFAULT_ALLOWED_WORKOUT_IDS } from './workoutCatalogs';
 
 export { STRETCH_DEFAULT_SECONDS } from '@/lib/workoutCustomize';
 
@@ -338,9 +334,4 @@ export const pickWorkoutForBreak = (prefs: WorkoutCustomizePrefs, randomValue: n
 /** Build prefs from legacy allowed_workout_ids KV only. */
 export const workoutPrefsFromAllowedIds = (allowedWorkoutIds: string[]): WorkoutCustomizePrefs =>
   normalizeWorkoutCustomizePrefs(null, allowedWorkoutIds);
-
-const logTimedSeconds = (log: WorkoutLogEntry): number => {
-  if (typeof log.totalTimedSeconds === 'number') return log.totalTimedSeconds;
-  return sumExerciseVolume(log.exercises).timedSeconds;
-};
 

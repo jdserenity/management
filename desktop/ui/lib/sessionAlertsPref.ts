@@ -1,4 +1,4 @@
-import { encodeBool01, getAppKv, getAppKvMany, parseBoolLoose, setAppKv } from '@/lib/appKv';
+import { encodeBool01, getAppKvMany, parseBoolLoose, setAppKv } from '@/lib/appKv';
 
 export const KV_SESSION_SOUND = 'session_alert_sound_v1';
 export const KV_SESSION_COUNTDOWN_SOUND = 'session_alert_countdown_sound_v1';

@@ -3,24 +3,9 @@
  * Used by shell, Work, Stats, Customize, Settings, Posture — not only Daily.
  */
 
-:root {
-  --plugin-radius: 8px;
-  --plugin-success: rgb(34, 197, 94);
-  --plugin-water: rgb(56, 189, 248);
-  --plugin-move: rgb(16, 185, 129);
-  --plugin-gold: rgb(180, 140, 60);
-}
+:root { --plugin-radius: 8px; --plugin-success: rgb(34, 197, 94); --plugin-water: rgb(56, 189, 248); --plugin-move: rgb(16, 185, 129); --plugin-gold: rgb(180, 140, 60); }/* ── Page / section ───────────────────────────────────────────────────────── */
 
-/* ── Page / section ───────────────────────────────────────────────────────── */
-
-.plugin-page {
-  max-width: 48rem;
-  margin-left: auto;
-  margin-right: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
+.plugin-page { max-width: 48rem; margin-left: auto; margin-right: auto; display: flex; flex-direction: column; gap: 1.25rem; }
 
 .plugin-page-wide { max-width: 56rem; }
 
@@ -32,34 +17,9 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-}
+}.plugin-muted { color: var(--muted-foreground); font-size: 0.9em; }.plugin-empty { color: var(--muted-foreground); font-style: italic; margin: 0; }/* ── Panels (replaces heavy Card chrome) ──────────────────────────────────── */
 
-.plugin-muted {
-  color: var(--muted-foreground);
-  font-size: 0.9em;
-}
-
-.plugin-empty {
-  color: var(--muted-foreground);
-  font-style: italic;
-  margin: 0;
-}
-
-/* ── Panels (replaces heavy Card chrome) ──────────────────────────────────── */
-
-.plugin-panel {
-  border: 1px solid var(--border);
-  border-radius: var(--plugin-radius);
-  background: var(--secondary);
-  padding: 12px 14px;
-}
-
-.plugin-panel-flat {
-  border: 1px solid var(--border);
-  border-radius: var(--plugin-radius);
-  background: var(--background);
-  padding: 12px 14px;
-}
+.plugin-panel { border: 1px solid var(--border); border-radius: var(--plugin-radius); background: var(--secondary); padding: 12px 14px; }.plugin-panel-flat { border: 1px solid var(--border); border-radius: var(--plugin-radius); background: var(--background); padding: 12px 14px; }
 
 .plugin-panel-title {
   font-weight: 600;
@@ -69,40 +29,9 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-}
+}/* ── Counts / progress (Daily-style) ─────────────────────────────────────── */
 
-/* ── Counts / progress (Daily-style) ─────────────────────────────────────── */
-
-.plugin-counts {
-  font-size: 1.4em;
-  font-weight: 700;
-  color: var(--foreground);
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-
-.plugin-counts-lg {
-  font-size: 2.25rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.plugin-progress {
-  margin-top: 10px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--border);
-  overflow: hidden;
-}
-
-.plugin-progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: var(--plugin-success);
-  transition: width 0.2s ease;
-}
+.plugin-counts { font-size: 1.4em; font-weight: 700; color: var(--foreground); line-height: 1.2; font-variant-numeric: tabular-nums; }.plugin-counts-lg { font-size: 2.25rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.15; }.plugin-progress { margin-top: 10px; height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; }.plugin-progress-fill { height: 100%; border-radius: 999px; background: var(--plugin-success); transition: width 0.2s ease; }
 
 /* ── Buttons / chips ──────────────────────────────────────────────────────── */
 
@@ -123,35 +52,15 @@
 }
 
 .plugin-btn:hover:not(:disabled) { background: var(--accent); }
-.plugin-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.plugin-btn:disabled {opacity: 0.38; cursor: not-allowed; }
 
-.plugin-btn-primary {
-  border: none;
-  background: var(--primary);
-  color: var(--primary-foreground);
-}
-.plugin-btn-primary:hover:not(:disabled) { filter: brightness(1.05); background: var(--primary); }
+.plugin-btn-primary { border: none; background: var(--primary); color: var(--primary-foreground); }
+.plugin-btn-primary:hover:not(:disabled) {filter: brightness(1.05); background: var(--primary); }
 
-.plugin-btn-ghost {
-  border: none;
-  background: transparent;
-  color: var(--muted-foreground);
-  padding: 6px 10px;
-}
-.plugin-btn-ghost:hover:not(:disabled) { background: var(--accent); color: var(--foreground); }
+.plugin-btn-ghost { border: none; background: transparent; color: var(--muted-foreground); padding: 6px 10px; }
+.plugin-btn-ghost:hover:not(:disabled) {background: var(--accent); color: var(--foreground); }
 
-.plugin-btn-done {
-  background: var(--plugin-success);
-  color: #fff;
-  border-color: var(--plugin-success);
-}
-
-.plugin-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0;
-}
+.plugin-btn-done { background: var(--plugin-success); color: #fff; border-color: var(--plugin-success); }.plugin-chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0; }
 
 .plugin-chip {
   position: relative;
@@ -177,48 +86,13 @@
   transition: background 0.15s ease;
 }
 
-.plugin-chip:hover:not(.plugin-chip-done) { background: var(--accent); }
+.plugin-chip:hover:not(.plugin-chip-done) {background: var(--accent); }
 
-.plugin-chip-done {
-  background: var(--plugin-success);
-  color: #fff;
-  border-color: var(--plugin-success);
-}
+.plugin-chip-done { background: var(--plugin-success); color: #fff; border-color: var(--plugin-success); }/* ── Form controls ────────────────────────────────────────────────────────── */
 
-/* ── Form controls ────────────────────────────────────────────────────────── */
+.plugin-input { padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--plugin-radius); background: var(--background); color: var(--foreground); font-size: 0.9em; }.plugin-input:focus { outline: none; border-color: var(--ring); }.plugin-select { padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--plugin-radius); background: var(--background); color: var(--foreground); font-size: 0.85em; }/* ── Shell nav ────────────────────────────────────────────────────────────── */
 
-.plugin-input {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--plugin-radius);
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 0.9em;
-}
-
-.plugin-input:focus {
-  outline: none;
-  border-color: var(--ring);
-}
-
-.plugin-select {
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--plugin-radius);
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 0.85em;
-}
-
-/* ── Shell nav ────────────────────────────────────────────────────────────── */
-
-.plugin-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: var(--background);
-  color: var(--foreground);
-}
+.plugin-shell { display: flex; flex-direction: column; height: 100vh; background: var(--background); color: var(--foreground); }
 
 .plugin-header {
   display: flex;
@@ -228,16 +102,7 @@
   border-bottom: 1px solid var(--border);
   background: var(--secondary);
   padding: 0.4rem 0.75rem;
-}
-
-.plugin-nav {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
+}.plugin-nav { display: flex; flex: 1; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px; }
 
 .plugin-nav-btn {
   display: inline-flex;
@@ -254,19 +119,9 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.plugin-nav-btn:hover { background: var(--accent); color: var(--foreground); }
+.plugin-nav-btn:hover {background: var(--accent); color: var(--foreground); }
 
-.plugin-nav-btn-active {
-  background: var(--border);
-  color: var(--foreground);
-}
-
-.plugin-main {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem 1.25rem 1.5rem;
-}
+.plugin-nav-btn-active { background: var(--border); color: var(--foreground); }.plugin-main { min-height: 0; flex: 1; overflow-y: auto; padding: 1rem 1.25rem 1.5rem; }
 
 /* Companion bottom nav */
 .plugin-bottom-nav {
@@ -295,23 +150,9 @@
   padding: 0.55rem 0.2rem;
   width: 100%;
   transition: background 0.15s ease, color 0.15s ease;
-}
+}.plugin-bottom-nav-btn-active { background: color-mix(in srgb, var(--foreground) 8%, transparent); color: var(--foreground); }/* ── Settings tabs ────────────────────────────────────────────────────────── */
 
-.plugin-bottom-nav-btn-active {
-  background: color-mix(in srgb, var(--foreground) 8%, transparent);
-  color: var(--foreground);
-}
-
-/* ── Settings tabs ────────────────────────────────────────────────────────── */
-
-.plugin-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem;
-}
+.plugin-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
 
 .plugin-tab {
   border: none;
@@ -339,14 +180,9 @@
   border-top: 1px solid var(--border);
 }
 
-.plugin-row:first-child { border-top: none; padding-top: 0; }
+.plugin-row:first-child {border-top: none; padding-top: 0; }
 
-.plugin-stat-block {
-  border: 1px solid var(--border);
-  border-radius: var(--plugin-radius);
-  background: var(--background);
-  padding: 10px 12px;
-}
+.plugin-stat-block { border: 1px solid var(--border); border-radius: var(--plugin-radius); background: var(--background); padding: 10px 12px; }
 
 .plugin-stat-block .plugin-counts { margin-top: 4px; }
 
@@ -360,32 +196,5 @@
   box-shadow: none !important;
   padding-top: 12px !important;
   padding-bottom: 12px !important;
-}
-
-[data-slot="card-header"] {
-  padding-left: 14px !important;
-  padding-right: 14px !important;
-  gap: 0.25rem !important;
-}
-
-[data-slot="card-content"] {
-  padding-left: 14px !important;
-  padding-right: 14px !important;
-}
-
-[data-slot="card-title"] {
-  font-size: 0.95em !important;
-  font-weight: 600 !important;
-}
-
-[data-slot="card-footer"] {
-  padding-left: 14px !important;
-  padding-right: 14px !important;
-}
-
-/* Softer buttons to match chips */
-[data-slot="button"] {
-  border-radius: var(--plugin-radius) !important;
-  box-shadow: none !important;
-  font-weight: 600 !important;
-}
+}[data-slot="card-header"] { padding-left: 14px !important; padding-right: 14px !important; gap: 0.25rem !important; }[data-slot="card-content"] { padding-left: 14px !important; padding-right: 14px !important; }[data-slot="card-title"] { font-size: 0.95em !important; font-weight: 600 !important; }[data-slot="card-footer"] { padding-left: 14px !important; padding-right: 14px !important; }/* Softer buttons to match chips */
+[data-slot="button"] { border-radius: var(--plugin-radius) !important; box-shadow: none !important; font-weight: 600 !important; }

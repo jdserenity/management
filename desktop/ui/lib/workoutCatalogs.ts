@@ -1,4 +1,4 @@
-import type { ExerciseDefinition, WorkoutDefinition } from './workoutTypes';
+import type { WorkoutDefinition } from './workoutTypes';
 
 export const PREDEFINED_WORKOUTS: WorkoutDefinition[] = [
   {

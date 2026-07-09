@@ -1,14 +1,13 @@
 // src/components/daily/WaterSection.tsx
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { activeEntries } from '@/lib/water/entries';
 import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
-import type { WaterEntry, WaterFile } from '@/lib/water/types';
+import type { WaterEntry } from '@/lib/water/types';
 import { addWaterEntry, loadWaterFile, removeWaterEntry } from '@/lib/waterDb';
 import { completeTasksLinkedToWater, uncompleteTasksLinkedToWater } from '@/lib/streak/crossLinks';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
-import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { useFeatureFileRefresh } from '@/lib/useFeatureFileRefresh';
 import './water.css';
 
 const QUICK_AMOUNTS = [100, 250, 500, 750, 1000] as const;
@@ -19,38 +18,11 @@ type Props = {
 };
 
 export default function WaterSection({ refreshKey, onLinkedTaskComplete }: Props) {
-  const [file, setFile] = useState<WaterFile | null>(null);
+  const { file, loadError, setFile, storageReady } = useFeatureFileRefresh(loadWaterFile, 'Failed to load water data', refreshKey);
   const [addMode, setAddMode] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [customMl, setCustomMl] = useState('');
 
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
-    try {
-      setLoadError(null);
-      setFile(await loadWaterFile());
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load water data');
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    const id = window.setInterval(() => void refresh(), 60_000);
-    const onRemoteRefresh = () => { void refresh(); };
-    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    };
-  }, [refresh]);
-
-  useEffect(() => {
-    if (refreshKey != null) void refresh();
-  }, [refreshKey, refresh]);
-
-  if (!hasAppStorage()) {
+  if (!storageReady) {
     return (
       <section className="water-tracker-container" aria-label="Water">
         <p className="water-tracker-empty text-sm">Storage is not ready yet.</p>

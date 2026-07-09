@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { check } from '@tauri-apps/plugin-updater';
-import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
 export default function UpdateSettingsCard() {
@@ -71,9 +70,9 @@ export default function UpdateSettingsCard() {
       <h2 className="plugin-panel-title">Updates</h2>
       <div className="space-y-4">
         <p className="text-sm plugin-muted">Check for new versions and install updates automatically.</p>
-        <Button onClick={checkForUpdates} disabled={busy}>
+        <button type="button" className="plugin-btn plugin-btn-primary" onClick={checkForUpdates} disabled={busy}>
           {isChecking ? 'Checking for updates…' : 'Check for updates'}
-        </Button>
+        </button>
         {updateInfo ? <p className="text-sm">Update found: {updateInfo.version} ({updateInfo.date})</p> : null}
         {isDownloading ? (
           <div className="space-y-2">
@@ -85,7 +84,7 @@ export default function UpdateSettingsCard() {
         {installed ? (
           <div className="space-y-2">
             <p className="text-sm">Update installed. Restart to finish.</p>
-            <Button onClick={handleRestart} variant="outline">Restart app</Button>
+            <button type="button" className="plugin-btn" onClick={handleRestart}>Restart app</button>
           </div>
         ) : null}
         {checkedUpToDate ? <p className="text-sm plugin-muted">You are up to date.</p> : null}

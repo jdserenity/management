@@ -21,10 +21,6 @@ import {
 import { loadPomodoroBreakChain, savePomodoroBreakChain } from '@/lib/pomodoroBreakChain';
 import {
   defaultWorkoutCustomizePrefs,
-  mergeExerciseOverride,
-  prefsHasAtLeastOneMove,
-  resolveAllowedStretchPickKeys,
-  resolveAllowedWorkoutIdsFromPrefs,
   type WorkoutCustomizePrefs
 } from '@/lib/workoutCustomize';
 import {
@@ -96,15 +92,21 @@ import { saveMovementSnackPrefs } from '@/lib/movementSnack/movementSnackPref';
 import { FLOW_LID_PAUSE_EVENT, FLOW_LID_RESUME_EVENT, phaseEndsAtMsAfterLidResume } from '@/lib/flowLidPause';
 import { isTauri } from '@/lib/isTauri';
 import { listen } from '@tauri-apps/api/event';
+import { createPrefixedId } from '@/lib/exerciseForm';
+import { focusDeskPosture as resolveFocusDeskPosture, nextDeskPostureIfPomodoro as resolveNextDeskPosture, togglePomodoroPosture } from '@/lib/deskPosture';
+import {
+  applyPrefsPatch,
+  patchAllowedWorkoutToggle,
+  patchRemoveCustomExercise,
+  patchStretchPickToggle,
+  withCustomExercise,
+  withExerciseOverride,
+  withStretchHoldSeconds
+} from '@/lib/workoutPrefsActions';
 
 export type { BreakVariant, DeskPosture, LongBreakStage };
 export type Phase = FlowPhase;
 export type StartFlowOptions = { background?: boolean };
-
-const createId = (prefix: string): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `${prefix}-${crypto.randomUUID()}`;
-  return `${prefix}-${Date.now()}-${Math.round(Math.random() * 100000)}`;
-};
 
 interface SessionContextValue {
   phase: Phase;
@@ -253,7 +255,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     if (ratio <= 0) return;
     const planned = SESSION_DURATIONS_MINUTES[sessionType];
     const entry: FocusLogEntry = {
-      id: createId('focus'),
+      id: createPrefixedId('focus'),
       type: sessionType,
       completedAt: Date.now(),
       plannedDurationMinutes: planned,
@@ -278,7 +280,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     if (scaled.length === 0) return;
     const { reps, timedSeconds } = sumExerciseVolume(scaled);
     const workoutLog: WorkoutLogEntry = {
-      id: createId('workout'),
+      id: createPrefixedId('workout'),
       workoutId: workout.id,
       workoutName: workout.name,
       completedAt: Date.now(),
@@ -602,7 +604,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
   }, [logActiveWorkoutIfNeeded, advanceCurrentBreak]);
 
   const addManualExercise = useCallback((exercise: ExerciseDefinition) => {
-    const entry = buildManualExerciseLogEntry(exercise, createId('workout'));
+    const entry = buildManualExerciseLogEntry(exercise, createPrefixedId('workout'));
     setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
     void persistWorkoutLog(entry).catch((error) => {
       console.error('Failed to persist manual exercise:', error);
@@ -617,7 +619,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
 
   const logStretchCompletion = useCallback((stretch: StretchDefinition, exercises: ExerciseDefinition[], completionRatio: number = 1) => {
     if (exercises.length === 0) return;
-    const entry = buildStretchLogEntry(stretch, exercises, createId('workout'), Date.now(), completionRatio);
+    const entry = buildStretchLogEntry(stretch, exercises, createPrefixedId('workout'), Date.now(), completionRatio);
     setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
     void persistWorkoutLog(entry).catch((error) => {
       console.error('Failed to persist stretch log:', error);
@@ -656,7 +658,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     const defaults = easy ? movementSnackPrefsRef.current.easyExercises : movementSnackPrefsRef.current.hardExercises;
     const toLog = exercises && exercises.length > 0 ? exercises : defaults;
     if (toLog.length === 0) return;
-    const entry = buildMovementSnackLogEntry(toLog, createId('snack'), Date.now(), easy);
+    const entry = buildMovementSnackLogEntry(toLog, createPrefixedId('snack'), Date.now(), easy);
     setWorkoutLogs((current) => [entry, ...current].slice(0, MAX_HISTORY_ITEMS));
     void persistWorkoutLog(entry).catch((error) => {
       console.error('Failed to persist movement snack:', error);
@@ -730,64 +732,24 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     [workoutLogs, dayRolloverHour, statsDayWindowStart]
   );
 
-  const patchWorkoutPrefs = useCallback((patch: (current: WorkoutCustomizePrefs) => WorkoutCustomizePrefs | null) => {
-    setWorkoutCustomizePrefs((current) => {
-      const next = patch(current);
-      if (!next || !prefsHasAtLeastOneMove(next)) return current;
-      return next;
-    });
-  }, []);
-
   const handleAllowedWorkoutToggle = useCallback((workoutId: string, enabled: boolean) => {
-    patchWorkoutPrefs((current) => {
-      const ids = resolveAllowedWorkoutIdsFromPrefs(current);
-      const nextIds = enabled ? [...new Set([...ids, workoutId])] : ids.filter((id) => id !== workoutId);
-      if (!enabled && nextIds.length === 0 && resolveAllowedStretchPickKeys(current).length === 0 && current.customExercises.length === 0) return null;
-      return { ...current, allowedWorkoutIds: nextIds };
-    });
-  }, [patchWorkoutPrefs]);
-
+    setWorkoutCustomizePrefs((c) => applyPrefsPatch(c, patchAllowedWorkoutToggle(workoutId, enabled)));
+  }, []);
   const handleStretchPickToggle = useCallback((pickKey: string, enabled: boolean) => {
-    patchWorkoutPrefs((current) => {
-      const keys = resolveAllowedStretchPickKeys(current);
-      const nextKeys = enabled ? [...new Set([...keys, pickKey])] : keys.filter((k) => k !== pickKey);
-      if (!enabled && nextKeys.length === 0 && resolveAllowedWorkoutIdsFromPrefs(current).length === 0 && current.customExercises.length === 0) return null;
-      return { ...current, allowedStretchPickKeys: nextKeys };
-    });
-  }, [patchWorkoutPrefs]);
-
+    setWorkoutCustomizePrefs((c) => applyPrefsPatch(c, patchStretchPickToggle(pickKey, enabled)));
+  }, []);
   const updateExerciseOverride = useCallback((exerciseId: string, amount: number, unit: ExerciseUnit) => {
-    if (!Number.isFinite(amount)) return;
-    setWorkoutCustomizePrefs((current) => ({
-      ...current,
-      exerciseOverrides: mergeExerciseOverride(current.exerciseOverrides, exerciseId, amount, unit)
-    }));
+    setWorkoutCustomizePrefs((c) => withExerciseOverride(c, exerciseId, amount, unit));
   }, []);
-
   const updateStretchHoldSeconds = useCallback((seconds: number) => {
-    if (!Number.isFinite(seconds)) return;
-    const rounded = Math.max(1, Math.round(seconds));
-    setWorkoutCustomizePrefs((current) => ({ ...current, stretchHoldSeconds: rounded }));
+    setWorkoutCustomizePrefs((c) => withStretchHoldSeconds(c, seconds));
   }, []);
-
   const addCustomExercise = useCallback((exercise: ExerciseDefinition) => {
-    if (!exercise.id || !exercise.name) return;
-    setWorkoutCustomizePrefs((current) => ({
-      ...current,
-      customExercises: [...current.customExercises.filter((e) => e.id !== exercise.id), exercise]
-    }));
+    setWorkoutCustomizePrefs((c) => withCustomExercise(c, exercise));
   }, []);
-
   const removeCustomExercise = useCallback((exerciseId: string) => {
-    patchWorkoutPrefs((current) => {
-      const nextCustom = current.customExercises.filter((e) => e.id !== exerciseId);
-      if (nextCustom.length === current.customExercises.length) return null;
-      if (nextCustom.length === 0 && resolveAllowedWorkoutIdsFromPrefs(current).length === 0 && resolveAllowedStretchPickKeys(current).length === 0) return null;
-      const exerciseOverrides = { ...current.exerciseOverrides };
-      delete exerciseOverrides[exerciseId];
-      return { ...current, customExercises: nextCustom, exerciseOverrides };
-    });
-  }, [patchWorkoutPrefs]);
+    setWorkoutCustomizePrefs((c) => applyPrefsPatch(c, patchRemoveCustomExercise(exerciseId)));
+  }, []);
 
   const updateBreakExerciseAmount = useCallback((index: number, amount: number) => {
     if (!Number.isFinite(amount)) return;
@@ -803,34 +765,9 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     setFlow((prev) => ({ ...prev, nextSessionType: value }));
   }, []);
 
-  const focusDeskPosture = useMemo((): DeskPosture | null => {
-    if (flow.phase !== 'focus' || !flow.activeSessionType) return null;
-    if (flow.activeSessionType === 'deep') return 'sitting';
-    return flow.pomodoroPosture;
-  }, [flow.phase, flow.activeSessionType, flow.pomodoroPosture]);
-
-  const nextDeskPostureIfPomodoro = useMemo((): DeskPosture | null => {
-    if (flow.nextSessionType !== 'pomodoro') return null;
-    if (flow.phase === 'focus' && flow.activeSessionType === 'pomodoro') {
-      return flow.pomodoroPosture === 'sitting' ? 'standing' : 'sitting';
-    }
-    if (flow.phase === 'focus' && flow.activeSessionType === 'deep') {
-      const prev = flow.lastPomodoroPosture;
-      return prev === null ? 'sitting' : prev === 'sitting' ? 'standing' : 'sitting';
-    }
-    if (flow.phase === 'break') {
-      const prev = flow.lastPomodoroPosture;
-      return prev === null ? 'sitting' : prev === 'sitting' ? 'standing' : 'sitting';
-    }
-    return null;
-  }, [flow]);
-
-  const togglePomodoroDeskPosture = useCallback(() => {
-    setFlow((prev) => {
-      if (prev.phase !== 'focus' || prev.activeSessionType !== 'pomodoro') return prev;
-      return { ...prev, pomodoroPosture: prev.pomodoroPosture === 'sitting' ? 'standing' : 'sitting' };
-    });
-  }, []);
+  const focusDeskPosture = useMemo(() => resolveFocusDeskPosture(flow), [flow.phase, flow.activeSessionType, flow.pomodoroPosture]);
+  const nextDeskPostureIfPomodoro = useMemo(() => resolveNextDeskPosture(flow), [flow]);
+  const togglePomodoroDeskPosture = useCallback(() => { setFlow(togglePomodoroPosture); }, []);
 
   const value = useMemo<SessionContextValue>(
     () => ({
