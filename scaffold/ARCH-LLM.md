@@ -38,7 +38,7 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
 - Streak activities: order by `sort_order` (add order + drag reorder in Customize; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
 
-Engine: `SessionContext.tsx` + `@mgmt/core` (`flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`). Workout picking: `workoutPlanner.ts`, `exerciseBreak.ts`.
+Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/core` (`flowEngine.ts`, `flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`, `exerciseMode.ts`). Workout picking: `workoutPlanner.ts`.
 
 ## Repo layout
 
@@ -135,7 +135,7 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Concern | Path |
 | --- | --- |
 | Nav | `desktop/ui/lib/navConfig.ts` |
-| Session state | `desktop/ui/context/SessionContext.tsx`, `shared/core/src/` |
+| Session state | `desktop/ui/context/SessionContext.tsx` (holds one `PersistedFlowState`); pure transitions in `@mgmt/core` `flowEngine.ts` / `exerciseMode.ts` |
 | Feature DBs | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/` |
 | app_kv prefs | `desktop/ui/lib/appKv.ts` (get/set + bool/json/int factories); thin `*Pref.ts` wrappers |
 | Sync wiring | `dataSync.ts`, `dataSyncBootstrap.ts`, `shared/sync/src/` |

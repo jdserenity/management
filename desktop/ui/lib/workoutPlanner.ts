@@ -106,12 +106,7 @@ export interface PeriodStatsPoint {
   workouts: number;
 }
 
-export const SESSION_DURATIONS_MINUTES = {
-  pomodoro: 25,
-  deep: 90,
-  break: 5,
-  longBreak: 15
-} as const;
+export { SESSION_DURATIONS_MINUTES } from '@mgmt/core';
 
 export const PREDEFINED_WORKOUTS: WorkoutDefinition[] = [
   {
