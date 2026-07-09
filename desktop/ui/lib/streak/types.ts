@@ -10,7 +10,13 @@ export type StreakActivity = {
   weeklyTarget?: number;
   scheduledDays?: string[];
   canFail?: boolean;
+  /** If true, missing success on this activity fails the whole day on the heatmap (red X). */
+  necessary?: boolean;
   archivedAt?: string | null;
+  /** Link to a nutrition staple id — logging that staple (or this task) keeps both in sync. */
+  linkedStapleId?: string;
+  /** Link to the water tracker — logging water completes this task. */
+  linkedWater?: boolean;
   extraCalories?: number;
   extraProtein?: number;
   extraWaterMl?: number;

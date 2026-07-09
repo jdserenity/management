@@ -11,7 +11,8 @@ const emptyData = () => ({
 
 const streakRow = (id: string, name: string, archived_at: string | null = null, extra: Partial<{ extra_calories: number; extra_protein: number; extra_water_ml: number; updated_at: string }> = {}) => ({
   id, name, description: null, frequency: 'daily', weekly_target: null,
-  scheduled_days_json: null, can_fail: 0, archived_at, sort_order: 0,
+  scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at, sort_order: 0,
+  linked_staple_id: null, linked_water: 0,
   extra_calories: null, extra_protein: null, extra_water_ml: null,
   updated_at: extra.updated_at ?? archived_at ?? '2026-01-01T00:00:00Z',
   ...extra

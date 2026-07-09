@@ -140,6 +140,23 @@
   user-select: none;
 }
 
+.streak-heatmap-cell.streak-heatmap-necessary-fail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgb(239, 68, 68);
+}
+
+.streak-heatmap-fail-x {
+  font-size: clamp(6px, 70%, 12px);
+  line-height: 1;
+  font-weight: 800;
+  color: #fff;
+  pointer-events: none;
+  user-select: none;
+}
+
 .streak-heatmap-cell:hover:not(.streak-heatmap-empty) {
   outline: 1px solid var(--muted-foreground);
   outline-offset: 1px;

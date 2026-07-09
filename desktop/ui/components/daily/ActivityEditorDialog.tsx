@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { hasAppStorage } from '@/lib/appRuntime';
 import type { StreakActivity } from '@/lib/streak/types';
+import { loadTdeeFile } from '@/lib/tdeeDb';
+import type { TdeeMealDef } from '@/lib/tdee/types';
 
 type Props = {
   open: boolean;
@@ -23,9 +26,13 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [weeklyTarget, setWeeklyTarget] = useState('1');
   const [scheduledDays, setScheduledDays] = useState('Sun');
+  const [necessary, setNecessary] = useState(false);
+  const [linkedStapleId, setLinkedStapleId] = useState('');
+  const [linkedWater, setLinkedWater] = useState(false);
   const [extraCalories, setExtraCalories] = useState('');
   const [extraProtein, setExtraProtein] = useState('');
   const [extraWaterMl, setExtraWaterMl] = useState('');
+  const [staples, setStaples] = useState<TdeeMealDef[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -35,9 +42,19 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
     setFrequency(activity?.frequency === 'weekly' ? 'weekly' : 'daily');
     setWeeklyTarget(String(activity?.weeklyTarget ?? 1));
     setScheduledDays((activity?.scheduledDays || ['Sun']).join(', '));
+    setNecessary(!!activity?.necessary);
+    setLinkedStapleId(activity?.linkedStapleId || '');
+    setLinkedWater(!!activity?.linkedWater);
     setExtraCalories(activity?.extraCalories ? String(activity.extraCalories) : '');
     setExtraProtein(activity?.extraProtein ? String(activity.extraProtein) : '');
     setExtraWaterMl(activity?.extraWaterMl ? String(activity.extraWaterMl) : '');
+    if (hasAppStorage()) {
+      void loadTdeeFile()
+        .then((file) => setStaples(file.staples || []))
+        .catch(() => setStaples([]));
+    } else {
+      setStaples([]);
+    }
   }, [open, activity]);
 
   const handleSave = () => {
@@ -53,6 +70,9 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
         weeklyTarget: Math.max(1, parseInt(weeklyTarget, 10) || 1),
         scheduledDays: scheduledDays.split(',').map((d) => d.trim()).filter(Boolean)
       } : {}),
+      ...(necessary ? { necessary: true } : {}),
+      ...(linkedStapleId ? { linkedStapleId } : {}),
+      ...(linkedWater ? { linkedWater: true } : {}),
       ...(Number(extraCalories) > 0 ? { extraCalories: Math.round(Number(extraCalories)) } : {}),
       ...(Number(extraProtein) > 0 ? { extraProtein: Number(extraProtein) } : {}),
       ...(Number(extraWaterMl) > 0 ? { extraWaterMl: Math.round(Number(extraWaterMl)) } : {})
@@ -101,8 +121,43 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
               </label>
             </>
           ) : null}
+
+          <label className="flex items-start gap-2 rounded-md border border-border px-3 py-2">
+            <input type="checkbox" className="mt-0.5" checked={necessary} onChange={(e) => setNecessary(e.target.checked)} />
+            <span>
+              <span className="font-medium">Necessary</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                If this task is not done, the whole day fails on the heatmap (red square with ×).
+              </span>
+            </span>
+          </label>
+
+          <div className="rounded-md border border-border px-3 py-2 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Networked links</p>
+            <p className="text-xs text-muted-foreground">
+              Connect this task to food or water so logging one side checks off the other.
+            </p>
+            <label className="block">
+              <span className="text-muted-foreground text-xs">Linked food staple</span>
+              <select
+                className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1"
+                value={linkedStapleId}
+                onChange={(e) => setLinkedStapleId(e.target.value)}
+              >
+                <option value="">None</option>
+                {staples.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={linkedWater} onChange={(e) => setLinkedWater(e.target.checked)} />
+              <span className="text-xs">Linked to water tracker (logging water checks this task off)</span>
+            </label>
+          </div>
+
           <div className="rounded-md border border-border px-3 py-2">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Also log on success</p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Also log on success (one-off amounts)</p>
             <div className="flex flex-wrap gap-3">
               <label className="flex flex-col gap-1 text-xs">
                 <span className="text-muted-foreground">+kcal</span>

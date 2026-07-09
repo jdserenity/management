@@ -33,9 +33,12 @@ vi.mock('@/lib/db', () => ({
         activityRows.set(String(params[0]), {
           id: params[0],
           name: params[1],
-          archived_at: params[7],
-          sort_order: params[8],
-          updated_at: params[12]
+          archived_at: params[8],
+          sort_order: params[9],
+          necessary: params[7],
+          linked_staple_id: params[10],
+          linked_water: params[11],
+          updated_at: params[15]
         });
       }
       if (sql.includes('INSERT INTO streak_log_cells')) {
@@ -94,8 +97,11 @@ describe('streakDb row-level saves', () => {
       weekly_target: null,
       scheduled_days_json: null,
       can_fail: 0,
+      necessary: 0,
       archived_at: null,
       sort_order: 0,
+      linked_staple_id: null,
+      linked_water: 0,
       extra_calories: null,
       extra_protein: null,
       extra_water_ml: null,

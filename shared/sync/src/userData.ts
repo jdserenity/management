@@ -40,7 +40,8 @@ export interface WaterEntry {
 export interface StreakActivity {
   id: string; name: string; description: string | null; frequency: string;
   weekly_target: number | null; scheduled_days_json: string | null;
-  can_fail: number; archived_at: string | null; sort_order: number;
+  can_fail: number; necessary: number; archived_at: string | null; sort_order: number;
+  linked_staple_id: string | null; linked_water: number;
   extra_calories: number | null; extra_protein: number | null; extra_water_ml: number | null;
   updated_at: string;
 }
@@ -110,7 +111,7 @@ export const USER_DATA_TABLES: UserDataTable[] = [
   'waterEntries'
 ];
 
-const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml,updated_at FROM streak_activities ORDER BY sort_order';
+const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,necessary,archived_at,sort_order,linked_staple_id,linked_water,extra_calories,extra_protein,extra_water_ml,updated_at FROM streak_activities ORDER BY sort_order';
 const SELECT_BY_TABLE: Record<UserDataTable, string> = {
   focusLog: 'SELECT id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio FROM focus_log ORDER BY completed_at DESC',
   workoutLog: 'SELECT id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio FROM workout_log ORDER BY completed_at DESC',
@@ -238,8 +239,8 @@ export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> 
   }
   for (const r of data.streakActivities) {
     await db.execute(
-      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,archived_at,sort_order,extra_calories,extra_protein,extra_water_ml,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.archived_at ?? null, r.sort_order, r.extra_calories ?? null, r.extra_protein ?? null, r.extra_water_ml ?? null, r.updated_at]
+      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,necessary,archived_at,sort_order,linked_staple_id,linked_water,extra_calories,extra_protein,extra_water_ml,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+      [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.necessary ?? 0, r.archived_at ?? null, r.sort_order, r.linked_staple_id ?? null, r.linked_water ?? 0, r.extra_calories ?? null, r.extra_protein ?? null, r.extra_water_ml ?? null, r.updated_at]
     );
   }
   for (const r of data.streakLogCells) {

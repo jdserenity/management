@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { formatDate, getISOWeekStart, getWeekDays, isDateInWeek, parseDate } from '@/lib/streak/dates';
-import { getDayCompletionCounts, isPerfectHeatmapCell } from '@/lib/streak/heatmapHelpers';
+import { getDayCompletionCounts, isDayNecessaryFailed, isPerfectHeatmapCell } from '@/lib/streak/heatmapHelpers';
 import { heatmapMonthSpans, weekColumnMonthFromDates } from '@/lib/streak/heatmapLayout';
 import { getLogState } from '@/lib/streak/logs';
 import { getWeeklyYearsWithData, getYearsWithData, heatmapLevel, hexToRgba } from '@/lib/streak/heatmapUi';
@@ -31,22 +31,26 @@ export function StreakDailyHeatmap({ state, year, onYearChange, heatmapColor }: 
     const startDay = startDate.getDay();
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     const totalWeeks = Math.ceil((totalDays + startDay) / 7);
-    const cols: { cells: { dateStr: string | null; level: number; perfect: boolean; title: string }[]; anchor: boolean }[] = [];
+    const cols: { cells: { dateStr: string | null; level: number; perfect: boolean; necessaryFailed: boolean; title: string }[]; anchor: boolean }[] = [];
     let currentDate = new Date(startDate);
     for (let week = 0; week < totalWeeks; week++) {
-      const cells: { dateStr: string | null; level: number; perfect: boolean; title: string }[] = [];
+      const cells: { dateStr: string | null; level: number; perfect: boolean; necessaryFailed: boolean; title: string }[] = [];
       let anchor = false;
       for (let day = 0; day < 7; day++) {
         if ((week === 0 && day < startDay) || currentDate > endDate) {
-          cells.push({ dateStr: null, level: 0, perfect: false, title: '' });
+          cells.push({ dateStr: null, level: 0, perfect: false, necessaryFailed: false, title: '' });
           continue;
         }
         const dateStr = formatDate(currentDate);
         if (year === currentCalendarYear && dateStr === today) anchor = true;
         const { successCount, historicalCount } = getDayCompletionCounts(state.data, catalog, dateStr);
-        const level = heatmapLevel(successCount, historicalCount);
-        const perfect = isPerfectHeatmapCell(successCount, historicalCount);
-        cells.push({ dateStr, level, perfect, title: `${dateStr}: ${successCount}/${historicalCount} activities` });
+        const necessaryFailed = isDayNecessaryFailed(state.data, catalog, dateStr);
+        const level = necessaryFailed ? 0 : heatmapLevel(successCount, historicalCount);
+        const perfect = !necessaryFailed && isPerfectHeatmapCell(successCount, historicalCount);
+        const title = necessaryFailed
+          ? `${dateStr}: necessary task incomplete — day failed`
+          : `${dateStr}: ${successCount}/${historicalCount} activities`;
+        cells.push({ dateStr, level, perfect, necessaryFailed, title });
         currentDate.setDate(currentDate.getDate() + 1);
       }
       cols.push({ cells, anchor });
@@ -81,6 +85,18 @@ export function StreakDailyHeatmap({ state, year, onYearChange, heatmapColor }: 
               <div key={wi} className={`streak-heatmap-week${week.anchor ? ' streak-heatmap-scroll-anchor' : ''}`}>
                 {week.cells.map((cell, di) => {
                   if (!cell.dateStr) return <div key={di} className="streak-heatmap-cell streak-heatmap-empty" />;
+                  if (cell.necessaryFailed) {
+                    return (
+                      <div
+                        key={di}
+                        className="streak-heatmap-cell streak-heatmap-necessary-fail"
+                        title={cell.title}
+                        data-date={cell.dateStr}
+                      >
+                        <span className="streak-heatmap-fail-x">×</span>
+                      </div>
+                    );
+                  }
                   const style = heatmapColor && cell.level > 0 ? { backgroundColor: hexToRgba(heatmapColor, cell.level * 0.2) } : undefined;
                   return (
                     <div key={di} className={`streak-heatmap-cell streak-heatmap-level-${cell.level}${cell.perfect ? ' streak-heatmap-perfect' : ''}`} title={cell.title} data-date={cell.dateStr} style={style}>

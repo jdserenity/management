@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v11). */
+/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v12). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -56,6 +56,11 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 11,
     description: 'sync_outbox_table',
     sql: 'CREATE TABLE IF NOT EXISTS sync_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, patch_json TEXT NOT NULL, created_at INTEGER NOT NULL);'
+  },
+  {
+    version: 12,
+    description: 'streak_activity_necessary_and_links',
+    sql: 'ALTER TABLE streak_activities ADD COLUMN necessary INTEGER NOT NULL DEFAULT 0; ALTER TABLE streak_activities ADD COLUMN linked_staple_id TEXT; ALTER TABLE streak_activities ADD COLUMN linked_water INTEGER NOT NULL DEFAULT 0;'
   }
 ];
 

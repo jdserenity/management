@@ -12,7 +12,10 @@ const normalizeActivity = (raw: unknown): StreakActivity | null => {
     weeklyTarget: typeof a.weeklyTarget === 'number' ? a.weeklyTarget : undefined,
     scheduledDays: Array.isArray(a.scheduledDays) ? a.scheduledDays.filter((d) => typeof d === 'string') : undefined,
     canFail: !!a.canFail,
+    necessary: !!a.necessary,
     archivedAt: typeof a.archivedAt === 'string' ? a.archivedAt : a.archivedAt === null ? null : undefined,
+    linkedStapleId: typeof a.linkedStapleId === 'string' && a.linkedStapleId.trim() ? a.linkedStapleId.trim() : undefined,
+    linkedWater: !!a.linkedWater,
     extraCalories: typeof a.extraCalories === 'number' && a.extraCalories > 0 ? a.extraCalories : undefined,
     extraProtein: typeof a.extraProtein === 'number' && a.extraProtein > 0 ? a.extraProtein : undefined,
     extraWaterMl: typeof a.extraWaterMl === 'number' && a.extraWaterMl > 0 ? a.extraWaterMl : undefined

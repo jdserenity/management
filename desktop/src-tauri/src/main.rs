@@ -727,6 +727,12 @@ pub fn run() {
                         sql: "CREATE TABLE IF NOT EXISTS sync_outbox (id INTEGER PRIMARY KEY AUTOINCREMENT, patch_json TEXT NOT NULL, created_at INTEGER NOT NULL);",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 12,
+                        description: "streak_activity_necessary_and_links",
+                        sql: "ALTER TABLE streak_activities ADD COLUMN necessary INTEGER NOT NULL DEFAULT 0; ALTER TABLE streak_activities ADD COLUMN linked_staple_id TEXT; ALTER TABLE streak_activities ADD COLUMN linked_water INTEGER NOT NULL DEFAULT 0;",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {

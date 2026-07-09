@@ -15,8 +15,11 @@ type ActivityRow = {
   weekly_target: number | null;
   scheduled_days_json: string | null;
   can_fail: number;
+  necessary: number;
   archived_at: string | null;
   sort_order: number;
+  linked_staple_id: string | null;
+  linked_water: number;
   extra_calories: number | null;
   extra_protein: number | null;
   extra_water_ml: number | null;
@@ -40,7 +43,9 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     id: row.id,
     name: row.name,
     frequency: row.frequency === 'weekly' ? 'weekly' : 'daily',
-    canFail: row.can_fail === 1
+    canFail: row.can_fail === 1,
+    necessary: row.necessary === 1,
+    linkedWater: row.linked_water === 1
   };
   if (row.description) a.description = row.description;
   if (row.weekly_target != null) a.weeklyTarget = row.weekly_target;
@@ -51,6 +56,7 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     } catch { /* ignore */ }
   }
   if (row.archived_at) a.archivedAt = row.archived_at;
+  if (row.linked_staple_id) a.linkedStapleId = row.linked_staple_id;
   if (row.extra_calories != null && row.extra_calories > 0) a.extraCalories = row.extra_calories;
   if (row.extra_protein != null && row.extra_protein > 0) a.extraProtein = row.extra_protein;
   if (row.extra_water_ml != null && row.extra_water_ml > 0) a.extraWaterMl = row.extra_water_ml;
@@ -67,8 +73,11 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
     a.weeklyTarget ?? null,
     scheduledJson,
     a.canFail ? 1 : 0,
+    a.necessary ? 1 : 0,
     archived ? (a.archivedAt ?? null) : null,
     sortOrder,
+    a.linkedStapleId ?? null,
+    a.linkedWater ? 1 : 0,
     a.extraCalories ?? null,
     a.extraProtein ?? null,
     a.extraWaterMl ?? null,
@@ -76,8 +85,8 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
   ];
 };
 
-const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, extra_calories, extra_protein, extra_water_ml, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 ON CONFLICT(id) DO UPDATE SET
   name=excluded.name,
   description=excluded.description,
@@ -85,8 +94,11 @@ ON CONFLICT(id) DO UPDATE SET
   weekly_target=excluded.weekly_target,
   scheduled_days_json=excluded.scheduled_days_json,
   can_fail=excluded.can_fail,
+  necessary=excluded.necessary,
   archived_at=excluded.archived_at,
   sort_order=excluded.sort_order,
+  linked_staple_id=excluded.linked_staple_id,
+  linked_water=excluded.linked_water,
   extra_calories=excluded.extra_calories,
   extra_protein=excluded.extra_protein,
   extra_water_ml=excluded.extra_water_ml,
@@ -154,7 +166,7 @@ const buildState = (config: StreakConfig, data: StreakData, currentDay: string, 
 const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakData, 'stats'> }> => {
   const db = await getDb();
   const activityRows = await db.select<ActivityRow[]>(
-    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, archived_at, sort_order, extra_calories, extra_protein, extra_water_ml, updated_at FROM streak_activities ORDER BY sort_order, name'
+    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, extra_calories, extra_protein, extra_water_ml, updated_at FROM streak_activities ORDER BY sort_order, name'
   );
   const activities: StreakActivity[] = [];
   const archivedActivities: StreakActivity[] = [];
@@ -370,11 +382,37 @@ export const upsertStreakActivity = async (state: StreakState, activity: StreakA
       if (!activity.extraCalories) delete next.extraCalories;
       if (!activity.extraProtein) delete next.extraProtein;
       if (!activity.extraWaterMl) delete next.extraWaterMl;
+      if (!activity.linkedStapleId) delete next.linkedStapleId;
+      if (!activity.linkedWater) delete next.linkedWater;
+      if (!activity.necessary) delete next.necessary;
       return next;
     });
     const idx = state.config.activities.findIndex((a) => a.id === activity.id);
     const merged = state.config.activities[idx];
     if (merged) await upsertActivityRow(merged, false, idx);
+  }
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
+};
+
+/** Reorder active activities; sort_order is persisted so Daily and Customize stay aligned. */
+export const reorderStreakActivities = async (state: StreakState, orderedIds: string[]): Promise<StreakState> => {
+  const byId = new Map(state.config.activities.map((a) => [a.id, a]));
+  const next: StreakActivity[] = [];
+  for (const id of orderedIds) {
+    const a = byId.get(id);
+    if (a) {
+      next.push(a);
+      byId.delete(id);
+    }
+  }
+  // Keep any activities missing from orderedIds at the end (safety).
+  for (const a of byId.values()) next.push(a);
+  state.config.activities = next;
+  const updatedAt = syncNow();
+  for (let i = 0; i < next.length; i++) {
+    await upsertActivityRow(next[i], false, i, updatedAt);
   }
   const rolloverHour = await loadDayRolloverHourPref();
   const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
