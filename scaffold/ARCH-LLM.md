@@ -116,7 +116,7 @@ Commands (registered `main.rs`): boot settings (`set_app_presence_mode`, `set_hi
 
 Events to webview: `camera-preview-frame`, `analysis-update`, `monitoring-state-changed`, `tray-start-focus-flow`, `flow-lid-pause`/`flow-lid-resume`, `camera-yield-changed`.
 
-App presence: `dock` (Regular) vs `menu_bar` (Accessory). Window close / Cmd+Q always keep the process + menu bar tray (hide window); full exit only via tray **Quit Management**. Tray icons are always solid white (`tray.png` / `monitoring_off.png` same look); not macOS template mode.
+App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **once** at boot and never torn down until tray **Quit Management**. Window close / Cmd+Q only hide the main window (no tray rebuild, no activation-policy flip in dock mode). Tray icons solid white; not template mode. Flow menu updates use `set_menu` in place.
 
 ## Deploy (facts)
 
