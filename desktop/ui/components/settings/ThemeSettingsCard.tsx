@@ -1,14 +1,13 @@
 import { useTheme } from 'next-themes';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ThemeSettingsCard() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Theme</CardTitle></CardHeader>
-      <CardContent>
+    <section className="plugin-panel space-y-3">
+      <h2 className="plugin-panel-title">Theme</h2>
+      <div>
         <Select value={theme} onValueChange={setTheme}>
           <SelectTrigger className="w-[250px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -17,7 +16,7 @@ export default function ThemeSettingsCard() {
             <SelectItem value="system">System</SelectItem>
           </SelectContent>
         </Select>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

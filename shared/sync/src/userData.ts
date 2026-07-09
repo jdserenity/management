@@ -6,6 +6,12 @@ import { drainSyncOutbox, enqueueSyncPatch } from './syncOutbox';
 import { syncFetch } from './syncFetch';
 import { assertSafeSnapshotPush, isUserDataEmpty } from './userDataSafety';
 import { markLocalSyncChangePending, markSyncPullResult, markSyncPushResult } from './syncStatus';
+import {
+  USER_DATA_TABLE_SCHEMAS,
+  clientInsertSql,
+  clientSelectSql,
+  schemaByField
+} from './userDataSchema';
 
 // ── Row types — mirror local.db columns (no user_id) ──────────────────────────
 
@@ -96,53 +102,18 @@ export interface UserDataRowPatch {
   waterEntries?: { upserts?: WaterEntry[]; deletes?: WaterEntryDeleteKey[] };
 }
 
-export const USER_DATA_TABLES: UserDataTable[] = [
-  'focusLog',
-  'workoutLog',
-  'appKv',
-  'nutritionConfig',
-  'nutritionStaples',
-  'nutritionRegulars',
-  'nutritionEntries',
-  'streakActivities',
-  'streakLogCells',
-  'streakActivityMeta',
-  'waterConfig',
-  'waterEntries'
-];
-
-const streakSelect = 'SELECT id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,necessary,archived_at,sort_order,linked_staple_id,linked_water,linked_movement_burst,extra_calories,extra_protein,extra_water_ml,updated_at FROM streak_activities ORDER BY sort_order';
-const SELECT_BY_TABLE: Record<UserDataTable, string> = {
-  focusLog: 'SELECT id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio FROM focus_log ORDER BY completed_at DESC',
-  workoutLog: 'SELECT id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio FROM workout_log ORDER BY completed_at DESC',
-  appKv: 'SELECT key,value,updated_at FROM app_kv',
-  nutritionConfig: 'SELECT tdee,protein,log_day,updated_at FROM nutrition_config WHERE id=1',
-  nutritionStaples: 'SELECT id,name,calories,protein,ingredients_json,sort_order,updated_at FROM nutrition_staples ORDER BY sort_order',
-  nutritionRegulars: 'SELECT id,name,calories,protein,ingredients_json,sort_order,updated_at FROM nutrition_regulars ORDER BY sort_order',
-  nutritionEntries: 'SELECT id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted FROM nutrition_entries',
-  streakActivities: streakSelect,
-  streakLogCells: 'SELECT log_date,activity_id,state,updated_at FROM streak_log_cells',
-  streakActivityMeta: 'SELECT activity_id,start_date,pause_since,unpaused_at,reset_count,updated_at FROM streak_activity_meta',
-  waterConfig: 'SELECT target_ml,log_day,updated_at FROM water_config WHERE id=1',
-  waterEntries: 'SELECT id,log_day,label,ml,count,updated_at,deleted FROM water_entries'
-};
+export const USER_DATA_TABLES: UserDataTable[] = USER_DATA_TABLE_SCHEMAS.map((s) => s.field);
 
 // ── Read all data from a local-schema db (no user_id columns) ─────────────────
 
-export const extractUserData = async (db: SqlDatabase): Promise<UserData> => ({
-  focusLog: await db.select(SELECT_BY_TABLE.focusLog),
-  workoutLog: await db.select(SELECT_BY_TABLE.workoutLog),
-  appKv: await db.select(SELECT_BY_TABLE.appKv),
-  nutritionConfig: await db.select<NutritionConfig[]>(SELECT_BY_TABLE.nutritionConfig).then((r) => r[0] ?? null),
-  nutritionStaples: await db.select(SELECT_BY_TABLE.nutritionStaples),
-  nutritionRegulars: await db.select(SELECT_BY_TABLE.nutritionRegulars),
-  nutritionEntries: await db.select(SELECT_BY_TABLE.nutritionEntries),
-  streakActivities: await db.select(SELECT_BY_TABLE.streakActivities),
-  streakLogCells: await db.select(SELECT_BY_TABLE.streakLogCells),
-  streakActivityMeta: await db.select(SELECT_BY_TABLE.streakActivityMeta),
-  waterConfig: await db.select<WaterConfig[]>(SELECT_BY_TABLE.waterConfig).then((r) => r[0] ?? null),
-  waterEntries: await db.select(SELECT_BY_TABLE.waterEntries),
-});
+export const extractUserData = async (db: SqlDatabase): Promise<UserData> => {
+  const out = {} as UserData;
+  for (const s of USER_DATA_TABLE_SCHEMAS) {
+    const rows = await db.select(clientSelectSql(s));
+    (out as Record<string, unknown>)[s.field] = s.singleton ? ((rows as unknown[])[0] ?? null) : rows;
+  }
+  return out;
+};
 
 export const pickUserDataTables = (data: UserData, tables: UserDataTable[]): UserDataPatch => {
   const patch: UserDataPatch = {};
@@ -153,11 +124,11 @@ export const pickUserDataTables = (data: UserData, tables: UserDataTable[]): Use
 export const extractUserDataForTables = async (db: SqlDatabase, tables: UserDataTable[]): Promise<UserDataPatch> => {
   const patch: UserDataPatch = {};
   for (const table of tables) {
-    const rows = await db.select(SELECT_BY_TABLE[table]);
-    const value = (table === 'nutritionConfig' || table === 'waterConfig')
-      ? ((rows as NutritionConfig[] | WaterConfig[])[0] ?? null)
-      : rows as UserData[typeof table];
-    (patch as Record<UserDataTable, UserData[UserDataTable]>)[table] = value as UserData[UserDataTable];
+    const s = schemaByField[table];
+    const rows = await db.select(clientSelectSql(s));
+    (patch as Record<UserDataTable, UserData[UserDataTable]>)[table] = (
+      s.singleton ? ((rows as unknown[])[0] ?? null) : rows
+    ) as UserData[UserDataTable];
   }
   return patch;
 };
@@ -180,95 +151,33 @@ export const hydrateDbFromServer = async (
   return 'hydrated';
 };
 
+/**
+ * Replace local synced tables with a snapshot.
+ * Safety:
+ * - Runs without data-sync outbox side effects (full-table DELETE must not push "delete every row").
+ * - Never replaces a non-empty local table with an empty snapshot (accidental wipe guard).
+ */
 export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> => {
-  await db.execute('DELETE FROM focus_log');
-  await db.execute('DELETE FROM workout_log');
-  await db.execute('DELETE FROM app_kv');
-  await db.execute('DELETE FROM nutrition_config');
-  await db.execute('DELETE FROM nutrition_staples');
-  await db.execute('DELETE FROM nutrition_regulars');
-  await db.execute('DELETE FROM nutrition_entries');
-  await db.execute('DELETE FROM streak_activities');
-  await db.execute('DELETE FROM streak_log_cells');
-  await db.execute('DELETE FROM streak_activity_meta');
-  await db.execute('DELETE FROM water_config');
-  await db.execute('DELETE FROM water_entries');
-
-  for (const r of data.focusLog) {
-    await db.execute(
-      'INSERT INTO focus_log (id,session_type,completed_at,duration_minutes,planned_duration_minutes,completion_ratio) VALUES (?,?,?,?,?,?)',
-      [r.id, r.session_type, r.completed_at, r.duration_minutes, r.planned_duration_minutes ?? null, r.completion_ratio ?? null]
-    );
-  }
-  for (const r of data.workoutLog) {
-    await db.execute(
-      'INSERT INTO workout_log (id,workout_id,workout_name,completed_at,exercises_json,total_reps,total_timed_seconds,completion_ratio) VALUES (?,?,?,?,?,?,?,?)',
-      [r.id, r.workout_id, r.workout_name, r.completed_at, r.exercises_json, r.total_reps, r.total_timed_seconds, r.completion_ratio ?? null]
-    );
-  }
-  for (const r of data.appKv) {
-    await db.execute(
-      'INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)',
-      [r.key, r.value, r.updated_at]
-    );
-  }
-  if (data.nutritionConfig) {
-    const nc = data.nutritionConfig;
-    await db.execute(
-      'INSERT OR REPLACE INTO nutrition_config (id,tdee,protein,log_day,updated_at) VALUES (1,?,?,?,?)',
-      [nc.tdee, nc.protein, nc.log_day, nc.updated_at]
-    );
-  }
-  for (const r of data.nutritionStaples) {
-    await db.execute(
-      'INSERT INTO nutrition_staples (id,name,calories,protein,ingredients_json,sort_order,updated_at) VALUES (?,?,?,?,?,?,?)',
-      [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order, r.updated_at]
-    );
-  }
-  for (const r of data.nutritionRegulars) {
-    await db.execute(
-      'INSERT INTO nutrition_regulars (id,name,calories,protein,ingredients_json,sort_order,updated_at) VALUES (?,?,?,?,?,?,?)',
-      [r.id, r.name, r.calories, r.protein, r.ingredients_json ?? null, r.sort_order, r.updated_at]
-    );
-  }
-  for (const r of data.nutritionEntries) {
-    await db.execute(
-      'INSERT INTO nutrition_entries (id,log_day,kind,ref_id,label,calories,protein,count,updated_at,deleted) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      [r.id, r.log_day, r.kind, r.ref_id ?? null, r.label, r.calories, r.protein, r.count, r.updated_at, r.deleted]
-    );
-  }
-  for (const r of data.streakActivities) {
-    await db.execute(
-      'INSERT INTO streak_activities (id,name,description,frequency,weekly_target,scheduled_days_json,can_fail,necessary,archived_at,sort_order,linked_staple_id,linked_water,linked_movement_burst,extra_calories,extra_protein,extra_water_ml,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-      [r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null, r.can_fail, r.necessary ?? 0, r.archived_at ?? null, r.sort_order, r.linked_staple_id ?? null, r.linked_water ?? 0, r.linked_movement_burst ?? 0, r.extra_calories ?? null, r.extra_protein ?? null, r.extra_water_ml ?? null, r.updated_at]
-    );
-  }
-  for (const r of data.streakLogCells) {
-    await db.execute(
-      'INSERT INTO streak_log_cells (log_date,activity_id,state,updated_at) VALUES (?,?,?,?)',
-      [r.log_date, r.activity_id, r.state, r.updated_at]
-    );
-  }
-  for (const r of data.streakActivityMeta) {
-    await db.execute(
-      'INSERT INTO streak_activity_meta (activity_id,start_date,pause_since,unpaused_at,reset_count,updated_at) VALUES (?,?,?,?,?,?)',
-      [r.activity_id, r.start_date ?? null, r.pause_since ?? null, r.unpaused_at ?? null, r.reset_count, r.updated_at]
-    );
-  }
-  const waterEntries = data.waterEntries ?? [];
-  if (data.waterConfig) {
-    const wc = data.waterConfig;
-    await db.execute(
-      'INSERT OR REPLACE INTO water_config (id,target_ml,log_day,updated_at) VALUES (1,?,?,?)',
-      [wc.target_ml, wc.log_day, wc.updated_at]
-    );
-  }
-  for (const r of waterEntries) {
-    await db.execute(
-      'INSERT INTO water_entries (id,log_day,label,ml,count,updated_at,deleted) VALUES (?,?,?,?,?,?,?)',
-      [r.id, r.log_day, r.label, r.ml, r.count, r.updated_at, r.deleted]
-    );
-  }
+  await runWithoutDataSync(async () => {
+    const local = await extractUserData(db);
+    for (const s of USER_DATA_TABLE_SCHEMAS) {
+      const incoming = s.getRows(data);
+      const existing = s.getRows(local);
+      let rowsToWrite = incoming;
+      if (incoming.length === 0 && existing.length > 0) {
+        logSyncInfo('hydrateDb kept local rows (refusing empty wipe)', {
+          table: s.sqlTable,
+          localRows: existing.length
+        });
+        rowsToWrite = existing;
+      }
+      await db.execute(`DELETE FROM ${s.sqlTable}`);
+      const sql = clientInsertSql(s);
+      for (const row of rowsToWrite) {
+        await db.execute(sql, s.bind(row as never));
+      }
+    }
+  });
 };
 
 // ── HTTP helpers ───────────────────────────────────────────────────────────────
@@ -511,6 +420,18 @@ const isMutationQuery = (query: string): boolean =>
 export type SyncCreds = { serverUrl?: string; token?: string };
 export type SyncCredsProvider = () => SyncCreds | Promise<SyncCreds>;
 
+/** Nestable: while > 0, wrapWithDataSync execute is pass-through (no outbox). Used by hydrateDb. */
+let dataSyncSuppressDepth = 0;
+
+export const runWithoutDataSync = async <T>(fn: () => Promise<T>): Promise<T> => {
+  dataSyncSuppressDepth += 1;
+  try {
+    return await fn();
+  } finally {
+    dataSyncSuppressDepth -= 1;
+  }
+};
+
 export const wrapWithDataSync = (
   db: SqlDatabase,
   getCreds: SyncCredsProvider,
@@ -524,6 +445,7 @@ export const wrapWithDataSync = (
   const beforeMutationSnapshot: UserDataPatch = {};
 
   const scheduleSync = () => {
+    if (dataSyncSuppressDepth > 0) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
@@ -568,6 +490,7 @@ export const wrapWithDataSync = (
   return {
     select: (q, bind) => db.select(q, bind),
     execute: async (q, bind) => {
+      if (dataSyncSuppressDepth > 0) return db.execute(q, bind);
       const touchedTables = inferSyncUserDataTablesFromSql(q);
       const mutation = isMutationQuery(q);
       if (mutation && touchedTables.length > 0) {

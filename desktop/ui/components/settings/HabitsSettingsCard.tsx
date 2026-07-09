@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { loadStreakHeatmapColorPref, saveStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 
 export default function HabitsSettingsCard() {
@@ -22,13 +21,13 @@ export default function HabitsSettingsCard() {
   }, []);
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Habits</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
+    <section className="plugin-panel space-y-3">
+      <h2 className="plugin-panel-title">Habits</h2>
+      <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <span className="font-medium">Daily heatmap color</span>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm plugin-muted">
               Custom color for the yearly habits heatmap. Weekly heatmap stays red.
             </p>
           </div>
@@ -50,7 +49,7 @@ export default function HabitsSettingsCard() {
             />
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

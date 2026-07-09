@@ -1,14 +1,13 @@
 // src/components/daily/StreakSection.tsx
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import StreakActivityRow from '@/components/daily/StreakActivityRow';
 import { StreakDailyHeatmap, StreakWeeklyHeatmap } from '@/components/daily/StreakHeatmaps';
 import { useSession } from '@/context/SessionContext';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
-import { fireDayCompleteConfetti } from '@/lib/streak/confetti';
-import { isDayComplete } from '@/lib/streak/heatmapHelpers';
-import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { fireDayCompleteConfetti } from '@/lib/streak/display';
+import { isDayComplete } from '@/lib/streak/heatmap';
+import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
 import { loadStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
@@ -28,44 +27,26 @@ type Props = {
   onCrossLog?: (kind: 'tdee' | 'water' | 'movement') => void;
 };
 
+type StreakBundle = { state: StreakState; heatmapColor: string | null };
+
 export default function StreakSection({ refreshKey, onCrossLog }: Props) {
   const { logMovementSnackCompletion, removeWorkoutLog, workoutLogs, dayRolloverHour } = useSession();
-  const [state, setState] = useState<StreakState | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [heatmapColor, setHeatmapColor] = useState<string | null>(null);
-  const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
-
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) {
-      setLoadError(null);
-      setState(null);
-      return;
-    }
-    try {
-      setLoadError(null);
-      const [next, color] = await Promise.all([loadStreakState(), loadStreakHeatmapColorPref()]);
-      setHeatmapColor(color);
-      setState(next);
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load habits');
-    }
+  const loadBundle = useCallback(async (): Promise<StreakBundle> => {
+    const [state, heatmapColor] = await Promise.all([loadStreakState(), loadStreakHeatmapColorPref()]);
+    return { state, heatmapColor };
   }, []);
-
-  useEffect(() => {
-    void refresh();
-    const id = window.setInterval(() => void refresh(), 60_000);
-    const onRemoteRefresh = () => { void refresh(); };
-    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    };
-  }, [refresh]);
-
-  useEffect(() => {
-    if (refreshKey != null) void refresh();
-  }, [refreshKey, refresh]);
+  const { data, loadError, setData, storageReady } = useAppDataLoad(loadBundle, 'Failed to load habits', { refreshKey });
+  const state = data?.state ?? null;
+  const heatmapColor = data?.heatmapColor ?? null;
+  const setState = (next: StreakState | ((prev: StreakState | null) => StreakState | null)) => {
+    setData((bundle) => {
+      const prev = bundle?.state ?? null;
+      const resolved = typeof next === 'function' ? next(prev) : next;
+      if (!resolved) return null;
+      return { state: resolved, heatmapColor: bundle?.heatmapColor ?? null };
+    });
+  };
+  const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
 
   const handleLog = async (activityId: string, newState: StreakLogState | null, day?: string) => {
     if (!state) return;
@@ -138,7 +119,7 @@ export default function StreakSection({ refreshKey, onCrossLog }: Props) {
     setState(next);
   };
 
-  if (!hasAppStorage()) {
+  if (!storageReady) {
     return (
       <section className="streak-tracker-container" aria-label="Habits">
         <p className="streak-tracker-empty text-sm">Storage is not ready yet.</p>

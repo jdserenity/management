@@ -2,6 +2,20 @@
 
 Hard-won lessons and context that should survive across agent sessions.
 
+## Always backup `local.db` before sync/hydrate/schema work
+
+User data lives at `~/Library/Application Support/com.diamari.management/local.db` (not in git). Before refactors that touch sync, `hydrateDb`, migrations, or feature DBs:
+
+```bash
+npm run db:backup
+```
+
+That script uses `sqlite3 .backup` so **WAL contents are included** (plain `cp local.db` can drop recent rows still only in the `-wal` file).
+
+Backups land in `…/com.diamari.management/backups/mgmt-<timestamp>.db`. After recovery events, also keep a human-named copy (e.g. `mgmt-recovered-full-checkpoint-YYYY-MM-DD.db`).
+
+Lesson (2026-07): a hydrate/sync refactor wiped streaks/food/water; no pre-change backup existed. Phone companion + VPS still had data for recovery. Prefer phone→server upload then desktop pull when Mac is incomplete.
+
 ## Monorepo layout
 
 | Folder | Role |

@@ -1,5 +1,4 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { invoke } from '@tauri-apps/api/core';
@@ -50,13 +49,13 @@ export default function PostureDetectionSettingsCard() {
   };
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Posture detection</CardTitle></CardHeader>
-      <CardContent className="space-y-6">
+    <section className="plugin-panel space-y-3">
+      <h2 className="plugin-panel-title">Posture detection</h2>
+      <div className="space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="font-medium">Battery saving mode</span>
-            <p className="text-sm text-muted-foreground">Uses minute-based monitoring intervals and a lighter camera mode.</p>
+            <p className="text-sm plugin-muted">Uses minute-based monitoring intervals and a lighter camera mode.</p>
           </div>
           <Switch checked={batterySavingMode} onCheckedChange={handleBatterySavingToggle} />
         </div>
@@ -89,8 +88,8 @@ export default function PostureDetectionSettingsCard() {
         <SettingRow label="Shoulder alignment sensitivity" desc="How strictly shoulder asymmetry is flagged.">
           <SensitivitySelect value={shoulderSensitivity} onValueChange={setShoulderSensitivity} />
         </SettingRow>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -99,7 +98,7 @@ function SettingRow({ label, desc, children }: { label: string; desc: string; ch
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
         <span className="font-medium">{label}</span>
-        <p className="text-sm text-muted-foreground">{desc}</p>
+        <p className="text-sm plugin-muted">{desc}</p>
       </div>
       {children}
     </div>

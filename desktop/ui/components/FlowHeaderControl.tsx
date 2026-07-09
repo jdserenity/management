@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { Button } from '@/components/ui/button';
 import { useSession } from '@/context/SessionContext';
 import { flowStatusLabel } from '@/lib/sessionAlertLabels';
 import { isTauri } from '@/lib/isTauri';
+import { cn } from '@/lib/utils';
 
 type FlowHeaderControlProps = {
   onGoToWork: () => void;
@@ -54,16 +54,14 @@ const FlowHeaderControl = ({ onGoToWork, compact }: FlowHeaderControlProps) => {
   };
 
   return (
-    <Button
+    <button
       type="button"
-      variant={flowActive ? 'secondary' : 'default'}
-      size="sm"
-      className={compact ? 'shrink-0 gap-1 text-xs px-2.5' : 'ml-auto shrink-0 gap-1.5 text-xs sm:text-sm'}
+      className={cn('plugin-btn shrink-0', flowActive ? '' : 'plugin-btn-primary', compact && 'text-xs px-2.5')}
       onClick={handleClick}
       aria-label={flowActive ? `Open work tab — ${statusLabel}` : 'Start focus flow'}
     >
       {flowActive ? statusLabel : '▶ Start flow'}
-    </Button>
+    </button>
   );
 };
 

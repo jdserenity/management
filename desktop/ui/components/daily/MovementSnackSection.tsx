@@ -1,6 +1,6 @@
 // src/components/daily/MovementSnackSection.tsx
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
 import { isEasyMovementSnackLog, movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
@@ -9,7 +9,12 @@ import {
   completeTasksLinkedToMovementBurst,
   uncompleteTasksLinkedToMovementBurst
 } from '@/lib/streak/crossLinks';
-import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
+import {
+  buildTrackerChain,
+  TrackerAddPanel,
+  TrackerPlusButton,
+  TrackerSummary
+} from '@/components/daily/TrackerChain';
 import {
   DASHBOARD_MANUAL_EXERCISES,
   formatExerciseRunAggLine,
@@ -125,53 +130,48 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
     setAddMode(false);
   };
 
-  const chainItems: ReactNode[] = [];
-
-  if (!addMode) {
-    chainItems.push(
-      <button
-        key="hard"
-        type="button"
-        className="movement-chain-btn"
-        title="Log hard movement burst"
-        onClick={handleLogHard}
-      >
-        <span className="movement-chain-label">Hard burst</span>
-      </button>
-    );
-  }
-
-  snackLogs.forEach((log, i) => {
-    const easy = isEasyMovementSnackLog(log);
-    const timeLabel = formatNearestHalfHourLabel(log.completedAt);
-    const withConnector = chainItems.length > 0 || i > 0;
-    chainItems.push(
-      withConnector ? <TdeeChainConnector key={`c-snack-${log.id}`} /> : null,
-      <button
-        key={log.id}
-        type="button"
-        className={`movement-chain-btn movement-chain-done${easy ? ' movement-chain-done-easy' : ''}`}
-        title={`${easy ? 'Easy' : 'Hard'} burst · ${timeLabel} — click to remove`}
-        onClick={() => handleRemoveSnack(log.id)}
-      >
-        <span className="movement-chain-label">{easy ? 'Easy' : 'Hard'} · {timeLabel}</span>
-      </button>
-    );
+  const chips = [
+    ...(!addMode
+      ? [
+          <button
+            key="hard"
+            type="button"
+            className="movement-chain-btn"
+            title="Log hard movement burst"
+            onClick={handleLogHard}
+          >
+            <span className="movement-chain-label">Hard burst</span>
+          </button>
+        ]
+      : []),
+    ...snackLogs.map((log) => {
+      const easy = isEasyMovementSnackLog(log);
+      const timeLabel = formatNearestHalfHourLabel(log.completedAt);
+      return (
+        <button
+          key={log.id}
+          type="button"
+          className={`movement-chain-btn movement-chain-done${easy ? ' movement-chain-done-easy' : ''}`}
+          title={`${easy ? 'Easy' : 'Hard'} burst · ${timeLabel} — click to remove`}
+          onClick={() => handleRemoveSnack(log.id)}
+        >
+          <span className="movement-chain-label">{easy ? 'Easy' : 'Hard'} · {timeLabel}</span>
+        </button>
+      );
+    })
+  ];
+  const chainItems = buildTrackerChain({
+    chips,
+    plus: (
+      <TrackerPlusButton
+        key="plus"
+        prefix="movement"
+        addMode={addMode}
+        onOpen={() => setAddMode(true)}
+        titleClosed="Log exercise or modified burst"
+      />
+    )
   });
-
-  if (chainItems.length > 0) chainItems.push(<TdeeChainConnector key="c-plus" />);
-  chainItems.push(
-    <button
-      key="plus"
-      type="button"
-      className={`movement-chain-btn movement-chain-plus${addMode ? ' movement-chain-plus-disabled' : ''}`}
-      title={addMode ? 'Close add menu first' : 'Log exercise or modified burst'}
-      disabled={addMode}
-      onClick={() => setAddMode(true)}
-    >
-      +
-    </button>
-  );
 
   const renderSnackEditor = (kind: 'hard' | 'easy', draft: ExerciseDefinition[], primary: boolean) => (
     <div className={`movement-snack-editor${primary ? '' : ' movement-snack-editor-fallback'}`}>
@@ -210,32 +210,18 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
 
   return (
     <section className="movement-tracker-container" aria-label="Movement bursts">
-      <div className="movement-summary">
-        <div className="movement-counts">
-          <span>{done}</span>
-          <span className="movement-sep"> / </span>
-          <span className="movement-target">{goal} movement bursts today</span>
-        </div>
-        <div className={`movement-remaining${complete ? ' movement-remaining-done' : ''}`}>
-          {complete ? 'Goal reached' : `${goal - done} movement burst${goal - done === 1 ? '' : 's'} left`}
-        </div>
-        {goal > 0 ? (
-          <div className="movement-progress">
-            <div className="movement-progress-fill" style={{ width: `${Math.round(ratio * 100)}%` }} />
-          </div>
-        ) : null}
-      </div>
-
+      <TrackerSummary
+        prefix="movement"
+        today={done}
+        target={<>{goal} movement bursts today</>}
+        remainingText={complete ? 'Goal reached' : `${goal - done} movement burst${goal - done === 1 ? '' : 's'} left`}
+        remainingClass={complete ? ' movement-remaining-done' : ''}
+        progressRatio={ratio}
+        showProgress={goal > 0}
+      />
       <div className="movement-chain">{chainItems}</div>
-
       {addMode ? (
-        <div className="movement-add-panel">
-          <div className="movement-add-header">
-            <span className="movement-add-title">Log movement</span>
-            <button type="button" className="movement-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
-              ×
-            </button>
-          </div>
+        <TrackerAddPanel prefix="movement" title="Log movement" onClose={() => setAddMode(false)}>
           {renderSnackEditor('hard', hardDraft, true)}
           {renderSnackEditor('easy', easyDraft, false)}
           <div className="movement-snack-quick">
@@ -277,7 +263,7 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
               Log
             </button>
           </div>
-        </div>
+        </TrackerAddPanel>
       ) : null}
 
       {movementTotals.length > 0 ? (

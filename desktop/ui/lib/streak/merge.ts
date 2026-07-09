@@ -1,5 +1,4 @@
-import { pausedStateFromVault, mergePausedOnIncoming } from '@/lib/streak/pauseSync';
-import { mergeResetCounts } from '@/lib/streak/activityReset';
+import { pausedStateFromVault, mergePausedOnIncoming, mergeResetCounts } from '@/lib/streak/domain';
 import { getLogState, cellUpdatedAt, normalizeLogCell, normalizeLogs } from '@/lib/streak/logs';
 import type { StreakData, StreakLogCell } from '@/lib/streak/types';
 

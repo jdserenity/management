@@ -1,9 +1,4 @@
 import { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
-import { ArrowRight, Briefcase, Clock, Dumbbell, Plus, X } from 'lucide-react';
 import { useSession, type DeskPosture } from '@/context/SessionContext';
 import {
   SESSION_DURATIONS_MINUTES,
@@ -92,7 +87,6 @@ const Dashboard = () => {
     (breakVariant === 'short' || (breakVariant === 'long' && longBreakStage === 'exercise'));
 
   const showVeryLightBreakPanel = phase === 'break' && isVeryLightBreak(phase, breakVariant, longBreakStage);
-
   const isStandaloneExerciseBreak = phase === 'break' && !activeSessionType && breakVariant === 'short';
   const isStandaloneVeryLightBreak = phase === 'break' && !activeSessionType && breakVariant === 'very_light';
   const showChainControls = showSessionChainControls(phase);
@@ -119,269 +113,209 @@ const Dashboard = () => {
       } as const;
     }
     if (phase === 'break' && breakVariant === 'very_light') {
-      return {
-        title: VERY_LIGHT_BREAK_TITLE,
-        detail: `${SESSION_DURATIONS_MINUTES.break} min`
-      } as const;
+      return { title: VERY_LIGHT_BREAK_TITLE, detail: `${SESSION_DURATIONS_MINUTES.break} min` } as const;
     }
     if (phase === 'break' && breakVariant === 'short') {
-      return {
-        title: activeWorkout ? '🏃 Exercise break' : '☕ Short break',
-        detail: `${SESSION_DURATIONS_MINUTES.break} min`
-      } as const;
+      return { title: activeWorkout ? '🏃 Exercise break' : '☕ Short break', detail: `${SESSION_DURATIONS_MINUTES.break} min` } as const;
     }
     if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'very_light') {
-      return {
-        title: VERY_LIGHT_BREAK_TITLE,
-        detail: `Then ${longBreakRelaxMinutes} min to relax`
-      } as const;
+      return { title: VERY_LIGHT_BREAK_TITLE, detail: `Then ${longBreakRelaxMinutes} min to relax` } as const;
     }
     if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'exercise') {
-      return {
-        title: '🏃 Exercise break',
-        detail: `Then ${longBreakRelaxMinutes} min to relax`
-      } as const;
+      return { title: '🏃 Exercise break', detail: `Then ${longBreakRelaxMinutes} min to relax` } as const;
     }
     if (phase === 'break' && breakVariant === 'long' && longBreakStage === 'relax') {
-      return {
-        title: '☕ Relax',
-        detail: `${longBreakRelaxMinutes} min before next focus`
-      } as const;
+      return { title: '☕ Relax', detail: `${longBreakRelaxMinutes} min before next focus` } as const;
     }
     if (phase === 'break' && breakVariant === 'long') {
-      return {
-        title: '☕ Long break',
-        detail: `${SESSION_DURATIONS_MINUTES.longBreak} min total`
-      } as const;
+      return { title: '☕ Long break', detail: `${SESSION_DURATIONS_MINUTES.longBreak} min total` } as const;
     }
     return null;
   }, [phase, activeSessionType, breakVariant, longBreakStage, longBreakRelaxMinutes, isStandaloneExerciseBreak, isStandaloneVeryLightBreak, runPomodoros, activeWorkout, cantExerciseMode]);
 
   const nextEmoji = (t: SessionType) => (t === 'pomodoro' ? '🍅' : '🎯');
   const nextTitle = (t: SessionType) => (t === 'pomodoro' ? 'Pomodoro' : 'Deep work');
-
   const showConvertToDeepWork = canConvertFocusSession(phase, activeSessionType, 'deep');
   const showConvertToPomodoro = canConvertFocusSession(phase, activeSessionType, 'pomodoro');
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            ✅ Work + movement
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
-            {/* Timer - always full width on mobile, flex-[7] on desktop */}
-            <div className="min-w-0 flex-[7] rounded-xl border bg-muted/20 p-4 shadow-inner">
-              <p className="text-xl font-semibold">{timerLabel}</p>
-              <p className="text-4xl font-bold mt-2 tabular-nums tracking-tight">{formatClock(remainingSeconds)}</p>
-              {focusDeskPosture && (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">{formatDesk(focusDeskPosture)}</span>
-                  {phase === 'focus' && activeSessionType === 'pomodoro' && (
-                    <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs shrink-0" onClick={togglePomodoroDeskPosture} aria-label="Swap sitting and standing">
-                      Swap
-                    </Button>
-                  )}
-                  {showConvertToDeepWork && (
-                    <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs shrink-0" onClick={convertFlowToDeepWork} aria-label="Switch this focus block to deep work">
-                      🎯 Deep work
-                    </Button>
-                  )}
-                  {showConvertToPomodoro && (
-                    <Button type="button" variant="secondary" size="sm" className="h-7 px-2 text-xs shrink-0" onClick={convertFlowToPomodoro} aria-label="Switch this focus block to pomodoro">
-                      🍅 Pomodoro
-                    </Button>
-                  )}
-                  {activeSessionType === 'deep' && !showConvertToPomodoro && <span className="text-xs text-muted-foreground">· deep work</span>}
+    <div className="plugin-page">
+      <section className="plugin-panel">
+        <h2 className="plugin-panel-title">✅ Work + movement</h2>
+
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+          <div className="plugin-panel-flat min-w-0 flex-[7]">
+            <p className="font-semibold text-[1.05em]">{timerLabel}</p>
+            <p className="plugin-counts-lg mt-2">{formatClock(remainingSeconds)}</p>
+            {focusDeskPosture && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">{formatDesk(focusDeskPosture)}</span>
+                {phase === 'focus' && activeSessionType === 'pomodoro' && (
+                  <button type="button" className="plugin-btn" style={{ padding: '4px 10px', fontSize: '0.75em' }} onClick={togglePomodoroDeskPosture}>
+                    Swap
+                  </button>
+                )}
+                {showConvertToDeepWork && (
+                  <button type="button" className="plugin-btn" style={{ padding: '4px 10px', fontSize: '0.75em' }} onClick={convertFlowToDeepWork}>
+                    🎯 Deep work
+                  </button>
+                )}
+                {showConvertToPomodoro && (
+                  <button type="button" className="plugin-btn" style={{ padding: '4px 10px', fontSize: '0.75em' }} onClick={convertFlowToPomodoro}>
+                    🍅 Pomodoro
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:contents">
+            <div className="min-w-0 lg:flex-[1.1] lg:max-w-[11rem]">
+              {phase === 'idle' || isStandaloneExerciseBreak || isStandaloneVeryLightBreak ? (
+                <div className="plugin-panel-flat flex h-full min-h-[5.5rem] items-center justify-center plugin-muted text-xs border-dashed">
+                  Break
+                </div>
+              ) : breakPreview ? (
+                <div className="plugin-panel-flat flex h-full min-h-[5.5rem] flex-col items-center justify-center gap-1 text-center">
+                  <p className="text-xs font-semibold leading-tight">{breakPreview.title}</p>
+                  <p className="plugin-muted text-[11px] leading-snug">{breakPreview.detail}</p>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="min-w-0 lg:flex-[3]">
+              {!showChainControls && (
+                <div className="plugin-panel-flat flex h-full min-h-[5.5rem] flex-col items-center justify-center gap-1 text-center border-dashed">
+                  <span className="plugin-muted text-xs font-medium">No next focus</span>
+                </div>
+              )}
+              {showChainControls && nextFocus && (
+                <div className="plugin-panel-flat flex h-full min-h-[5.5rem] flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xl leading-none">{nextEmoji(nextFocus.type)}</div>
+                      <p className="mt-1 text-xs font-semibold">{nextTitle(nextFocus.type)}</p>
+                      <p className="mt-1 text-[11px] plugin-muted">
+                        <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.start)}</span>
+                        {' → '}
+                        <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.end)}</span>
+                      </p>
+                      {nextFocus.type === 'pomodoro' && nextDeskPostureIfPomodoro && (
+                        <p className="mt-0.5 text-[11px] font-medium">{formatDesk(nextDeskPostureIfPomodoro)}</p>
+                      )}
+                      {nextFocus.type === 'deep' && (
+                        <p className="mt-0.5 text-[11px] plugin-muted"><span className="font-medium text-foreground">Sitting</span> · deep</p>
+                      )}
+                    </div>
+                    <button type="button" className="plugin-btn-ghost" onClick={() => setNextSessionType(null)} aria-label="Remove next focus">×</button>
+                  </div>
+                  <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-2">
+                    <span className={nextFocus.type === 'pomodoro' ? 'opacity-100' : 'opacity-40'}>🍅</span>
+                    <button
+                      type="button"
+                      className="plugin-btn"
+                      style={{ padding: '4px 10px', fontSize: '0.75em' }}
+                      onClick={() => setNextSessionType(nextFocus.type === 'deep' ? 'pomodoro' : 'deep')}
+                    >
+                      Toggle {nextFocus.type === 'deep' ? '🍅' : '🎯'}
+                    </button>
+                    <span className={nextFocus.type === 'deep' ? 'opacity-100' : 'opacity-40'}>🎯</span>
+                  </div>
+                </div>
+              )}
+              {showChainControls && !nextFocus && (
+                <div className="plugin-panel-flat flex h-full min-h-[5.5rem] flex-col items-center justify-center gap-2 border-dashed">
+                  <p className="plugin-muted text-xs">Add next focus</p>
+                  <button type="button" className="plugin-btn" onClick={() => setNextSessionType('pomodoro')}>+</button>
                 </div>
               )}
             </div>
-
-            {/* Arrow 1 – desktop only */}
-            <div className="hidden shrink-0 items-center justify-center px-0.5 lg:flex" aria-hidden>
-              <ArrowRight className="h-6 w-6 text-muted-foreground" />
-            </div>
-
-            {/* Break + Next: 2-col grid on mobile; display:contents on desktop (children flow into parent flex) */}
-            <div className="grid grid-cols-2 gap-3 lg:contents">
-              {/* Break preview */}
-              <div className="min-w-0 lg:flex-[1.1] lg:max-w-[11rem] lg:flex-none lg:basis-[10%]">
-                {phase === 'idle' || isStandaloneExerciseBreak || isStandaloneVeryLightBreak ? (
-                  <div className="flex h-full min-h-[5.5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/25 bg-muted/10 px-2 py-2 text-center text-[10px] text-muted-foreground">
-                    <span>Break</span>
-                  </div>
-                ) : breakPreview ? (
-                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col items-center justify-center gap-1 rounded-xl border bg-teal-500/10 px-2 py-3 text-center shadow-inner ring-1 ring-border/60">
-                    <p className="text-[11px] font-semibold leading-tight sm:text-xs">{breakPreview.title}</p>
-                    <p className="text-[10px] text-muted-foreground leading-snug sm:text-[11px]">{breakPreview.detail}</p>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Arrow 2 – desktop only; hidden in mobile grid (display:none = no grid cell) */}
-              <div className="hidden shrink-0 items-center justify-center px-0.5 lg:flex" aria-hidden>
-                <ArrowRight className="h-6 w-6 text-muted-foreground" />
-              </div>
-
-              {/* Next focus */}
-              <div className="min-w-0 lg:flex-[3]">
-                {!showChainControls && (
-                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/15 px-2 py-3 text-center text-xs text-muted-foreground">
-                    <span className="text-2xl opacity-60">⏱️</span>
-                    <span className="font-medium">No next focus</span>
-                  </div>
-                )}
-                {showChainControls && nextFocus && (
-                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col rounded-xl border bg-gradient-to-br from-violet-500/12 via-background to-amber-500/10 p-3 shadow-sm ring-1 ring-border/70">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-2xl leading-none">{nextEmoji(nextFocus.type)}</div>
-                        <p className="mt-1 text-xs font-semibold leading-tight">{nextTitle(nextFocus.type)}</p>
-                        <p className="mt-1 text-[10px] text-muted-foreground">
-                          <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.start)}</span>
-                          <span className="mx-0.5 text-muted-foreground">→</span>
-                          <span className="font-medium text-foreground tabular-nums">{formatWallTime(nextFocus.end)}</span>
-                        </p>
-                        {nextFocus.type === 'pomodoro' && nextDeskPostureIfPomodoro && (
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
-                            <span className="font-medium text-foreground">{formatDesk(nextDeskPostureIfPomodoro)}</span>
-                          </p>
-                        )}
-                        {nextFocus.type === 'deep' && (
-                          <p className="mt-0.5 text-[10px] text-muted-foreground">
-                            <span className="font-medium text-foreground">Sitting</span>
-                            <span className="text-muted-foreground"> · deep</span>
-                          </p>
-                        )}
-                      </div>
-                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setNextSessionType(null)} aria-label="Remove next focus session">
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    <Separator className="my-1.5" />
-                    <div className="mt-auto flex items-center justify-between gap-2">
-                      <span className={`text-base ${nextFocus.type === 'pomodoro' ? 'opacity-100' : 'opacity-40'}`}>🍅</span>
-                      <Switch
-                        checked={nextFocus.type === 'deep'}
-                        onCheckedChange={(checked) => setNextSessionType(checked ? 'deep' : 'pomodoro')}
-                        aria-label="Toggle next focus between Pomodoro and Deep work"
-                      />
-                      <span className={`text-base ${nextFocus.type === 'deep' ? 'opacity-100' : 'opacity-40'}`}>🎯</span>
-                    </div>
-                  </div>
-                )}
-                {showChainControls && !nextFocus && (
-                  <div className="flex h-full min-h-[5.5rem] lg:min-h-[9.5rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-muted-foreground/35 bg-muted/10 p-3">
-                    <p className="text-xs text-muted-foreground">Add next focus</p>
-                    <Button type="button" variant="outline" size="icon" className="h-10 w-10 rounded-full" onClick={() => setNextSessionType('pomodoro')} aria-label="Schedule next Pomodoro">
-                      <Plus className="h-5 w-5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
+        </div>
 
+        <div className="mt-3 flex flex-wrap gap-2">
           {phase === 'idle' ? (
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={() => startFlow('pomodoro')}>🍅 Start Pomodoro</Button>
-              <Button variant="secondary" onClick={() => startFlow('deep')}>🎯 Start deep work</Button>
-              <Button variant="outline" onClick={startExerciseBreak}>
+            <>
+              <button type="button" className="plugin-btn plugin-btn-primary" onClick={() => startFlow('pomodoro')}>🍅 Start Pomodoro</button>
+              <button type="button" className="plugin-btn" onClick={() => startFlow('deep')}>🎯 Start deep work</button>
+              <button type="button" className="plugin-btn" onClick={startExerciseBreak}>
                 {cantExerciseMode ? '🫖 Start Very Light Break' : '🏃 Start Exercise Break'}
-              </Button>
-            </div>
+              </button>
+            </>
           ) : (
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={finishFlow}>End Flow Now</Button>
-            </div>
+            <button type="button" className="plugin-btn" onClick={finishFlow}>End Flow Now</button>
           )}
+        </div>
 
-          {showExerciseBreakPanel && (
-            <div className="space-y-4 rounded-lg border p-4 bg-emerald-50/50 dark:bg-emerald-950/20">
-              <p className="font-semibold text-lg flex items-center gap-2">
-                <Dumbbell className="h-5 w-5 text-emerald-600" />
-                🎲 {activeWorkout.name}
-              </p>
-              <ul className="space-y-2">
-                {activeWorkout.exercises.map((ex, index) => (
-                  <li key={`${activeWorkout.id}-${index}-${ex.id}`} className="flex flex-col gap-2 rounded-md border bg-background px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium leading-snug">{ex.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{formatExerciseAmount(ex)}</p>
-                    </div>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                      <span className="sr-only">Adjust amount for {ex.name}</span>
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm font-semibold tabular-nums text-foreground shadow-sm"
-                        value={ex.amount}
-                        onChange={(e) => updateBreakExerciseAmount(index, Number(e.target.value))}
-                      />
-                      <span className="tabular-nums">{ex.unit === 'reps' ? 'reps' : ex.unit === 'seconds' ? 'sec' : 'min'}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-              <Button size="sm" onClick={handleWorkoutCompletion}>
-                {workoutLogged ? 'Workout Logged' : 'Complete Workout'}
-              </Button>
-            </div>
-          )}
-
-          {showVeryLightBreakPanel && (
-            <div className="rounded-lg border border-dashed bg-sky-50/50 px-4 py-3 text-sm dark:bg-sky-950/20">
-              <p className="font-semibold text-foreground">{VERY_LIGHT_BREAK_TITLE}</p>
-              <p className="mt-1 text-muted-foreground">{VERY_LIGHT_BREAK_HINT}</p>
-            </div>
-          )}
-
-          {phase === 'break' && breakVariant === 'long' && longBreakStage === 'relax' && (
-            <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Relax</span> — no prescribed moves. When the timer ends, your scheduled next focus starts (unless you ended the flow).
-            </div>
-          )}
-
-          <div className="flex justify-end pt-1">
-            <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Switch
-                checked={cantExerciseMode}
-                onCheckedChange={setCantExerciseMode}
-                className="scale-75"
-                aria-label="Can't exercise right now"
-              />
-              <span>Can&apos;t exercise rn</span>
-            </label>
+        {showExerciseBreakPanel && activeWorkout && (
+          <div className="plugin-panel-flat mt-3 space-y-3">
+            <p className="font-semibold">🎲 {activeWorkout.name}</p>
+            <ul className="space-y-0">
+              {activeWorkout.exercises.map((ex, index) => (
+                <li key={`${activeWorkout.id}-${index}-${ex.id}`} className="plugin-row">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{ex.name}</p>
+                    <p className="plugin-muted text-xs">{formatExerciseAmount(ex)}</p>
+                  </div>
+                  <label className="flex items-center gap-1.5 text-xs plugin-muted shrink-0">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      className="plugin-input w-16 tabular-nums font-semibold"
+                      value={ex.amount}
+                      onChange={(e) => updateBreakExerciseAmount(index, Number(e.target.value))}
+                    />
+                    <span>{ex.unit === 'reps' ? 'reps' : ex.unit === 'seconds' ? 'sec' : 'min'}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="plugin-btn plugin-btn-primary" onClick={handleWorkoutCompletion}>
+              {workoutLogged ? 'Workout Logged' : 'Complete Workout'}
+            </button>
           </div>
+        )}
 
-        </CardContent>
-      </Card>
+        {showVeryLightBreakPanel && (
+          <div className="plugin-panel-flat mt-3 border-dashed">
+            <p className="font-semibold">{VERY_LIGHT_BREAK_TITLE}</p>
+            <p className="plugin-muted mt-1">{VERY_LIGHT_BREAK_HINT}</p>
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-1 md:items-stretch">
-        <Card className="flex flex-col">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-violet-600" />
-              Today&apos;s work
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col justify-center space-y-3">
-            <div className="rounded-md border px-3 py-3 text-sm">
-              <p className="font-medium">🍅 Pomodoros</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums">{focusToday.todayPomodoros}</p>
-            </div>
-            <div className="rounded-md border px-3 py-3 text-sm">
-              <p className="font-medium">🎯 Deep work</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums">{focusToday.todayDeepWork}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        {phase === 'break' && breakVariant === 'long' && longBreakStage === 'relax' && (
+          <div className="plugin-panel-flat mt-3 border-dashed plugin-muted text-sm">
+            <span className="font-medium text-foreground">Relax</span> — no prescribed moves. When the timer ends, your scheduled next focus starts.
+          </div>
+        )}
+
+        <div className="mt-3 flex justify-end">
+          <label className="flex cursor-pointer items-center gap-2 text-[11px] plugin-muted">
+            <input
+              type="checkbox"
+              checked={cantExerciseMode}
+              onChange={(e) => setCantExerciseMode(e.target.checked)}
+              aria-label="Can't exercise right now"
+            />
+            <span>Can&apos;t exercise rn</span>
+          </label>
+        </div>
+      </section>
+
+      <section className="plugin-panel">
+        <h2 className="plugin-panel-title">Today&apos;s work</h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="plugin-stat-block">
+            <p className="font-medium text-sm">🍅 Pomodoros</p>
+            <p className="plugin-counts">{focusToday.todayPomodoros}</p>
+          </div>
+          <div className="plugin-stat-block">
+            <p className="font-medium text-sm">🎯 Deep work</p>
+            <p className="plugin-counts">{focusToday.todayDeepWork}</p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

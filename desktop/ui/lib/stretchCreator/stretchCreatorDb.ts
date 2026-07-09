@@ -1,8 +1,6 @@
-import { getDb } from '@/lib/db';
+import { getAppKv, getAppKvMany, setAppKv } from '@/lib/appKv';
 import { defaultWorkoutCustomizePrefs, type WorkoutCustomizePrefs } from '@/lib/workoutCustomize';
-import {
-  KV_MORNING_STRETCH_ROUTINE
-} from '@/lib/morningStretch/morningStretchDb';
+import { KV_MORNING_STRETCH_ROUTINE } from '@/lib/morningStretch/morningStretchDb';
 import {
   KV_MORNING_STRETCH_DURATION_MINUTES,
   KV_MORNING_STRETCH_ENABLED,
@@ -18,28 +16,12 @@ import {
 
 export const KV_STRETCH_DEFINITIONS = 'stretch_definitions_v1';
 
-type AppKvRow = { value: string };
-
-const getKv = async (key: string): Promise<string | null> => {
-  const db = await getDb();
-  const rows = await db.select<AppKvRow[]>('SELECT value FROM app_kv WHERE key = $1 LIMIT 1', [key]);
-  return rows[0]?.value ?? null;
-};
-
-const setKv = async (key: string, value: string): Promise<void> => {
-  const db = await getDb();
-  await db.execute(
-    'INSERT INTO app_kv (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
-    [key, value, Date.now()]
-  );
-};
-
 const migrateFromLegacyMorningStretch = async (prefs: WorkoutCustomizePrefs): Promise<StretchDefinition> => {
-  const [enabledRaw, durationRaw, hideRaw, routineRaw] = await Promise.all([
-    getKv(KV_MORNING_STRETCH_ENABLED),
-    getKv(KV_MORNING_STRETCH_DURATION_MINUTES),
-    getKv(KV_MORNING_STRETCH_HIDE_AFTER_HOUR),
-    getKv(KV_MORNING_STRETCH_ROUTINE)
+  const [enabledRaw, durationRaw, hideRaw, routineRaw] = await getAppKvMany([
+    KV_MORNING_STRETCH_ENABLED,
+    KV_MORNING_STRETCH_DURATION_MINUTES,
+    KV_MORNING_STRETCH_HIDE_AFTER_HOUR,
+    KV_MORNING_STRETCH_ROUTINE
   ]);
   const durationParsed = durationRaw !== null ? Number.parseInt(durationRaw, 10) : NaN;
   const hideParsed = hideRaw !== null ? Number.parseInt(hideRaw, 10) : NaN;
@@ -77,24 +59,24 @@ const normalizeCollection = (raw: unknown, prefs: WorkoutCustomizePrefs): Stretc
 const persistLegacyMorningStretch = async (stretch: StretchDefinition): Promise<void> => {
   if (stretch.id !== BUILTIN_MORNING_STRETCH_ID) return;
   await Promise.all([
-    setKv(KV_MORNING_STRETCH_ENABLED, stretch.enabled ? 'true' : 'false'),
-    setKv(KV_MORNING_STRETCH_DURATION_MINUTES, String(stretch.durationMinutes)),
-    setKv(
+    setAppKv(KV_MORNING_STRETCH_ENABLED, stretch.enabled ? 'true' : 'false'),
+    setAppKv(KV_MORNING_STRETCH_DURATION_MINUTES, String(stretch.durationMinutes)),
+    setAppKv(
       KV_MORNING_STRETCH_HIDE_AFTER_HOUR,
       String(stretch.trigger.mode === 'scheduled' ? stretch.trigger.hideAfterHour : 11)
     ),
-    setKv(KV_MORNING_STRETCH_ROUTINE, JSON.stringify({ exerciseRefs: stretch.exerciseRefs }))
+    setAppKv(KV_MORNING_STRETCH_ROUTINE, JSON.stringify({ exerciseRefs: stretch.exerciseRefs }))
   ]);
 };
 
 export const loadStretchDefinitions = async (
   prefs: WorkoutCustomizePrefs = defaultWorkoutCustomizePrefs()
 ): Promise<StretchDefinition[]> => {
-  const raw = await getKv(KV_STRETCH_DEFINITIONS);
+  const raw = await getAppKv(KV_STRETCH_DEFINITIONS);
   if (!raw) {
     const migrated = await migrateFromLegacyMorningStretch(prefs);
     const collection = [migrated];
-    await setKv(KV_STRETCH_DEFINITIONS, JSON.stringify(collection));
+    await setAppKv(KV_STRETCH_DEFINITIONS, JSON.stringify(collection));
     return collection;
   }
   try {
@@ -119,7 +101,7 @@ export const saveStretchDefinitions = async (
   prefs: WorkoutCustomizePrefs = defaultWorkoutCustomizePrefs()
 ): Promise<StretchDefinition[]> => {
   const normalized = normalizeCollection(stretches, prefs);
-  await setKv(KV_STRETCH_DEFINITIONS, JSON.stringify(normalized));
+  await setAppKv(KV_STRETCH_DEFINITIONS, JSON.stringify(normalized));
   const builtIn = normalized.find((s) => s.id === BUILTIN_MORNING_STRETCH_ID);
   if (builtIn) await persistLegacyMorningStretch(builtIn);
   return normalized;

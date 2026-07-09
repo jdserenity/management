@@ -38,7 +38,9 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
 - Streak activities: order by `sort_order` (add order + drag reorder in Customize; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
 
-Engine: `SessionContext.tsx` + `@mgmt/core` (`flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`). Workout picking: `workoutPlanner.ts`, `exerciseBreak.ts`.
+Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/core` (`flowEngine.ts`, `flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`, `exerciseMode.ts`). Workout modules: `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` (break picking + stretch helpers).
+
+**UI look:** Obsidian-plugin Daily language is app-wide — `desktop/ui/plugin-ui.css` + tokens in `App.css`. Shell/Work/Stats/Settings/Customize/Posture use plugin panels/chips/nav (not gradient shadcn chrome).
 
 ## Repo layout
 
@@ -87,6 +89,8 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 **Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards.
 
+**Table SQL truth:** `shared/sync/src/userDataSchema.ts` — column lists, bind order, client select/insert, server select/insert/patch/delete. `backend/src/dataStore.ts` and client `extractUserData`/`hydrateDb` loop the schema (no per-table SQL copies).
+
 **Leader:** Companion auto-claims during exercise breaks; desktop viewer mode (`sessionSync.ts` `isSyncViewer`).
 
 **Active session:** `active_flow_singleton` on server — live `ActiveFlowDocument` (phase, break workout, leader). Not in user-data snapshot.
@@ -133,8 +137,12 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Concern | Path |
 | --- | --- |
 | Nav | `desktop/ui/lib/navConfig.ts` |
-| Session state | `desktop/ui/context/SessionContext.tsx`, `shared/core/src/` |
+| Session state | `desktop/ui/context/SessionContext.tsx` (holds one `PersistedFlowState`); pure transitions in `@mgmt/core` `flowEngine.ts` / `exerciseMode.ts` |
 | Feature DBs | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/` |
+| Workout modules | `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` |
+| Plugin UI | `desktop/ui/plugin-ui.css`, tokens in `App.css` |
+| app_kv prefs | `desktop/ui/lib/appKv.ts` (get/set + bool/json/int factories); thin `*Pref.ts` wrappers |
 | Sync wiring | `dataSync.ts`, `dataSyncBootstrap.ts`, `shared/sync/src/` |
+| UserData SQL schema | `shared/sync/src/userDataSchema.ts` |
 | Migrations (desktop) | `desktop/src-tauri/src/main.rs` |
 | Shared schema | `shared/storage/src/migrations.ts` |

@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 import { formatChipMacros } from '@/lib/tdee/totals';
 import { formatIngredientsList, mealTotalsFromIngredients, normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
 import { normalizeMealDef } from '@/lib/tdee/normalize';
@@ -16,7 +15,7 @@ import {
 } from '@/lib/tdeeDb';
 import { loadWaterFile, saveWaterTarget } from '@/lib/waterDb';
 import { litresToMl, mlToLitres } from '@/lib/water/totals';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { useAppDataLoad } from '@/lib/useAppDataLoad';
 
 type IngredientDraft = { name: string; calories: string; protein: string };
 type MealDraft = { name: string; ingredients: IngredientDraft[]; simpleCalories: string; simpleProtein: string };
@@ -62,6 +61,21 @@ const buildMealFromDraft = (draft: MealDraft, editId: string | null, meals: Tdee
   return normalizeMealDef({ id, name, calories, protein });
 };
 
+const Field = ({
+  label,
+  children,
+  className = ''
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) => (
+  <label className={`flex flex-col gap-1 text-xs plugin-muted ${className}`}>
+    {label}
+    {children}
+  </label>
+);
+
 const MealEditor = ({
   title,
   draft,
@@ -83,65 +97,59 @@ const MealEditor = ({
   }, [draft.ingredients]);
 
   return (
-    <div className="space-y-3 rounded-md border bg-muted/20 px-3 py-3">
+    <div className="plugin-panel-flat space-y-3">
       <p className="text-sm font-semibold">{title}</p>
-      <label className="flex flex-col gap-1 text-xs">
-        <span className="text-muted-foreground">Name</span>
-        <input className="rounded-md border border-input bg-background px-2 py-1 text-sm" value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} />
-      </label>
+      <Field label="Name">
+        <input className="plugin-input text-sm text-foreground" value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} />
+      </Field>
       {draft.ingredients.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground">Ingredients</p>
+          <p className="text-xs font-medium plugin-muted">Ingredients</p>
           {draft.ingredients.map((row, idx) => (
             <div key={idx} className="flex flex-wrap items-end gap-2">
-              <label className="flex min-w-[8rem] flex-1 flex-col gap-1 text-xs">
-                <span className="text-muted-foreground">Ingredient</span>
-                <input className="rounded-md border border-input bg-background px-2 py-1 text-sm" value={row.name} onChange={(e) => {
+              <Field label="Ingredient" className="min-w-[8rem] flex-1">
+                <input className="plugin-input text-sm text-foreground" value={row.name} onChange={(e) => {
                   const ingredients = [...draft.ingredients];
                   ingredients[idx] = { ...row, name: e.target.value };
                   onDraftChange({ ...draft, ingredients });
                 }} />
-              </label>
-              <label className="flex flex-col gap-1 text-xs">
-                <span className="text-muted-foreground">Calories</span>
-                <input type="number" min={1} step={1} className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={row.calories} onChange={(e) => {
+              </Field>
+              <Field label="Calories">
+                <input type="number" min={1} step={1} className="plugin-input w-20 tabular-nums text-foreground" value={row.calories} onChange={(e) => {
                   const ingredients = [...draft.ingredients];
                   ingredients[idx] = { ...row, calories: e.target.value };
                   onDraftChange({ ...draft, ingredients });
                 }} />
-              </label>
-              <label className="flex flex-col gap-1 text-xs">
-                <span className="text-muted-foreground">Protein (g)</span>
-                <input type="number" min={0} step={0.1} className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={row.protein} onChange={(e) => {
+              </Field>
+              <Field label="Protein (g)">
+                <input type="number" min={0} step={0.1} className="plugin-input w-20 tabular-nums text-foreground" value={row.protein} onChange={(e) => {
                   const ingredients = [...draft.ingredients];
                   ingredients[idx] = { ...row, protein: e.target.value };
                   onDraftChange({ ...draft, ingredients });
                 }} />
-              </label>
-              <Button type="button" size="sm" variant="ghost" onClick={() => onDraftChange({ ...draft, ingredients: draft.ingredients.filter((_, i) => i !== idx) })}>Remove</Button>
+              </Field>
+              <button type="button" className="plugin-btn-ghost text-sm" onClick={() => onDraftChange({ ...draft, ingredients: draft.ingredients.filter((_, i) => i !== idx) })}>Remove</button>
             </div>
           ))}
           {ingredientTotals ? (
-            <p className="text-xs text-muted-foreground">Total: {formatChipMacros(ingredientTotals.calories, ingredientTotals.protein)}</p>
+            <p className="plugin-muted text-xs">Total: {formatChipMacros(ingredientTotals.calories, ingredientTotals.protein)}</p>
           ) : null}
-          <Button type="button" size="sm" variant="secondary" onClick={() => onDraftChange({ ...draft, ingredients: [...draft.ingredients, emptyIngredient()] })}>Add ingredient</Button>
+          <button type="button" className="plugin-btn text-sm" onClick={() => onDraftChange({ ...draft, ingredients: [...draft.ingredients, emptyIngredient()] })}>Add ingredient</button>
         </div>
       ) : (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Calories</span>
-            <input type="number" min={1} step={1} className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={draft.simpleCalories} onChange={(e) => onDraftChange({ ...draft, simpleCalories: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs">
-            <span className="text-muted-foreground">Protein (g)</span>
-            <input type="number" min={0} step={0.1} className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={draft.simpleProtein} onChange={(e) => onDraftChange({ ...draft, simpleProtein: e.target.value })} />
-          </label>
-          <Button type="button" size="sm" variant="secondary" onClick={() => onDraftChange({ ...draft, ingredients: [emptyIngredient()], simpleCalories: '', simpleProtein: '' })}>Use ingredients</Button>
+          <Field label="Calories">
+            <input type="number" min={1} step={1} className="plugin-input w-20 tabular-nums text-foreground" value={draft.simpleCalories} onChange={(e) => onDraftChange({ ...draft, simpleCalories: e.target.value })} />
+          </Field>
+          <Field label="Protein (g)">
+            <input type="number" min={0} step={0.1} className="plugin-input w-20 tabular-nums text-foreground" value={draft.simpleProtein} onChange={(e) => onDraftChange({ ...draft, simpleProtein: e.target.value })} />
+          </Field>
+          <button type="button" className="plugin-btn text-sm" onClick={() => onDraftChange({ ...draft, ingredients: [emptyIngredient()], simpleCalories: '', simpleProtein: '' })}>Use ingredients</button>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" onClick={onSave}>{editingId ? 'Save' : 'Add'}</Button>
-        {editingId ? <Button type="button" size="sm" variant="ghost" onClick={onCancel}>Cancel</Button> : null}
+        <button type="button" className="plugin-btn plugin-btn-primary text-sm" onClick={onSave}>{editingId ? 'Save' : 'Add'}</button>
+        {editingId ? <button type="button" className="plugin-btn-ghost text-sm" onClick={onCancel}>Cancel</button> : null}
       </div>
     </div>
   );
@@ -156,21 +164,21 @@ const MealList = ({
   onEdit: (meal: TdeeMealDef) => void;
   onRemove: (id: string) => void;
 }) => {
-  if (meals.length === 0) return <p className="text-xs text-muted-foreground">None yet.</p>;
+  if (meals.length === 0) return <p className="plugin-empty text-xs">None yet.</p>;
   return (
     <ul className="space-y-2">
       {meals.map((meal) => (
-        <li key={meal.id} className="flex flex-col gap-2 rounded-md border px-3 py-2">
+        <li key={meal.id} className="plugin-panel-flat space-y-2">
           <div className="min-w-0">
             <p className="font-medium">{meal.name}</p>
-            <p className="text-xs text-muted-foreground">{formatChipMacros(meal.calories, meal.protein)}</p>
+            <p className="plugin-muted text-xs">{formatChipMacros(meal.calories, meal.protein)}</p>
             {meal.ingredients?.length ? (
-              <p className="mt-1 text-xs text-muted-foreground">{formatIngredientsList(meal.ingredients)}</p>
+              <p className="mt-1 plugin-muted text-xs">{formatIngredientsList(meal.ingredients)}</p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={() => onEdit(meal)}>Edit</Button>
-            <Button size="sm" variant="ghost" onClick={() => onRemove(meal.id)}>Remove</Button>
+            <button type="button" className="plugin-btn text-sm" onClick={() => onEdit(meal)}>Edit</button>
+            <button type="button" className="plugin-btn-ghost text-sm" onClick={() => onRemove(meal.id)}>Remove</button>
           </div>
         </li>
       ))}
@@ -178,9 +186,18 @@ const MealList = ({
   );
 };
 
+type FoodBundle = { file: TdeeFile; waterTargetDraft: string };
+
 export default function CustomizeFoodPanel() {
-  const [file, setFile] = useState<TdeeFile | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadBundle = useCallback(async (): Promise<FoodBundle> => {
+    const [file, water] = await Promise.all([loadTdeeFile(), loadWaterFile()]);
+    return { file, waterTargetDraft: water.targetMl ? String(mlToLitres(water.targetMl)) : '' };
+  }, []);
+  const { data, loadError, setData, storageReady } = useAppDataLoad(loadBundle, 'Failed to load nutrition data', { intervalMs: null, listenSync: false });
+  const file = data?.file ?? null;
+  const setFile = (next: TdeeFile | Promise<TdeeFile>) => {
+    void Promise.resolve(next).then((f) => setData((b) => (b ? { ...b, file: f } : { file: f, waterTargetDraft: '' })));
+  };
   const [tdeeDraft, setTdeeDraft] = useState('');
   const [proteinDraft, setProteinDraft] = useState('');
   const [stapleDraft, setStapleDraft] = useState<MealDraft>(emptyDraft);
@@ -189,22 +206,12 @@ export default function CustomizeFoodPanel() {
   const [regularEditId, setRegularEditId] = useState<string | null>(null);
   const [waterTargetDraft, setWaterTargetDraft] = useState('');
 
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
-    try {
-      setLoadError(null);
-      const [next, water] = await Promise.all([loadTdeeFile(), loadWaterFile()]);
-      setFile(next);
-      setTdeeDraft(String(next.tdee || ''));
-      setProteinDraft(String(next.protein || ''));
-      setWaterTargetDraft(water.targetMl ? String(mlToLitres(water.targetMl)) : '');
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load nutrition data');
-    }
-  }, []);
-
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!data) return;
+    setTdeeDraft(String(data.file.tdee || ''));
+    setProteinDraft(String(data.file.protein || ''));
+    setWaterTargetDraft(data.waterTargetDraft);
+  }, [data]);
 
   const saveMeal = async (
     draft: MealDraft,
@@ -220,61 +227,45 @@ export default function CustomizeFoodPanel() {
     clear();
   };
 
-  if (!hasAppStorage()) {
-    return <p className="text-sm text-muted-foreground">Storage is not ready yet.</p>;
-  }
+  if (!storageReady) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
-  if (!file) return <p className="text-sm text-muted-foreground">Loading food…</p>;
+  if (!file) return <p className="plugin-muted text-sm">Loading food…</p>;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader><CardTitle>Targets</CardTitle></CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-muted-foreground">TDEE (kcal)</span>
-              <input type="number" min={0} step={1} className="w-28 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={tdeeDraft} onChange={(e) => setTdeeDraft(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-muted-foreground">Protein (g)</span>
-              <input type="number" min={0} step={0.1} className="w-28 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={proteinDraft} onChange={(e) => setProteinDraft(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-muted-foreground">Water (L)</span>
-              <input type="number" min={0} step={0.1} className="w-28 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" value={waterTargetDraft} onChange={(e) => setWaterTargetDraft(e.target.value)} />
-            </label>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void Promise.all([
-                updateTdeeTargets(file, Number(tdeeDraft) || 0, Number(proteinDraft) || 0),
-                loadWaterFile().then((w) => saveWaterTarget(w, litresToMl(Number(waterTargetDraft) || 0)))
-              ]).then(([next]) => setFile(next))}
-            >
-              Save targets
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      <CustomizePanel title="Targets" description="Daily calorie, protein, and water goals shown on Daily.">
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="TDEE (kcal)">
+            <input type="number" min={0} step={1} className="plugin-input w-28 tabular-nums text-foreground" value={tdeeDraft} onChange={(e) => setTdeeDraft(e.target.value)} />
+          </Field>
+          <Field label="Protein (g)">
+            <input type="number" min={0} step={0.1} className="plugin-input w-28 tabular-nums text-foreground" value={proteinDraft} onChange={(e) => setProteinDraft(e.target.value)} />
+          </Field>
+          <Field label="Water (L)">
+            <input type="number" min={0} step={0.1} className="plugin-input w-28 tabular-nums text-foreground" value={waterTargetDraft} onChange={(e) => setWaterTargetDraft(e.target.value)} />
+          </Field>
+          <button
+            type="button"
+            className="plugin-btn plugin-btn-primary text-sm"
+            onClick={() => void Promise.all([
+              updateTdeeTargets(file, Number(tdeeDraft) || 0, Number(proteinDraft) || 0),
+              loadWaterFile().then((w) => saveWaterTarget(w, litresToMl(Number(waterTargetDraft) || 0)))
+            ]).then(([next]) => setFile(next))}
+          >
+            Save targets
+          </button>
+        </div>
+      </CustomizePanel>
 
-      <Card>
-        <CardHeader><CardTitle>Staples</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">One-tap items on the Daily food chain until logged each day. Totals sum from ingredients when you use them; otherwise set calories and protein directly (e.g. olive oil).</p>
-          <MealList meals={file.staples} onEdit={(meal) => { setStapleEditId(meal.id); setStapleDraft(mealToDraft(meal)); }} onRemove={(id) => void removeTdeeStaple(file, id).then(setFile)} />
-          <MealEditor title={stapleEditId ? 'Edit staple' : 'Add staple'} draft={stapleDraft} editingId={stapleEditId} onDraftChange={setStapleDraft} onSave={() => void saveMeal(stapleDraft, stapleEditId, file.staples, upsertTdeeStaple, () => { setStapleDraft(emptyDraft()); setStapleEditId(null); })} onCancel={() => { setStapleDraft(emptyDraft()); setStapleEditId(null); }} />
-        </CardContent>
-      </Card>
+      <CustomizePanel title="Staples" description="One-tap items on the Daily food chain until logged each day. Totals sum from ingredients when you use them; otherwise set calories and protein directly.">
+        <MealList meals={file.staples} onEdit={(meal) => { setStapleEditId(meal.id); setStapleDraft(mealToDraft(meal)); }} onRemove={(id) => void removeTdeeStaple(file, id).then(setFile)} />
+        <MealEditor title={stapleEditId ? 'Edit staple' : 'Add staple'} draft={stapleDraft} editingId={stapleEditId} onDraftChange={setStapleDraft} onSave={() => void saveMeal(stapleDraft, stapleEditId, file.staples, upsertTdeeStaple, () => { setStapleDraft(emptyDraft()); setStapleEditId(null); })} onCancel={() => { setStapleDraft(emptyDraft()); setStapleEditId(null); }} />
+      </CustomizePanel>
 
-      <Card>
-        <CardHeader><CardTitle>Regulars</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">Reusable meals with default portions; log them from the + menu on Daily.</p>
-          <MealList meals={file.regulars} onEdit={(meal) => { setRegularEditId(meal.id); setRegularDraft(mealToDraft(meal)); }} onRemove={(id) => void removeTdeeRegular(file, id).then(setFile)} />
-          <MealEditor title={regularEditId ? 'Edit regular' : 'Add regular'} draft={regularDraft} editingId={regularEditId} onDraftChange={setRegularDraft} onSave={() => void saveMeal(regularDraft, regularEditId, file.regulars, upsertTdeeRegular, () => { setRegularDraft(emptyDraft()); setRegularEditId(null); })} onCancel={() => { setRegularDraft(emptyDraft()); setRegularEditId(null); }} />
-        </CardContent>
-      </Card>
+      <CustomizePanel title="Regulars" description="Reusable meals with default portions; log them from the + menu on Daily.">
+        <MealList meals={file.regulars} onEdit={(meal) => { setRegularEditId(meal.id); setRegularDraft(mealToDraft(meal)); }} onRemove={(id) => void removeTdeeRegular(file, id).then(setFile)} />
+        <MealEditor title={regularEditId ? 'Edit regular' : 'Add regular'} draft={regularDraft} editingId={regularEditId} onDraftChange={setRegularDraft} onSave={() => void saveMeal(regularDraft, regularEditId, file.regulars, upsertTdeeRegular, () => { setRegularDraft(emptyDraft()); setRegularEditId(null); })} onCancel={() => { setRegularDraft(emptyDraft()); setRegularEditId(null); }} />
+      </CustomizePanel>
     </div>
   );
 }

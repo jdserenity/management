@@ -1,4 +1,5 @@
-import { getDb } from '@/lib/db';
+import { deleteAppKv, getAppKv, setAppKv } from '@/lib/appKv';
+import { dbExecute, dbSelect } from '@/lib/sqlWrite';
 import { parsePersistedFlowState, type PersistedFlowState } from '@/lib/flowState';
 import {
   allowedWorkoutIdsForLegacyKv,
@@ -47,8 +48,6 @@ type WorkoutLogRow = {
   total_timed_seconds: number;
   completion_ratio: number | null;
 };
-
-type AppKvRow = { value: string };
 
 export type LocalStorageSessionImport = {
   allowedWorkoutIds: string[] | null;
@@ -120,32 +119,17 @@ export const clearLegacyLocalStorageSessionKeys = (): void => {
   localStorage.removeItem(LEGACY_LS_KEYS.focusLogs);
 };
 
-const getKv = async (key: string): Promise<string | null> => {
-  const db = await getDb();
-  const rows = await db.select<AppKvRow[]>('SELECT value FROM app_kv WHERE key = $1 LIMIT 1', [key]);
-  return rows[0]?.value ?? null;
-};
-
-const setKv = async (key: string, value: string): Promise<void> => {
-  const db = await getDb();
-  const updatedAt = Date.now();
-  await db.execute(
-    'INSERT INTO app_kv (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
-    [key, value, updatedAt]
-  );
-};
-
 const isSessionMigrated = async (): Promise<boolean> => {
-  const flag = await getKv(KV_SESSION_MIGRATED);
+  const flag = await getAppKv(KV_SESSION_MIGRATED);
   return flag === '1';
 };
 
 const markSessionMigrated = async (): Promise<void> => {
-  await setKv(KV_SESSION_MIGRATED, '1');
+  await setAppKv(KV_SESSION_MIGRATED, '1');
 };
 
 export const fetchAllowedWorkoutIds = async (): Promise<string[]> => {
-  const raw = await getKv(KV_ALLOWED_WORKOUTS);
+  const raw = await getAppKv(KV_ALLOWED_WORKOUTS);
   if (!raw) return resolveAllowedWorkoutIds(DEFAULT_ALLOWED_WORKOUT_IDS);
   try {
     const parsed = JSON.parse(raw) as string[];
@@ -157,12 +141,12 @@ export const fetchAllowedWorkoutIds = async (): Promise<string[]> => {
 };
 
 export const saveAllowedWorkoutIds = async (ids: string[]): Promise<void> => {
-  await setKv(KV_ALLOWED_WORKOUTS, JSON.stringify(resolveAllowedWorkoutIds(ids)));
+  await setAppKv(KV_ALLOWED_WORKOUTS, JSON.stringify(resolveAllowedWorkoutIds(ids)));
 };
 
 export const fetchWorkoutCustomizePrefs = async (): Promise<WorkoutCustomizePrefs> => {
   const legacyIds = await fetchAllowedWorkoutIds();
-  const raw = await getKv(KV_WORKOUT_CUSTOMIZE_PREFS);
+  const raw = await getAppKv(KV_WORKOUT_CUSTOMIZE_PREFS);
   if (!raw) return normalizeWorkoutCustomizePrefs(null, legacyIds);
   try {
     return normalizeWorkoutCustomizePrefs(JSON.parse(raw) as Partial<WorkoutCustomizePrefs>, legacyIds);
@@ -174,13 +158,12 @@ export const fetchWorkoutCustomizePrefs = async (): Promise<WorkoutCustomizePref
 
 export const saveWorkoutCustomizePrefs = async (prefs: WorkoutCustomizePrefs): Promise<void> => {
   const normalized = normalizeWorkoutCustomizePrefs(prefs, null);
-  await setKv(KV_WORKOUT_CUSTOMIZE_PREFS, JSON.stringify(normalized));
-  await setKv(KV_ALLOWED_WORKOUTS, JSON.stringify(allowedWorkoutIdsForLegacyKv(normalized)));
+  await setAppKv(KV_WORKOUT_CUSTOMIZE_PREFS, JSON.stringify(normalized));
+  await setAppKv(KV_ALLOWED_WORKOUTS, JSON.stringify(allowedWorkoutIdsForLegacyKv(normalized)));
 };
 
 export const fetchFocusLogs = async (limit = MAX_HISTORY_ITEMS): Promise<FocusLogEntry[]> => {
-  const db = await getDb();
-  const rows = await db.select<FocusLogRow[]>(
+  const rows = await dbSelect<FocusLogRow[]>(
     'SELECT id, session_type, completed_at, duration_minutes, planned_duration_minutes, completion_ratio FROM focus_log ORDER BY completed_at DESC LIMIT $1',
     [limit]
   );
@@ -188,8 +171,7 @@ export const fetchFocusLogs = async (limit = MAX_HISTORY_ITEMS): Promise<FocusLo
 };
 
 export const fetchWorkoutLogs = async (limit = MAX_HISTORY_ITEMS): Promise<WorkoutLogEntry[]> => {
-  const db = await getDb();
-  const rows = await db.select<WorkoutLogRow[]>(
+  const rows = await dbSelect<WorkoutLogRow[]>(
     'SELECT id, workout_id, workout_name, completed_at, exercises_json, total_reps, total_timed_seconds, completion_ratio FROM workout_log ORDER BY completed_at DESC LIMIT $1',
     [limit]
   );
@@ -197,9 +179,8 @@ export const fetchWorkoutLogs = async (limit = MAX_HISTORY_ITEMS): Promise<Worko
 };
 
 export const insertFocusLog = async (entry: FocusLogEntry): Promise<void> => {
-  const db = await getDb();
   const normalized = normalizeFocusLogEntry(entry);
-  await db.execute(
+  await dbExecute(
     'INSERT OR REPLACE INTO focus_log (id, session_type, completed_at, duration_minutes, planned_duration_minutes, completion_ratio) VALUES ($1, $2, $3, $4, $5, $6)',
     [
       normalized.id,
@@ -213,9 +194,8 @@ export const insertFocusLog = async (entry: FocusLogEntry): Promise<void> => {
 };
 
 export const insertWorkoutLog = async (entry: WorkoutLogEntry): Promise<void> => {
-  const db = await getDb();
   const ratio = entry.completionRatio ?? 1;
-  await db.execute(
+  await dbExecute(
     'INSERT OR REPLACE INTO workout_log (id, workout_id, workout_name, completed_at, exercises_json, total_reps, total_timed_seconds, completion_ratio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
     [
       entry.id,
@@ -230,37 +210,21 @@ export const insertWorkoutLog = async (entry: WorkoutLogEntry): Promise<void> =>
   );
 };
 
-const pruneFocusLogs = async (keep: number): Promise<void> => {
-  const db = await getDb();
-  await db.execute(
-    `DELETE FROM focus_log WHERE id NOT IN (
-      SELECT id FROM focus_log ORDER BY completed_at DESC LIMIT $1
-    )`,
+const pruneLogTable = async (table: 'focus_log' | 'workout_log', keep: number): Promise<void> => {
+  await dbExecute(
+    `DELETE FROM ${table} WHERE id NOT IN (SELECT id FROM ${table} ORDER BY completed_at DESC LIMIT $1)`,
     [keep]
   );
 };
+const pruneFocusLogs = (keep: number) => pruneLogTable('focus_log', keep);
+const pruneWorkoutLogs = (keep: number) => pruneLogTable('workout_log', keep);
 
-const pruneWorkoutLogs = async (keep: number): Promise<void> => {
-  const db = await getDb();
-  await db.execute(
-    `DELETE FROM workout_log WHERE id NOT IN (
-      SELECT id FROM workout_log ORDER BY completed_at DESC LIMIT $1
-    )`,
-    [keep]
-  );
-};
-
-const countFocusLogs = async (): Promise<number> => {
-  const db = await getDb();
-  const rows = await db.select<{ count: number }[]>('SELECT COUNT(*) as count FROM focus_log', []);
+const countLogTable = async (table: 'focus_log' | 'workout_log'): Promise<number> => {
+  const rows = await dbSelect<{ count: number }[]>(`SELECT COUNT(*) as count FROM ${table}`, []);
   return rows[0]?.count ?? 0;
 };
-
-const countWorkoutLogs = async (): Promise<number> => {
-  const db = await getDb();
-  const rows = await db.select<{ count: number }[]>('SELECT COUNT(*) as count FROM workout_log', []);
-  return rows[0]?.count ?? 0;
-};
+const countFocusLogs = () => countLogTable('focus_log');
+const countWorkoutLogs = () => countLogTable('workout_log');
 
 const importLegacyLocalStorage = async (bundle: LocalStorageSessionImport): Promise<void> => {
   if (bundle.allowedWorkoutIds !== null) {
@@ -305,18 +269,17 @@ export type SessionStorageSnapshot = {
 };
 
 export const fetchActiveFlowState = async (): Promise<PersistedFlowState | null> => {
-  const raw = await getKv(KV_ACTIVE_FLOW);
+  const raw = await getAppKv(KV_ACTIVE_FLOW);
   if (!raw) return null;
   return parsePersistedFlowState(raw);
 };
 
 export const saveActiveFlowState = async (flow: PersistedFlowState): Promise<void> => {
-  await setKv(KV_ACTIVE_FLOW, JSON.stringify(flow));
+  await setAppKv(KV_ACTIVE_FLOW, JSON.stringify(flow));
 };
 
 export const clearActiveFlowState = async (): Promise<void> => {
-  const db = await getDb();
-  await db.execute('DELETE FROM app_kv WHERE key = $1', [KV_ACTIVE_FLOW]);
+  await deleteAppKv(KV_ACTIVE_FLOW);
 };
 
 export const loadSessionStorage = async (): Promise<SessionStorageSnapshot> => {
@@ -342,19 +305,17 @@ export const persistWorkoutLog = async (entry: WorkoutLogEntry): Promise<void> =
 };
 
 export const deleteWorkoutLogById = async (id: string): Promise<void> => {
-  const db = await getDb();
-  await db.execute('DELETE FROM workout_log WHERE id = $1', [id]);
+  await dbExecute('DELETE FROM workout_log WHERE id = $1', [id]);
 };
 
 export const deleteWorkoutLogsForWorkoutIdSince = async (workoutId: string, startTs: number): Promise<number> => {
-  const db = await getDb();
-  const rows = await db.select<{ count: number }[]>(
+  const rows = await dbSelect<{ count: number }[]>(
     'SELECT COUNT(*) as count FROM workout_log WHERE workout_id = $1 AND completed_at >= $2',
     [workoutId, startTs]
   );
   const count = rows[0]?.count ?? 0;
   if (count > 0) {
-    await db.execute('DELETE FROM workout_log WHERE workout_id = $1 AND completed_at >= $2', [workoutId, startTs]);
+    await dbExecute('DELETE FROM workout_log WHERE workout_id = $1 AND completed_at >= $2', [workoutId, startTs]);
   }
   return count;
 };

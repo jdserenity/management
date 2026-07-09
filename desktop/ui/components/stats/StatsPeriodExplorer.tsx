@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   formatExerciseRunAggLine,
   formatTimedMovementHeadline,
@@ -27,11 +25,11 @@ const exerciseEmoji = (id: string): string => {
   return '🏋️';
 };
 
-const StatTile = ({ emoji, value, label, tone }: { emoji: string; value: string; label: string; tone: string }) => (
-  <div className={`rounded-xl px-2.5 py-2 shadow-sm ${tone}`}>
-    <p className="text-xl leading-none">{emoji}</p>
-    <p className="mt-1 text-xl font-bold tabular-nums tracking-tight">{value}</p>
-    <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide opacity-80">{label}</p>
+const StatTile = ({ emoji, value, label }: { emoji: string; value: string; label: string }) => (
+  <div className="plugin-stat-block">
+    <p className="text-lg leading-none">{emoji}</p>
+    <p className="plugin-counts mt-1 text-xl">{value}</p>
+    <p className="plugin-muted mt-0.5 text-[10px] font-semibold uppercase tracking-wide">{label}</p>
   </div>
 );
 
@@ -56,64 +54,39 @@ const StatsPeriodExplorer = ({ series, periodTitle, chartLabel, exercisesForBuck
   const canGoNewer = selectedIndex < series.length - 1;
 
   if (!selected) {
-    return (
-      <p className="rounded-2xl border border-dashed border-violet-300/40 bg-violet-50/50 px-4 py-12 text-center text-violet-700/80 dark:border-violet-500/30 dark:bg-violet-950/20 dark:text-violet-200/80">
-        ✨ No activity in this range yet — start a session on Work!
-      </p>
-    );
+    return <p className="plugin-panel-flat border-dashed plugin-empty py-12 text-center">✨ No activity in this range yet — start a session on Work!</p>;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:h-full lg:min-h-0 lg:overflow-hidden lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-3 lg:h-full lg:min-h-0 lg:overflow-hidden lg:grid-cols-5">
       <div className="flex flex-col gap-2 lg:min-h-0 lg:overflow-hidden lg:col-span-2">
-        <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-2 text-white shadow-lg shadow-violet-500/25">
-          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white hover:bg-white/20" disabled={!canGoOlder} onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))} aria-label="Previous period">
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <p className="min-w-0 flex-1 truncate text-center text-sm font-bold sm:text-base">📅 {periodTitle(selected.bucket)}</p>
-          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white hover:bg-white/20" disabled={!canGoNewer} onClick={() => setSelectedIndex((i) => Math.min(series.length - 1, i + 1))} aria-label="Next period">
-            <ChevronRight className="h-5 w-5" />
-          </Button>
+        <div className="plugin-panel flex shrink-0 items-center gap-2">
+          <button type="button" className="plugin-btn" disabled={!canGoOlder} onClick={() => setSelectedIndex((i) => Math.max(0, i - 1))} aria-label="Previous period">‹</button>
+          <p className="min-w-0 flex-1 truncate text-center text-sm font-semibold">📅 {periodTitle(selected.bucket)}</p>
+          <button type="button" className="plugin-btn" disabled={!canGoNewer} onClick={() => setSelectedIndex((i) => Math.min(series.length - 1, i + 1))} aria-label="Next period">›</button>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
-          <div className="shrink-0 space-y-2">
-            <div>
-              <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-300">🧠 Focus</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                <StatTile emoji="🍅" value={String(selected.pomodoros)} label="Pomodoros" tone="bg-rose-100 text-rose-950 dark:bg-rose-950/50 dark:text-rose-100" />
-                <StatTile emoji="🎯" value={String(selected.deepWork)} label="Deep work" tone="bg-violet-100 text-violet-950 dark:bg-violet-950/50 dark:text-violet-100" />
-                <StatTile emoji="⏳" value={focusMinutesLabel(selected.focusMinutes)} label="Focus time" tone="col-span-2 bg-sky-100 text-sky-950 dark:bg-sky-950/50 dark:text-sky-100" />
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-300">💪 Movement</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                <StatTile emoji="⏱️" value={formatTimedMovementHeadline(selected.timedSeconds)} label="Move time" tone="bg-emerald-100 text-emerald-950 dark:bg-emerald-950/50 dark:text-emerald-100" />
-                <StatTile emoji="🏋️" value={String(selected.workouts)} label="Workouts" tone="bg-amber-100 text-amber-950 dark:bg-amber-950/50 dark:text-amber-100" />
-              </div>
-            </div>
+          <div className="shrink-0 grid grid-cols-2 gap-2">
+            <StatTile emoji="🍅" value={String(selected.pomodoros)} label="Pomodoros" />
+            <StatTile emoji="🎯" value={String(selected.deepWork)} label="Deep work" />
+            <StatTile emoji="⏳" value={focusMinutesLabel(selected.focusMinutes)} label="Focus" />
+            <StatTile emoji="⏱️" value={formatTimedMovementHeadline(selected.timedSeconds)} label="Move" />
           </div>
-
           {exercises.length > 0 && (
-            <div className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1">
-              <p className="mb-1 shrink-0 text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">📝 By exercise</p>
-              <div className="space-y-1 overflow-y-auto pr-1 lg:min-h-0 lg:flex-1">
-                {exercises.map((agg) => (
-                  <div key={agg.id} className="flex items-center gap-2 rounded-lg bg-white/80 px-2.5 py-1.5 text-xs font-medium shadow-sm dark:bg-slate-800/80">
-                    <span className="text-lg leading-none">{exerciseEmoji(agg.id)}</span>
-                    <span className="min-w-0 truncate tabular-nums">{formatExerciseRunAggLine(agg)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ul className="plugin-panel min-h-0 flex-1 overflow-y-auto space-y-0">
+              {exercises.map((agg) => (
+                <li key={agg.id} className="plugin-row text-sm">
+                  {exerciseEmoji(agg.id)} {formatExerciseRunAggLine(agg)}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
 
-      <div className={statsChartShellClass()}>
-        <StatsProgressChart data={chartData} selectedIndex={selectedIndex} onSelectIndex={(index) => setSelectedIndex(index)} />
+      <div className={`plugin-panel lg:col-span-3 lg:min-h-0 ${statsChartShellClass()}`}>
+        <StatsProgressChart data={chartData} selectedIndex={selectedIndex} onSelectIndex={setSelectedIndex} />
       </div>
     </div>
   );

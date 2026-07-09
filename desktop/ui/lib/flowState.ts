@@ -5,4 +5,4 @@ export type {
   DeskPosture,
   PersistedFlowState
 } from '@mgmt/core';
-export { parsePersistedFlowState, isResumableFlow } from '@mgmt/core';
+export { parsePersistedFlowState, isResumableFlow, idleFlow } from '@mgmt/core';

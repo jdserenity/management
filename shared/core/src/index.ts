@@ -5,3 +5,5 @@ export * from './flowClock';
 export * from './display';
 export * from './timerLabel';
 export * from './breakFlow';
+export * from './flowEngine';
+export * from './exerciseMode';

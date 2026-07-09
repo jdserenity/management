@@ -1,6 +1,6 @@
 // src/components/daily/TdeeSection.tsx
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { activeEntries, isStapleLogged } from '@/lib/tdee/entries';
 import { formatIngredientsList, normalizeMacro } from '@/lib/tdee/ingredients';
 import {
@@ -15,7 +15,7 @@ import {
   totalCalories,
   totalProtein
 } from '@/lib/tdee/totals';
-import type { TdeeFile, TdeeLogEntry, TdeeMealDef } from '@/lib/tdee/types';
+import type { TdeeMealDef } from '@/lib/tdee/types';
 import {
   addCustomEntry,
   addRegularEntry,
@@ -24,9 +24,13 @@ import {
   removeTdeeEntry
 } from '@/lib/tdeeDb';
 import { completeTasksLinkedToStaple, uncompleteTasksLinkedToStaple } from '@/lib/streak/crossLinks';
-import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
-import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
-import { hasAppStorage } from '@/lib/appRuntime';
+import { useAppDataLoad } from '@/lib/useAppDataLoad';
+import {
+  buildTrackerChain,
+  TrackerAddPanel,
+  TrackerPlusButton,
+  TrackerSummary,
+} from '@/components/daily/TrackerChain';
 import './tdee.css';
 
 type PortionControlsProps = {
@@ -96,38 +100,15 @@ type Props = {
 };
 
 export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props) {
-  const [file, setFile] = useState<TdeeFile | null>(null);
+  const { data: file, loadError, setData: setFile, storageReady } = useAppDataLoad(
+    loadTdeeFile,
+    'Failed to load nutrition data',
+    { refreshKey }
+  );
   const [addMode, setAddMode] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState('');
 
-  const refresh = useCallback(async () => {
-    if (!hasAppStorage()) { setLoadError(null); setFile(null); return; }
-    try {
-      setLoadError(null);
-      setFile(await loadTdeeFile());
-    } catch (e) {
-      console.error(e);
-      setLoadError(e instanceof Error ? e.message : 'Failed to load nutrition data');
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-    const id = window.setInterval(() => void refresh(), 60_000);
-    const onRemoteRefresh = () => { void refresh(); };
-    window.addEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener(DATA_SYNC_REFRESH_EVENT, onRemoteRefresh);
-    };
-  }, [refresh]);
-
-  useEffect(() => {
-    if (refreshKey != null) void refresh();
-  }, [refreshKey, refresh]);
-
-  if (!hasAppStorage()) {
+  if (!storageReady) {
     return (
       <section className="tdee-tracker-container" aria-label="Nutrition">
         <p className="tdee-tracker-empty text-sm">Storage is not ready yet.</p>
@@ -196,44 +177,33 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
     setAddMode(false);
   };
 
-  const renderChip = (entry: TdeeLogEntry, withConnector: boolean) => {
+  const loggedChips = logged.map((entry) => {
     const amount = entryCalories(entry);
     const protein = entryProtein(entry);
     const macros = formatChipMacros(amount, protein);
     const displayLabel = entry.count > 1 ? `${entry.label} ×${entry.count}` : entry.label;
     return (
-      <>
-        {withConnector ? <TdeeChainConnector /> : null}
-        <button
-          type="button"
-          className="tdee-chain-btn tdee-chain-done"
-          title={`${macros} — click to remove`}
-          onClick={() => void handleRemove(entry.id)}
-        >
-          <span className="tdee-chain-label">{displayLabel}</span>
-          <span className="tdee-chain-kcal">{macros}</span>
-        </button>
-      </>
+      <button
+        key={entry.id}
+        type="button"
+        className="tdee-chain-btn tdee-chain-done"
+        title={`${macros} — click to remove`}
+        onClick={() => void handleRemove(entry.id)}
+      >
+        <span className="tdee-chain-label">{displayLabel}</span>
+        <span className="tdee-chain-kcal">{macros}</span>
+      </button>
     );
-  };
-
-  const chainItems: ReactNode[] = [];
-  logged.forEach((entry, i) => {
-    chainItems.push(renderChip(entry, i > 0));
   });
 
-  if (!addMode) {
-    if (pendingStaples.length === 0 && logged.length === 0) {
-      chainItems.push(
-        <p key="empty" className="tdee-tracker-empty tdee-chain-empty">
-          No staples configured yet. Add staples in Customize → Food.
-        </p>
-      );
-    } else {
-      pendingStaples.forEach((staple, i) => {
-        const withConnector = chainItems.length > 0 || i > 0;
-        chainItems.push(
-          withConnector ? <TdeeChainConnector key={`c-s-${staple.id}`} /> : null,
+  const pendingNodes = !addMode
+    ? (pendingStaples.length === 0 && logged.length === 0
+      ? [
+          <p key="empty" className="tdee-tracker-empty tdee-chain-empty">
+            No staples configured yet. Add staples in Customize → Food.
+          </p>
+        ]
+      : pendingStaples.map((staple) => (
           <button
             key={`s-${staple.id}`}
             type="button"
@@ -244,46 +214,36 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
             <span className="tdee-chain-label">{staple.name}</span>
             <span className="tdee-chain-kcal">{formatChipMacros(staple.calories, staple.protein)}</span>
           </button>
-        );
-      });
-    }
-  }
+        )))
+    : [];
 
-  if (chainItems.length > 0) chainItems.push(<TdeeChainConnector key="c-plus" />);
-  chainItems.push(
-    <button
-      key="plus"
-      type="button"
-      className={`tdee-chain-btn tdee-chain-plus${addMode ? ' tdee-chain-plus-disabled' : ''}`}
-      title={addMode ? 'Close add menu first' : 'Log a regular or one-off meal'}
-      disabled={addMode}
-      onClick={() => setAddMode(true)}
-    >
-      +
-    </button>
-  );
+  const chainItems = buildTrackerChain({
+    chips: [...loggedChips, ...pendingNodes],
+    plus: (
+      <TrackerPlusButton
+        key="plus"
+        prefix="tdee"
+        addMode={addMode}
+        onOpen={() => setAddMode(true)}
+        titleClosed="Log a regular or one-off meal"
+      />
+    )
+  });
 
   const kcalRemaining = remainingDisplay(total, tdee);
   const proteinRemaining = proteinRemainingDisplay(proteinTotal, proteinTarget);
 
   return (
     <section className="tdee-tracker-container" aria-label="Nutrition">
-      <div className="tdee-summary">
-        <div className="tdee-counts">
-          <span className="tdee-today">{formatCalories(total)} kcal</span>
-          {tdee > 0 ? (
-            <>
-              <span className="tdee-sep"> / </span>
-              <span className="tdee-target">{formatCalories(tdee)} TDEE ⚡</span>
-            </>
-          ) : null}
-        </div>
-        <div className={`tdee-remaining${kcalRemaining.extraClass}`}>{tdee > 0 ? kcalRemaining.text : 'Set TDEE and protein targets in Customize → Food'}</div>
-        {tdee > 0 ? (
-          <div className="tdee-progress">
-            <div className="tdee-progress-fill" style={{ width: `${Math.round(ratio * 100)}%` }} />
-          </div>
-        ) : null}
+      <TrackerSummary
+        prefix="tdee"
+        today={<>{formatCalories(total)} kcal</>}
+        target={tdee > 0 ? <>{formatCalories(tdee)} TDEE ⚡</> : undefined}
+        remainingText={tdee > 0 ? kcalRemaining.text : 'Set TDEE and protein targets in Customize → Food'}
+        remainingClass={kcalRemaining.extraClass}
+        progressRatio={ratio}
+        showProgress={tdee > 0}
+      >
         <div className="tdee-counts tdee-protein-counts">
           <span className="tdee-today">{formatProtein(proteinTotal)} g</span>
           {proteinTarget > 0 ? (
@@ -301,16 +261,10 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
             <div className="tdee-progress-fill" style={{ width: `${Math.round(proteinRatio * 100)}%` }} />
           </div>
         ) : null}
-      </div>
+      </TrackerSummary>
       <div className="tdee-chain">{chainItems}</div>
       {addMode ? (
-        <div className="tdee-add-panel">
-          <div className="tdee-add-header">
-            <span className="tdee-add-title">Staples, regulars &amp; one-off</span>
-            <button type="button" className="tdee-add-close" title="Close" aria-label="Close" onClick={() => setAddMode(false)}>
-              ×
-            </button>
-          </div>
+        <TrackerAddPanel prefix="tdee" title={<>Staples, regulars &amp; one-off</>} onClose={() => setAddMode(false)}>
           <div className="tdee-regular-list">
             {file.staples.length === 0 ? (
               <p className="tdee-tracker-empty">No staples configured yet. Add them in Customize → Food.</p>
@@ -376,7 +330,7 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
               onAdd={(calories, protein, count) => handleCustom(calories, protein, count)}
             />
           </div>
-        </div>
+        </TrackerAddPanel>
       ) : null}
     </section>
   );
