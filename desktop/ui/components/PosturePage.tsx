@@ -5,7 +5,6 @@ import { listen } from '@tauri-apps/api/event';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { platform } from '@tauri-apps/plugin-os';
 import { load, Store } from '@tauri-apps/plugin-store';
-import { MGMT_LS } from '@/lib/mgmtLocalStorage';
 import { isPostureMonitoringEnabledPref, setPostureMonitoringEnabledPref } from '@/lib/postureMonitoringPref';
 import { clearPostureBaselineMetrics, POSTURE_BASELINE_IMAGE_STORE_KEY, POSTURE_BASELINE_METRICS_KEY } from '@/lib/postureBaseline';
 import { analyzeDataUrl, initPoseLandmarker } from '@/posture/postureEngine';
@@ -13,6 +12,11 @@ import type { PostureMetricsSnapshot } from '@/posture/batesPostureScore';
 import { usePostureSession } from '@/context/PostureSessionContext';
 import { fetchPostureLogsLastDays, rowsToCsv, type PostureLogRow } from '@/posture/postureLogDb';
 import { dailyAverageScores, longestGoodStreakCount, sessionStats } from '@/posture/postureAggregates';
+import {
+  isValidPreviewFramePayload,
+  MetricBars,
+  resolveSelectedCameraDeviceId
+} from '@/posture/postureUi';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -33,43 +37,6 @@ interface LiveAnalysis {
   recommendations: string[];
   confidence?: number;
   metrics?: PostureMetricsSnapshot;
-}
-
-const CAMERA_INDEX_KEY = MGMT_LS.cameraIndex;
-const CAMERA_NAME_KEY = MGMT_LS.cameraName;
-const LEGACY_CAMERA_DEVICE_KEY = MGMT_LS.cameraDeviceLegacy;
-
-const normalizeCameraName = (value: string): string =>
-  value.toLowerCase().replace(/\s+/g, ' ').trim();
-
-const isValidPreviewFramePayload = (payload: string): boolean =>
-  payload.startsWith('data:image/') && payload.includes('base64,') && payload.length > 'data:image/jpeg;base64,'.length;
-
-function MetricBars({ m }: { m: PostureMetricsSnapshot }) {
-  const rows: { label: string; v: number }[] = [
-    { label: 'Head tilt (depth)', v: m.head_tilt_score },
-    { label: 'Neck vs vertical', v: m.neck_vertical_score },
-    { label: 'Shoulder level', v: m.shoulder_level_score },
-    { label: 'Shoulder roll (depth)', v: m.shoulder_roll_score },
-    { label: 'Spine alignment', v: m.spine_alignment_score },
-    { label: 'Head rotation', v: m.head_rotation_score },
-    { label: 'Head side tilt', v: m.head_side_tilt_score },
-  ];
-  return (
-    <div className="space-y-2">
-      {rows.map((row) => (
-        <div key={row.label}>
-          <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
-            <span>{row.label}</span>
-            <span className="tabular-nums">{Math.round(row.v * 100)}%</span>
-          </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(row.v * 100)}%` }} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 const PosturePage: React.FC = () => {
@@ -119,51 +86,17 @@ const PosturePage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const resolveSelectedDeviceId = async () => {
-      if (!navigator.mediaDevices?.enumerateDevices) {
-        if (!cancelled) setSelectedDeviceId(undefined);
-        return;
-      }
+    const resolve = async () => {
       try {
-        const savedIndexRaw = localStorage.getItem(CAMERA_INDEX_KEY);
-        const savedCameraName = localStorage.getItem(CAMERA_NAME_KEY);
-        const legacyDeviceId = localStorage.getItem(LEGACY_CAMERA_DEVICE_KEY);
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = devices.filter((device) => device.kind === 'videoinput');
-        let nextDeviceId: string | undefined;
-        if (savedCameraName) {
-          const normalizedTarget = normalizeCameraName(savedCameraName);
-          const matchedByName =
-            normalizedTarget.length > 0
-              ? videoInputs.find((device) => {
-                  const nl = normalizeCameraName(device.label);
-                  return nl.length > 0 && (nl.includes(normalizedTarget) || normalizedTarget.includes(nl));
-                })
-              : undefined;
-          if (matchedByName) nextDeviceId = matchedByName.deviceId;
-        }
-        if (!nextDeviceId && legacyDeviceId && videoInputs.some((d) => d.deviceId === legacyDeviceId)) {
-          nextDeviceId = legacyDeviceId;
-        }
-        if (savedIndexRaw !== null) {
-          const parsedIndex = Number.parseInt(savedIndexRaw, 10);
-          if (!nextDeviceId && !Number.isNaN(parsedIndex) && parsedIndex >= 0 && parsedIndex < videoInputs.length) {
-            nextDeviceId = videoInputs[parsedIndex].deviceId;
-          }
-        }
-        if (!nextDeviceId && videoInputs.length > 0) nextDeviceId = videoInputs[0].deviceId;
-        if (cancelled) return;
-        setSelectedDeviceId(nextDeviceId);
-        if (nextDeviceId) localStorage.setItem(LEGACY_CAMERA_DEVICE_KEY, nextDeviceId);
+        const id = await resolveSelectedCameraDeviceId();
+        if (!cancelled) setSelectedDeviceId(id);
       } catch (deviceError) {
         if (!cancelled) setSelectedDeviceId(undefined);
         console.error(deviceError);
       }
     };
-    void resolveSelectedDeviceId();
-    const handleDeviceChange = () => {
-      void resolveSelectedDeviceId();
-    };
+    void resolve();
+    const handleDeviceChange = () => { void resolve(); };
     navigator.mediaDevices?.addEventListener?.('devicechange', handleDeviceChange);
     return () => {
       cancelled = true;
