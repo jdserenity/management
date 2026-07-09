@@ -10,7 +10,7 @@ export default function CustomizePage() {
     <Tabs defaultValue="exercises" className="mx-auto max-w-3xl">
       <TabsList className="mb-6 grid w-full grid-cols-5">
         <TabsTrigger value="exercises">Exercises</TabsTrigger>
-        <TabsTrigger value="snacks">Snacks</TabsTrigger>
+        <TabsTrigger value="snacks">Bursts</TabsTrigger>
         <TabsTrigger value="stretches">Stretches</TabsTrigger>
         <TabsTrigger value="streaks">Streaks</TabsTrigger>
         <TabsTrigger value="tdee">TDEE</TabsTrigger>

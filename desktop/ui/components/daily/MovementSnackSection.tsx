@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
 import { isEasyMovementSnackLog, movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
+import { formatNearestHalfHourLabel } from '@/lib/movementSnack/nearestHalfHour';
 import TdeeChainConnector from '@/components/daily/TdeeChainConnector';
 import {
   DASHBOARD_MANUAL_EXERCISES,
@@ -100,16 +101,17 @@ export default function MovementSnackSection() {
         key="hard"
         type="button"
         className="movement-chain-btn"
-        title="Log hard snack"
+        title="Log hard movement burst"
         onClick={() => logMovementSnackCompletion(false)}
       >
-        <span className="movement-chain-label">Hard snack</span>
+        <span className="movement-chain-label">Hard burst</span>
       </button>
     );
   }
 
   snackLogs.forEach((log, i) => {
     const easy = isEasyMovementSnackLog(log);
+    const timeLabel = formatNearestHalfHourLabel(log.completedAt);
     const withConnector = chainItems.length > 0 || i > 0;
     chainItems.push(
       withConnector ? <TdeeChainConnector key={`c-snack-${log.id}`} /> : null,
@@ -117,10 +119,10 @@ export default function MovementSnackSection() {
         key={log.id}
         type="button"
         className={`movement-chain-btn movement-chain-done${easy ? ' movement-chain-done-easy' : ''}`}
-        title="Click to remove"
+        title={`${easy ? 'Easy' : 'Hard'} burst · ${timeLabel} — click to remove`}
         onClick={() => removeWorkoutLog(log.id)}
       >
-        <span className="movement-chain-label">{easy ? 'Easy' : 'Snack'}</span>
+        <span className="movement-chain-label">{timeLabel}</span>
       </button>
     );
   });
@@ -131,7 +133,7 @@ export default function MovementSnackSection() {
       key="plus"
       type="button"
       className={`movement-chain-btn movement-chain-plus${addMode ? ' movement-chain-plus-disabled' : ''}`}
-      title={addMode ? 'Close add menu first' : 'Log exercise or modified snack'}
+      title={addMode ? 'Close add menu first' : 'Log exercise or modified burst'}
       disabled={addMode}
       onClick={() => setAddMode(true)}
     >
@@ -141,7 +143,7 @@ export default function MovementSnackSection() {
 
   const renderSnackEditor = (kind: 'hard' | 'easy', draft: ExerciseDefinition[], primary: boolean) => (
     <div className={`movement-snack-editor${primary ? '' : ' movement-snack-editor-fallback'}`}>
-      <p className="movement-snack-editor-title">{kind === 'hard' ? 'Hard snack' : 'Easy snack (fallback)'}</p>
+      <p className="movement-snack-editor-title">{kind === 'hard' ? 'Hard burst' : 'Easy burst (fallback)'}</p>
       <ul className="movement-snack-editor-rows">
         {draft.map((ex, index) => (
           <li key={`${kind}-${ex.id}-${index}`} className="movement-snack-editor-row">
@@ -168,21 +170,21 @@ export default function MovementSnackSection() {
           setAddMode(false);
         }}
       >
-        Log {kind} snack
+        Log {kind} burst
       </button>
     </div>
   );
 
   return (
-    <section className="movement-tracker-container" aria-label="Movement snacks">
+    <section className="movement-tracker-container" aria-label="Movement bursts">
       <div className="movement-summary">
         <div className="movement-counts">
           <span>{done}</span>
           <span className="movement-sep"> / </span>
-          <span className="movement-target">{goal} snacks today</span>
+          <span className="movement-target">{goal} movement bursts today</span>
         </div>
         <div className={`movement-remaining${complete ? ' movement-remaining-done' : ''}`}>
-          {complete ? 'Goal reached' : `${goal - done} snack${goal - done === 1 ? '' : 's'} left`}
+          {complete ? 'Goal reached' : `${goal - done} movement burst${goal - done === 1 ? '' : 's'} left`}
         </div>
         {goal > 0 ? (
           <div className="movement-progress">
