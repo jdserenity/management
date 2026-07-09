@@ -412,9 +412,9 @@ export const upsertStreakActivity = async (state: StreakState, activity: StreakA
     const merged = state.config.activities[idx];
     if (merged) await upsertActivityRow(merged, false, idx);
   }
-  const rolloverHour = await loadDayRolloverHourPref();
-  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
-  return buildState(state.config, state.data, state.currentDay, dayEndTime);
+  // Re-read from SQLite so network-link flags (necessary / staple / water / burst) are whatever
+  // actually landed in the DB — not only the in-memory draft.
+  return loadStreakState();
 };
 
 /** Reorder active activities; sort_order is persisted so Daily and Customize stay aligned. */

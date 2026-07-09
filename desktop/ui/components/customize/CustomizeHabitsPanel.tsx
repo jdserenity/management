@@ -138,7 +138,13 @@ export default function CustomizeHabitsPanel() {
         activity={editingActivity}
         isNew={isNewActivity}
         onClose={() => setEditorOpen(false)}
-        onSave={(activity, isNew) => void upsertStreakActivity(state, activity, isNew).then(setState)}
+        onSave={(activity, isNew) => {
+          void upsertStreakActivity(state, activity, isNew)
+            .then(setState)
+            .catch((e) => {
+              console.error('Failed to save activity (links may not have persisted):', e);
+            });
+        }}
       />
     </>
   );
