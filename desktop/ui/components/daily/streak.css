@@ -25,21 +25,13 @@
 }
 
 .streak-nav-btn {
-  background: var(--border);
-  border: none;
-  border-radius: 4px;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  font-size: 1.2em;
-  color: var(--muted-foreground);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: none; border-radius: 4px;
+  background: var(--border); color: var(--muted-foreground);
+  cursor: pointer; font-size: 1.2em; transition: background .15s, color .15s;
 }
 .streak-nav-btn:hover:not(.streak-nav-btn-disabled) { background: var(--accent); color: var(--foreground); }
-.streak-nav-btn-disabled { opacity: 0.3; cursor: not-allowed; }
+.streak-nav-btn-disabled { opacity: .3; cursor: not-allowed; }
 
 .streak-year-label {
   font-weight: 600;
@@ -154,60 +146,23 @@
   outline-offset: 1px;
 }
 
-.streak-heatmap-empty {
-  background: transparent;
-}
+.streak-heatmap-empty { background: transparent; }
 
-/* Heatmap intensity levels - green theme by default */
-.streak-heatmap-level-0 {
-  background: var(--border);
-}
-
-.streak-heatmap-level-1 {
-  background: rgba(34, 197, 94, 0.2);
-}
-
-.streak-heatmap-level-2 {
-  background: rgba(34, 197, 94, 0.4);
-}
-
-.streak-heatmap-level-3 {
-  background: rgba(34, 197, 94, 0.6);
-}
-
-.streak-heatmap-level-4 {
-  background: rgba(34, 197, 94, 0.8);
-}
-
-.streak-heatmap-level-5 {
-  background: rgb(34, 197, 94);
-}
-
-/* Dark theme adjustments */
-.dark .streak-heatmap-level-1 {
-  background: rgba(34, 197, 94, 0.15);
-}
-
-.dark .streak-heatmap-level-2 {
-  background: rgba(34, 197, 94, 0.3);
-}
-
-.dark .streak-heatmap-level-3 {
-  background: rgba(34, 197, 94, 0.5);
-}
-
-.dark .streak-heatmap-level-4 {
-  background: rgba(34, 197, 94, 0.7);
-}
-
-.dark .streak-heatmap-level-5 {
-  background: rgb(34, 197, 94);
-}
+/* Heatmap intensity (green daily / red weekly) */
+.streak-heatmap-level-0, .streak-weekly-level-0 { background: var(--border); }
+.streak-heatmap-level-1 { background: rgba(34, 197, 94, 0.2); }
+.streak-heatmap-level-2 { background: rgba(34, 197, 94, 0.4); }
+.streak-heatmap-level-3 { background: rgba(34, 197, 94, 0.6); }
+.streak-heatmap-level-4 { background: rgba(34, 197, 94, 0.8); }
+.streak-heatmap-level-5 { background: rgb(34, 197, 94); }
+.dark .streak-heatmap-level-1 { background: rgba(34, 197, 94, 0.15); }
+.dark .streak-heatmap-level-2 { background: rgba(34, 197, 94, 0.3); }
+.dark .streak-heatmap-level-3 { background: rgba(34, 197, 94, 0.5); }
+.dark .streak-heatmap-level-4 { background: rgba(34, 197, 94, 0.7); }
+.dark .streak-heatmap-level-5 { background: rgb(34, 197, 94); }
 
 /* Weekly heatmap (single row, red theme) */
-.streak-weekly-heatmap-container {
-  margin-bottom: 20px;
-}
+.streak-weekly-heatmap-container { margin-bottom: 20px; }
 
 .streak-weekly-months {
   margin-left: 0;
@@ -231,9 +186,7 @@
   box-sizing: border-box;
 }
 
-.streak-weekly-cell-current {
-  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.45);
-}
+.streak-weekly-cell-current { box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.45); }
 .streak-weekly-cell.streak-weekly-perfect {
   display: flex;
   align-items: center;
@@ -254,49 +207,16 @@
   outline-offset: 1px;
 }
 
-.streak-weekly-level-0 {
-  background: var(--border);
-}
-
-.streak-weekly-level-1 {
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.streak-weekly-level-2 {
-  background: rgba(239, 68, 68, 0.4);
-}
-
-.streak-weekly-level-3 {
-  background: rgba(239, 68, 68, 0.6);
-}
-
-.streak-weekly-level-4 {
-  background: rgba(239, 68, 68, 0.8);
-}
-
-.streak-weekly-level-5 {
-  background: rgb(239, 68, 68);
-}
-
-.dark .streak-weekly-level-1 {
-  background: rgba(239, 68, 68, 0.15);
-}
-
-.dark .streak-weekly-level-2 {
-  background: rgba(239, 68, 68, 0.3);
-}
-
-.dark .streak-weekly-level-3 {
-  background: rgba(239, 68, 68, 0.5);
-}
-
-.dark .streak-weekly-level-4 {
-  background: rgba(239, 68, 68, 0.7);
-}
-
-.dark .streak-weekly-level-5 {
-  background: rgb(239, 68, 68);
-}
+.streak-weekly-level-1 { background: rgba(239, 68, 68, 0.2); }
+.streak-weekly-level-2 { background: rgba(239, 68, 68, 0.4); }
+.streak-weekly-level-3 { background: rgba(239, 68, 68, 0.6); }
+.streak-weekly-level-4 { background: rgba(239, 68, 68, 0.8); }
+.streak-weekly-level-5 { background: rgb(239, 68, 68); }
+.dark .streak-weekly-level-1 { background: rgba(239, 68, 68, 0.15); }
+.dark .streak-weekly-level-2 { background: rgba(239, 68, 68, 0.3); }
+.dark .streak-weekly-level-3 { background: rgba(239, 68, 68, 0.5); }
+.dark .streak-weekly-level-4 { background: rgba(239, 68, 68, 0.7); }
+.dark .streak-weekly-level-5 { background: rgb(239, 68, 68); }
 
 /* Section labels between daily and weekly activities */
 .streak-section-label {
@@ -339,9 +259,7 @@
   --streak-link-color: #8b5cf6;
 }
 
-.streak-activity-name.clickable {
-  cursor: pointer;
-}
+.streak-activity-name.clickable { cursor: pointer; }
 
 .streak-activity-name.clickable:hover {
   color: var(--primary);
@@ -377,13 +295,9 @@
   flex-shrink: 0;
 }
 
-.streak-overlap-part {
-  display: inline;
-}
+.streak-overlap-part { display: inline; }
 
-.streak-overlap-sep {
-  opacity: 0.7;
-}
+.streak-overlap-sep { opacity: 0.7; }
 
 /* Golden check for necessary tasks when complete */
 .streak-btn-success.streak-btn-necessary.streak-btn-active {
@@ -410,9 +324,7 @@
 }
 
 /* Activity name with links */
-.streak-activity-name.clickable-parts {
-  cursor: default;
-}
+.streak-activity-name.clickable-parts { cursor: default; }
 
 .streak-activity-name.streak-activity-name-wrap {
   white-space: normal;
@@ -437,9 +349,7 @@
   border-left: 3px solid var(--primary);
 }
 
-.streak-activity-description.collapsed {
-  display: none;
-}
+.streak-activity-description.collapsed { display: none; }
 
 .streak-activity-description p {
   margin: 0;
@@ -491,9 +401,7 @@
   line-height: 1;
 }
 
-.streak-streak-emoji-small {
-  font-size: 0.95em;
-}
+.streak-streak-emoji-small { font-size: 0.95em; }
 
 .streak-streak-num {
   font-size: 1.25em;
@@ -529,9 +437,7 @@
 }
 
 /* 10+ current: full gold */
-.streak-streak-tier-gold .streak-streak-emoji {
-  filter: drop-shadow(0 0 5px rgba(255, 200, 70, 0.65));
-}
+.streak-streak-tier-gold .streak-streak-emoji { filter: drop-shadow(0 0 5px rgba(255, 200, 70, 0.65)); }
 .streak-streak-tier-gold .streak-streak-num {
   color: #e8b020;
   text-shadow:
@@ -548,9 +454,7 @@
 }
 
 /* 10+ longest: black + silver */
-.streak-streak-tier-silver .streak-streak-emoji {
-  filter: drop-shadow(0 0 4px rgba(175, 185, 200, 0.5));
-}
+.streak-streak-tier-silver .streak-streak-emoji { filter: drop-shadow(0 0 4px rgba(175, 185, 200, 0.5)); }
 .streak-streak-tier-silver .streak-streak-num {
   color: #141414;
   text-shadow:
@@ -566,21 +470,13 @@
     0 0 2px rgba(255, 255, 255, 0.4);
 }
 
-.streak-rate-orange {
-  color: rgb(249, 115, 22);
-}
+.streak-rate-orange { color: rgb(249, 115, 22); }
 
-.streak-rate-green {
-  color: rgb(34, 197, 94);
-}
+.streak-rate-green { color: rgb(34, 197, 94); }
 
-.streak-rate-red {
-  color: rgb(239, 68, 68);
-}
+.streak-rate-red { color: rgb(239, 68, 68); }
 
-.streak-rate-blue {
-  color: rgb(59, 130, 246);
-}
+.streak-rate-blue { color: rgb(59, 130, 246); }
 
 /* Inline Buttons (checkmark and X) */
 .streak-buttons {
@@ -671,9 +567,7 @@
 }
 
 /* Weekly buttons: slightly tighter gap so N buttons don't sprawl */
-.streak-buttons-weekly {
-  gap: 3px;
-}
+.streak-buttons-weekly { gap: 3px; }
 
 /* Day-specific chips for scheduledDays weekly activities */
 .streak-day-chip {
@@ -724,9 +618,7 @@
   pointer-events: none;
 }
 
-.streak-day-chip.streak-day-chip-today {
-  color: var(--foreground);
-}
+.streak-day-chip.streak-day-chip-today { color: var(--foreground); }
 
 .streak-day-chip.streak-day-chip-today:hover {
   background: linear-gradient(180deg, rgba(34, 197, 94, 0.35), rgba(34, 197, 94, 0.18));
@@ -742,9 +634,7 @@
 
 /* Responsive adjustments */
 @media (max-width: 500px) {
-  .streak-activity-header {
-    flex-wrap: wrap;
-  }
+  .streak-activity-header { flex-wrap: wrap; }
 
   .streak-stats {
     margin-left: 0;
@@ -759,9 +649,7 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  .streak-heatmap-wrapper {
-    width: max-content;
-  }
+  .streak-heatmap-wrapper { width: max-content; }
 
   .streak-heatmap-days {
     position: sticky;
@@ -795,17 +683,11 @@
 /* ── Secondary mode ─────────────────────────────────────────────────── */
 
 /* Primary buttons: hidden when modifier is held */
-.streak-secondary-mode .streak-btn-primary {
-  display: none;
-}
+.streak-secondary-mode .streak-btn-primary { display: none; }
 
 /* Secondary buttons: always visible in Management (Obsidian used modifier key) */
-.streak-btn-secondary {
-  display: inline-flex;
-}
-.streak-secondary-mode .streak-btn-secondary {
-  display: flex;
-}
+.streak-btn-secondary { display: inline-flex; }
+.streak-secondary-mode .streak-btn-secondary { display: flex; }
 
 /* Pause button — orange theme */
 .streak-btn-pause {
@@ -831,9 +713,7 @@
   font-size: 0.85em;
   line-height: 1;
 }
-.streak-reset-icon {
-  font-size: 1.05em;
-}
+.streak-reset-icon { font-size: 1.05em; }
 .streak-reset-count {
   font-variant-numeric: tabular-nums;
   min-width: 0.9em;
@@ -865,9 +745,7 @@
 
 /* ── Paused activity ─────────────────────────────────────────────────── */
 
-.streak-activity-paused {
-  position: relative;
-}
+.streak-activity-paused { position: relative; }
 
 /* Disable primary buttons on paused activities */
 .streak-activity-paused .streak-btn-primary {
