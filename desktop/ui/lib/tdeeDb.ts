@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db';
+import { dbExecute, dbSelect, dbDeleteExceptIds, dbDeleteDayExceptIds, syncNow } from '@/lib/sqlWrite';
 import { loadCurrentFeatureDay } from '@/lib/featureDay';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/types';
@@ -20,8 +20,6 @@ type EntryRow = {
   updated_at: string;
   deleted: number;
 };
-
-const syncNow = (): string => new Date().toISOString();
 
 const mealFromRow = (row: MealRow): TdeeMealDef => {
   const meal: TdeeMealDef = {
@@ -54,8 +52,7 @@ const entryFromRow = (row: EntryRow): TdeeStoredEntry => {
 };
 
 const upsertConfig = async (tdee: number, protein: number, logDay: string, updatedAt = syncNow()): Promise<void> => {
-  const db = await getDb();
-  await db.execute(
+  await dbExecute(
     `INSERT INTO nutrition_config (id, tdee, protein, log_day, updated_at) VALUES (1, $1, $2, $3, $4)
      ON CONFLICT(id) DO UPDATE SET tdee=excluded.tdee, protein=excluded.protein, log_day=excluded.log_day, updated_at=excluded.updated_at`,
     [tdee, protein, logDay, updatedAt]
@@ -68,9 +65,8 @@ const upsertMealRow = async (
   sortOrder: number,
   updatedAt = syncNow()
 ): Promise<void> => {
-  const db = await getDb();
   const ingredientsJson = meal.ingredients?.length ? JSON.stringify(meal.ingredients) : null;
-  await db.execute(
+  await dbExecute(
     `INSERT INTO ${table} (id, name, calories, protein, ingredients_json, sort_order, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT(id) DO UPDATE SET
        name=excluded.name,
@@ -84,24 +80,16 @@ const upsertMealRow = async (
 };
 
 const deleteMealRow = async (table: 'nutrition_staples' | 'nutrition_regulars', id: string): Promise<void> => {
-  const db = await getDb();
-  await db.execute(`DELETE FROM ${table} WHERE id=$1`, [id]);
+  await dbExecute(`DELETE FROM ${table} WHERE id=$1`, [id]);
 };
 
 const deleteMealsNotIn = async (table: 'nutrition_staples' | 'nutrition_regulars', ids: string[]): Promise<void> => {
-  const db = await getDb();
-  if (!ids.length) {
-    await db.execute(`DELETE FROM ${table}`);
-    return;
-  }
-  const placeholders = ids.map((_, i) => `$${i + 1}`).join(',');
-  await db.execute(`DELETE FROM ${table} WHERE id NOT IN (${placeholders})`, ids);
+  await dbDeleteExceptIds(table, ids);
 };
 
 const upsertNutritionEntry = async (day: string, entry: TdeeStoredEntry, updatedAt?: string): Promise<void> => {
-  const db = await getDb();
   if ('deleted' in entry && entry.deleted) {
-    await db.execute(
+    await dbExecute(
       `INSERT INTO nutrition_entries (id, log_day, kind, ref_id, label, calories, protein, count, updated_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1)
        ON CONFLICT(id, log_day) DO UPDATE SET updated_at=excluded.updated_at, deleted=1`,
       [entry.id, day, 'custom', null, '', 0, 0, 1, updatedAt ?? entry.updatedAt]
@@ -110,7 +98,7 @@ const upsertNutritionEntry = async (day: string, entry: TdeeStoredEntry, updated
   }
   const e = entry as TdeeLogEntry;
   const ts = updatedAt ?? e.updatedAt;
-  await db.execute(
+  await dbExecute(
     `INSERT INTO nutrition_entries (id, log_day, kind, ref_id, label, calories, protein, count, updated_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 0)
      ON CONFLICT(id, log_day) DO UPDATE SET
        kind=excluded.kind,
@@ -126,23 +114,21 @@ const upsertNutritionEntry = async (day: string, entry: TdeeStoredEntry, updated
 };
 
 const ensureConfigRow = async (): Promise<void> => {
-  const db = await getDb();
-  const rows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
+  const rows = await dbSelect<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
   if (rows.length) return;
   await upsertConfig(0, 0, '');
 };
 
 export const loadTdeeFile = async (): Promise<TdeeFile> => {
   await ensureConfigRow();
-  const db = await getDb();
   const { day: currentDay } = await loadCurrentFeatureDay();
-  const configRows = await db.select<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
+  const configRows = await dbSelect<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
   const config = configRows[0] ?? { tdee: 0, protein: 0, log_day: '', updated_at: syncNow() };
-  const stapleRows = await db.select<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order, updated_at FROM nutrition_staples ORDER BY sort_order, name');
-  const regularRows = await db.select<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order, updated_at FROM nutrition_regulars ORDER BY sort_order, name');
+  const stapleRows = await dbSelect<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order, updated_at FROM nutrition_staples ORDER BY sort_order, name');
+  const regularRows = await dbSelect<MealRow[]>('SELECT id, name, calories, protein, ingredients_json, sort_order, updated_at FROM nutrition_regulars ORDER BY sort_order, name');
   let entryRows: EntryRow[] = [];
   if (config.log_day === currentDay) {
-    entryRows = await db.select<EntryRow[]>(
+    entryRows = await dbSelect<EntryRow[]>(
       'SELECT id, kind, ref_id, label, calories, protein, count, updated_at, deleted FROM nutrition_entries WHERE log_day = $1 ORDER BY updated_at',
       [currentDay]
     );
@@ -177,13 +163,7 @@ const saveEntriesForDay = async (day: string, entries: TdeeStoredEntry[]): Promi
     ids.push(entry.id);
     await upsertNutritionEntry(day, entry);
   }
-  const db = await getDb();
-  if (!ids.length) {
-    await db.execute('DELETE FROM nutrition_entries WHERE log_day=$1', [day]);
-    return;
-  }
-  const placeholders = ids.map((_, i) => `$${i + 2}`).join(',');
-  await db.execute(`DELETE FROM nutrition_entries WHERE log_day=$1 AND id NOT IN (${placeholders})`, [day, ...ids]);
+  await dbDeleteDayExceptIds('nutrition_entries', day, ids);
 };
 
 export const saveTdeeFile = async (file: TdeeFile): Promise<void> => {

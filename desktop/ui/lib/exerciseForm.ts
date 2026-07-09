@@ -1,5 +1,7 @@
 import type { ExerciseUnit } from '@/lib/workoutPlanner';
 
+export type { ExerciseUnit };
+
 export const EXERCISE_UNIT_OPTIONS: { value: ExerciseUnit; label: string }[] = [
   { value: 'reps', label: 'reps' },
   { value: 'seconds', label: 'sec' },
