@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db';
+import { getAppKvMany, intPref, parseBoolDefaultOn, setAppKv } from '@/lib/appKv';
 import { clampDayRolloverHour, formatDayRolloverHourLabel } from '@/lib/dayBoundary';
 
 export const KV_MORNING_STRETCH_ENABLED = 'morning_stretch_enabled_v1';
@@ -14,22 +14,6 @@ export type MorningStretchPrefs = {
   hideAfterHour: number;
 };
 
-type AppKvRow = { value: string };
-
-const getKv = async (key: string): Promise<string | null> => {
-  const db = await getDb();
-  const rows = await db.select<AppKvRow[]>('SELECT value FROM app_kv WHERE key = $1 LIMIT 1', [key]);
-  return rows[0]?.value ?? null;
-};
-
-const setKv = async (key: string, value: string): Promise<void> => {
-  const db = await getDb();
-  await db.execute(
-    'INSERT INTO app_kv (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
-    [key, value, Date.now()]
-  );
-};
-
 export const clampMorningStretchDurationMinutes = (minutes: number): number => {
   if (!Number.isFinite(minutes)) return DEFAULT_MORNING_STRETCH_DURATION_MINUTES;
   const m = Math.trunc(minutes);
@@ -37,8 +21,6 @@ export const clampMorningStretchDurationMinutes = (minutes: number): number => {
   if (m > 60) return 60;
   return m;
 };
-
-const parseEnabledDefaultOn = (raw: string | null): boolean => raw !== 'false';
 
 export const defaultMorningStretchPrefs = (): MorningStretchPrefs => ({
   enabled: true,
@@ -58,35 +40,35 @@ export const normalizeMorningStretchPrefs = (raw: Partial<MorningStretchPrefs> |
   };
 };
 
+const durationPref = intPref(
+  KV_MORNING_STRETCH_DURATION_MINUTES,
+  clampMorningStretchDurationMinutes,
+  DEFAULT_MORNING_STRETCH_DURATION_MINUTES
+);
+const hidePref = intPref(
+  KV_MORNING_STRETCH_HIDE_AFTER_HOUR,
+  clampDayRolloverHour,
+  DEFAULT_MORNING_STRETCH_HIDE_AFTER_HOUR
+);
+
 export const loadMorningStretchPrefs = async (): Promise<MorningStretchPrefs> => {
-  const [enabledRaw, durationRaw, hideRaw] = await Promise.all([
-    getKv(KV_MORNING_STRETCH_ENABLED),
-    getKv(KV_MORNING_STRETCH_DURATION_MINUTES),
-    getKv(KV_MORNING_STRETCH_HIDE_AFTER_HOUR)
+  const [enabledRaw, duration, hideAfterHour] = await Promise.all([
+    getAppKvMany([KV_MORNING_STRETCH_ENABLED]).then((r) => r[0]),
+    durationPref.load(),
+    hidePref.load()
   ]);
-  const durationParsed = durationRaw !== null ? Number.parseInt(durationRaw, 10) : NaN;
-  const hideParsed = hideRaw !== null ? Number.parseInt(hideRaw, 10) : NaN;
   return normalizeMorningStretchPrefs({
-    enabled: parseEnabledDefaultOn(enabledRaw),
-    durationMinutes: Number.isFinite(durationParsed) ? durationParsed : undefined,
-    hideAfterHour: Number.isFinite(hideParsed) ? hideParsed : undefined
+    enabled: parseBoolDefaultOn(enabledRaw),
+    durationMinutes: duration,
+    hideAfterHour
   });
 };
 
 export const saveMorningStretchEnabled = async (enabled: boolean): Promise<void> => {
-  await setKv(KV_MORNING_STRETCH_ENABLED, enabled ? 'true' : 'false');
+  await setAppKv(KV_MORNING_STRETCH_ENABLED, enabled ? 'true' : 'false');
 };
 
-export const saveMorningStretchDurationMinutes = async (minutes: number): Promise<number> => {
-  const safe = clampMorningStretchDurationMinutes(minutes);
-  await setKv(KV_MORNING_STRETCH_DURATION_MINUTES, String(safe));
-  return safe;
-};
-
-export const saveMorningStretchHideAfterHour = async (hour: number): Promise<number> => {
-  const safe = clampDayRolloverHour(hour);
-  await setKv(KV_MORNING_STRETCH_HIDE_AFTER_HOUR, String(safe));
-  return safe;
-};
+export const saveMorningStretchDurationMinutes = (minutes: number): Promise<number> => durationPref.save(minutes);
+export const saveMorningStretchHideAfterHour = (hour: number): Promise<number> => hidePref.save(hour);
 
 export const formatMorningStretchHideAfterLabel = (hour: number): string => formatDayRolloverHourLabel(hour);

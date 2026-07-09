@@ -1,3 +1,4 @@
+import { deleteAppKv, getAppKv, setAppKv } from '@/lib/appKv';
 import { getDb } from '@/lib/db';
 import { parsePersistedFlowState, type PersistedFlowState } from '@/lib/flowState';
 import {
@@ -47,8 +48,6 @@ type WorkoutLogRow = {
   total_timed_seconds: number;
   completion_ratio: number | null;
 };
-
-type AppKvRow = { value: string };
 
 export type LocalStorageSessionImport = {
   allowedWorkoutIds: string[] | null;
@@ -120,32 +119,17 @@ export const clearLegacyLocalStorageSessionKeys = (): void => {
   localStorage.removeItem(LEGACY_LS_KEYS.focusLogs);
 };
 
-const getKv = async (key: string): Promise<string | null> => {
-  const db = await getDb();
-  const rows = await db.select<AppKvRow[]>('SELECT value FROM app_kv WHERE key = $1 LIMIT 1', [key]);
-  return rows[0]?.value ?? null;
-};
-
-const setKv = async (key: string, value: string): Promise<void> => {
-  const db = await getDb();
-  const updatedAt = Date.now();
-  await db.execute(
-    'INSERT INTO app_kv (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
-    [key, value, updatedAt]
-  );
-};
-
 const isSessionMigrated = async (): Promise<boolean> => {
-  const flag = await getKv(KV_SESSION_MIGRATED);
+  const flag = await getAppKv(KV_SESSION_MIGRATED);
   return flag === '1';
 };
 
 const markSessionMigrated = async (): Promise<void> => {
-  await setKv(KV_SESSION_MIGRATED, '1');
+  await setAppKv(KV_SESSION_MIGRATED, '1');
 };
 
 export const fetchAllowedWorkoutIds = async (): Promise<string[]> => {
-  const raw = await getKv(KV_ALLOWED_WORKOUTS);
+  const raw = await getAppKv(KV_ALLOWED_WORKOUTS);
   if (!raw) return resolveAllowedWorkoutIds(DEFAULT_ALLOWED_WORKOUT_IDS);
   try {
     const parsed = JSON.parse(raw) as string[];
@@ -157,12 +141,12 @@ export const fetchAllowedWorkoutIds = async (): Promise<string[]> => {
 };
 
 export const saveAllowedWorkoutIds = async (ids: string[]): Promise<void> => {
-  await setKv(KV_ALLOWED_WORKOUTS, JSON.stringify(resolveAllowedWorkoutIds(ids)));
+  await setAppKv(KV_ALLOWED_WORKOUTS, JSON.stringify(resolveAllowedWorkoutIds(ids)));
 };
 
 export const fetchWorkoutCustomizePrefs = async (): Promise<WorkoutCustomizePrefs> => {
   const legacyIds = await fetchAllowedWorkoutIds();
-  const raw = await getKv(KV_WORKOUT_CUSTOMIZE_PREFS);
+  const raw = await getAppKv(KV_WORKOUT_CUSTOMIZE_PREFS);
   if (!raw) return normalizeWorkoutCustomizePrefs(null, legacyIds);
   try {
     return normalizeWorkoutCustomizePrefs(JSON.parse(raw) as Partial<WorkoutCustomizePrefs>, legacyIds);
@@ -174,8 +158,8 @@ export const fetchWorkoutCustomizePrefs = async (): Promise<WorkoutCustomizePref
 
 export const saveWorkoutCustomizePrefs = async (prefs: WorkoutCustomizePrefs): Promise<void> => {
   const normalized = normalizeWorkoutCustomizePrefs(prefs, null);
-  await setKv(KV_WORKOUT_CUSTOMIZE_PREFS, JSON.stringify(normalized));
-  await setKv(KV_ALLOWED_WORKOUTS, JSON.stringify(allowedWorkoutIdsForLegacyKv(normalized)));
+  await setAppKv(KV_WORKOUT_CUSTOMIZE_PREFS, JSON.stringify(normalized));
+  await setAppKv(KV_ALLOWED_WORKOUTS, JSON.stringify(allowedWorkoutIdsForLegacyKv(normalized)));
 };
 
 export const fetchFocusLogs = async (limit = MAX_HISTORY_ITEMS): Promise<FocusLogEntry[]> => {
@@ -305,18 +289,17 @@ export type SessionStorageSnapshot = {
 };
 
 export const fetchActiveFlowState = async (): Promise<PersistedFlowState | null> => {
-  const raw = await getKv(KV_ACTIVE_FLOW);
+  const raw = await getAppKv(KV_ACTIVE_FLOW);
   if (!raw) return null;
   return parsePersistedFlowState(raw);
 };
 
 export const saveActiveFlowState = async (flow: PersistedFlowState): Promise<void> => {
-  await setKv(KV_ACTIVE_FLOW, JSON.stringify(flow));
+  await setAppKv(KV_ACTIVE_FLOW, JSON.stringify(flow));
 };
 
 export const clearActiveFlowState = async (): Promise<void> => {
-  const db = await getDb();
-  await db.execute('DELETE FROM app_kv WHERE key = $1', [KV_ACTIVE_FLOW]);
+  await deleteAppKv(KV_ACTIVE_FLOW);
 };
 
 export const loadSessionStorage = async (): Promise<SessionStorageSnapshot> => {
