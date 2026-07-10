@@ -12,11 +12,14 @@ const parseTs = (v: unknown): number => {
 };
 
 /** Prefer the row with the newer updated_at / deleted_at clock (not mere queue order). */
-const mergeUpserts = <T extends Record<string, unknown>>(
+const mergeUpserts = <T>(
   left: T[] = [],
   right: T[] = [],
   keyFn: (row: T) => string,
-  clock: (row: T) => number = (row) => parseTs(row.updated_at ?? row.deleted_at)
+  clock: (row: T) => number = (row) => {
+    const r = row as { updated_at?: unknown; deleted_at?: unknown };
+    return parseTs(r.updated_at ?? r.deleted_at);
+  }
 ): T[] => {
   const map = new Map<string, T>();
   for (const row of [...left, ...right]) {
@@ -81,37 +84,37 @@ export const mergeUserDataRowPatches = (left: UserDataRowPatch, right: UserDataR
   }
   if (right.streakActivities) {
     merged.streakActivities = {
-      upserts: mergeUpserts(merged.streakActivities?.upserts as never, right.streakActivities.upserts as never, (r) => r.id) as typeof right.streakActivities.upserts,
+      upserts: mergeUpserts(merged.streakActivities?.upserts, right.streakActivities.upserts, (r) => r.id),
       deletes: mergeDeletes(merged.streakActivities?.deletes, right.streakActivities.deletes)
     };
   }
   if (right.streakLogCells) {
     merged.streakLogCells = {
-      upserts: mergeUpserts(merged.streakLogCells?.upserts as never, right.streakLogCells.upserts as never, (r) => `${r.log_date}\0${r.activity_id}`) as typeof right.streakLogCells.upserts,
+      upserts: mergeUpserts(merged.streakLogCells?.upserts, right.streakLogCells.upserts, (r) => `${r.log_date}\0${r.activity_id}`),
       deletes: mergeDeletes(merged.streakLogCells?.deletes, right.streakLogCells.deletes)
     };
   }
   if (right.streakActivityMeta) {
     merged.streakActivityMeta = {
-      upserts: mergeUpserts(merged.streakActivityMeta?.upserts as never, right.streakActivityMeta.upserts as never, (r) => r.activity_id) as typeof right.streakActivityMeta.upserts,
+      upserts: mergeUpserts(merged.streakActivityMeta?.upserts, right.streakActivityMeta.upserts, (r) => r.activity_id),
       deletes: mergeDeletes(merged.streakActivityMeta?.deletes, right.streakActivityMeta.deletes)
     };
   }
   if (right.waterConfig) merged.waterConfig = { ...merged.waterConfig, ...right.waterConfig };
   if (right.waterEntries) {
     merged.waterEntries = {
-      upserts: mergeUpserts(merged.waterEntries?.upserts as never, right.waterEntries.upserts as never, (r) => `${r.id}\0${r.log_day}`) as typeof right.waterEntries.upserts,
+      upserts: mergeUpserts(merged.waterEntries?.upserts, right.waterEntries.upserts, (r) => `${r.id}\0${r.log_day}`),
       deletes: mergeDeletes(merged.waterEntries?.deletes, right.waterEntries.deletes)
     };
   }
   if (right.syncTombstones) {
     merged.syncTombstones = {
       upserts: mergeUpserts(
-        merged.syncTombstones?.upserts as never,
-        right.syncTombstones.upserts as never,
+        merged.syncTombstones?.upserts,
+        right.syncTombstones.upserts,
         (r) => `${r.entity}\0${r.row_key}`,
         (r) => parseTs(r.deleted_at)
-      ) as typeof right.syncTombstones.upserts,
+      ),
       deletes: mergeDeletes(merged.syncTombstones?.deletes, right.syncTombstones.deletes)
     };
   }
