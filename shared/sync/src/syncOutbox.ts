@@ -5,10 +5,25 @@ import { markSyncPushResult } from './syncStatus';
 
 type OutboxRow = { id: number; patch_json: string; created_at: number };
 
-const mergeUpserts = <T>(left: T[] = [], right: T[] = [], keyFn: (row: T) => string): T[] => {
+const parseTs = (v: unknown): number => {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') return Date.parse(v) || 0;
+  return 0;
+};
+
+/** Prefer the row with the newer updated_at / deleted_at clock (not mere queue order). */
+const mergeUpserts = <T extends Record<string, unknown>>(
+  left: T[] = [],
+  right: T[] = [],
+  keyFn: (row: T) => string,
+  clock: (row: T) => number = (row) => parseTs(row.updated_at ?? row.deleted_at)
+): T[] => {
   const map = new Map<string, T>();
-  for (const row of left) map.set(keyFn(row), row);
-  for (const row of right) map.set(keyFn(row), row);
+  for (const row of [...left, ...right]) {
+    const key = keyFn(row);
+    const existing = map.get(key);
+    if (!existing || clock(row) >= clock(existing)) map.set(key, row);
+  }
   return [...map.values()];
 };
 
@@ -24,18 +39,18 @@ const mergeDeletes = <T>(left: T[] = [], right: T[] = []): T[] => {
   return out;
 };
 
-/** Combine queued patches in FIFO order (later row upserts win). */
+/** Combine queued patches; same-key upserts keep the newer clock (not FIFO-last). */
 export const mergeUserDataRowPatches = (left: UserDataRowPatch, right: UserDataRowPatch): UserDataRowPatch => {
   const merged: UserDataRowPatch = { ...left };
   if (right.focusLog) {
     merged.focusLog = {
-      upserts: mergeUpserts(merged.focusLog?.upserts, right.focusLog.upserts, (r) => r.id),
+      upserts: mergeUpserts(merged.focusLog?.upserts, right.focusLog.upserts, (r) => r.id, (r) => parseTs(r.completed_at)),
       deletes: mergeDeletes(merged.focusLog?.deletes, right.focusLog.deletes)
     };
   }
   if (right.workoutLog) {
     merged.workoutLog = {
-      upserts: mergeUpserts(merged.workoutLog?.upserts, right.workoutLog.upserts, (r) => r.id),
+      upserts: mergeUpserts(merged.workoutLog?.upserts, right.workoutLog.upserts, (r) => r.id, (r) => parseTs(r.completed_at)),
       deletes: mergeDeletes(merged.workoutLog?.deletes, right.workoutLog.deletes)
     };
   }
@@ -66,27 +81,38 @@ export const mergeUserDataRowPatches = (left: UserDataRowPatch, right: UserDataR
   }
   if (right.streakActivities) {
     merged.streakActivities = {
-      upserts: mergeUpserts(merged.streakActivities?.upserts, right.streakActivities.upserts, (r) => r.id),
+      upserts: mergeUpserts(merged.streakActivities?.upserts as never, right.streakActivities.upserts as never, (r) => r.id) as typeof right.streakActivities.upserts,
       deletes: mergeDeletes(merged.streakActivities?.deletes, right.streakActivities.deletes)
     };
   }
   if (right.streakLogCells) {
     merged.streakLogCells = {
-      upserts: mergeUpserts(merged.streakLogCells?.upserts, right.streakLogCells.upserts, (r) => `${r.log_date}\0${r.activity_id}`),
+      upserts: mergeUpserts(merged.streakLogCells?.upserts as never, right.streakLogCells.upserts as never, (r) => `${r.log_date}\0${r.activity_id}`) as typeof right.streakLogCells.upserts,
       deletes: mergeDeletes(merged.streakLogCells?.deletes, right.streakLogCells.deletes)
     };
   }
   if (right.streakActivityMeta) {
     merged.streakActivityMeta = {
-      upserts: mergeUpserts(merged.streakActivityMeta?.upserts, right.streakActivityMeta.upserts, (r) => r.activity_id),
+      upserts: mergeUpserts(merged.streakActivityMeta?.upserts as never, right.streakActivityMeta.upserts as never, (r) => r.activity_id) as typeof right.streakActivityMeta.upserts,
       deletes: mergeDeletes(merged.streakActivityMeta?.deletes, right.streakActivityMeta.deletes)
     };
   }
   if (right.waterConfig) merged.waterConfig = { ...merged.waterConfig, ...right.waterConfig };
   if (right.waterEntries) {
     merged.waterEntries = {
-      upserts: mergeUpserts(merged.waterEntries?.upserts, right.waterEntries.upserts, (r) => `${r.id}\0${r.log_day}`),
+      upserts: mergeUpserts(merged.waterEntries?.upserts as never, right.waterEntries.upserts as never, (r) => `${r.id}\0${r.log_day}`) as typeof right.waterEntries.upserts,
       deletes: mergeDeletes(merged.waterEntries?.deletes, right.waterEntries.deletes)
+    };
+  }
+  if (right.syncTombstones) {
+    merged.syncTombstones = {
+      upserts: mergeUpserts(
+        merged.syncTombstones?.upserts as never,
+        right.syncTombstones.upserts as never,
+        (r) => `${r.entity}\0${r.row_key}`,
+        (r) => parseTs(r.deleted_at)
+      ) as typeof right.syncTombstones.upserts,
+      deletes: mergeDeletes(merged.syncTombstones?.deletes, right.syncTombstones.deletes)
     };
   }
   return merged;
@@ -114,7 +140,7 @@ export const drainSyncOutbox = async (
   serverUrl: string,
   token: string
 ): Promise<{ ok: boolean; drained: number }> => {
-  const rows = await readSyncOutbox(db);
+  const rows = (await readSyncOutbox(db)) ?? [];
   if (!rows.length) return { ok: true, drained: 0 };
   let combined: UserDataRowPatch = {};
   for (const row of rows) {

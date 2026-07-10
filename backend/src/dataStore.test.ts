@@ -6,7 +6,7 @@ const emptyData = () => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
   streakActivities: [], streakLogCells: [], streakActivityMeta: [],
-  waterConfig: null, waterEntries: []
+  waterConfig: null, waterEntries: [], syncTombstones: []
 });
 
 const streakRow = (id: string, name: string, archived_at: string | null = null, extra: Partial<{ extra_calories: number; extra_protein: number; extra_water_ml: number; updated_at: string }> = {}) => ({
@@ -128,6 +128,38 @@ describe('SqliteDataStore.putData', () => {
       }
     });
     expect(store.getData('owner').streakActivities[0]?.archived_at).toBe('2026-07-07');
+    db.close();
+  });
+
+  it('keeps archived_at sticky when a newer active-only patch would clear it', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run', '2026-07-07', { updated_at: '2026-07-07T12:00:00Z' })] });
+    store.putDataPatch('owner', {
+      streakActivities: {
+        upserts: [streakRow('a1', 'Renamed', null, { updated_at: '2026-07-08T18:00:00Z' })]
+      }
+    });
+    const row = store.getData('owner').streakActivities[0];
+    expect(row?.archived_at).toBe('2026-07-07');
+    expect(row?.name).toBe('Renamed');
+    db.close();
+  });
+
+  it('applies tombstone + delete so hard-deleted streaks stay gone', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', { ...emptyData(), streakActivities: [streakRow('a1', 'Run')] });
+    store.putDataPatch('owner', {
+      streakActivities: { deletes: [{ id: 'a1' }] },
+      syncTombstones: { upserts: [{ entity: 'streakActivities', row_key: 'a1', deleted_at: '2026-07-08T12:00:00Z' }] }
+    });
+    expect(store.getData('owner').streakActivities).toHaveLength(0);
+    expect(store.getData('owner').syncTombstones).toEqual([
+      { entity: 'streakActivities', row_key: 'a1', deleted_at: '2026-07-08T12:00:00Z' }
+    ]);
     db.close();
   });
 });

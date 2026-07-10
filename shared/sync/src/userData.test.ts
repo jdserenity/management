@@ -19,7 +19,7 @@ const emptyData = (): UserData => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
   streakActivities: [], streakLogCells: [], streakActivityMeta: [],
-  waterConfig: null, waterEntries: []
+  waterConfig: null, waterEntries: [], syncTombstones: []
 });
 
 const streakRow = (overrides: Partial<UserData['streakActivities'][0]> = {}) => ({
@@ -228,7 +228,7 @@ describe('extractUserData', () => {
     const db = makeMockDb();
     await extractUserData(db);
     const selects = db.calls.filter((c) => c.startsWith('SELECT:'));
-    expect(selects).toHaveLength(12);
+    expect(selects).toHaveLength(13);
   });
 
   it('returns nutritionConfig as null when table is empty', async () => {

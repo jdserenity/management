@@ -1,6 +1,6 @@
 import type { UserDataTable } from './userData';
 
-/** SQLite table names in local.db (from shared/storage migrations v1–v9). */
+/** SQLite table names in local.db (from shared/storage migrations). */
 export type LocalDbTable =
   | 'posture_log'
   | 'focus_log'
@@ -14,7 +14,8 @@ export type LocalDbTable =
   | 'streak_log_cells'
   | 'streak_activity_meta'
   | 'water_config'
-  | 'water_entries';
+  | 'water_entries'
+  | 'sync_tombstones';
 
 /** Server-only tables (not in UserData snapshot). */
 export type ServerOnlyTable = 'active_flow_singleton' | 'users';
@@ -49,7 +50,8 @@ export const LOCAL_DB_TABLES: LocalDbTable[] = [
   'streak_log_cells',
   'streak_activity_meta',
   'water_config',
-  'water_entries'
+  'water_entries',
+  'sync_tombstones'
 ];
 
 export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
@@ -155,6 +157,14 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     userDataField: 'waterEntries',
     rowKey: ['id', 'log_day'],
     updatedAtColumn: 'updated_at',
+    mergeKind: 'row_lww'
+  },
+  sync_tombstones: {
+    sqlTable: 'sync_tombstones',
+    scope: 'shared',
+    userDataField: 'syncTombstones',
+    rowKey: ['entity', 'row_key'],
+    updatedAtColumn: 'deleted_at',
     mergeKind: 'row_lww'
   }
 };

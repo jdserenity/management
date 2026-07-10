@@ -741,6 +741,12 @@ pub fn run() {
                         sql: "ALTER TABLE streak_activities ADD COLUMN linked_movement_burst INTEGER NOT NULL DEFAULT 0;",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 14,
+                        description: "sync_tombstones_for_hard_deletes",
+                        sql: "CREATE TABLE IF NOT EXISTS sync_tombstones (entity TEXT NOT NULL, row_key TEXT NOT NULL, deleted_at TEXT NOT NULL, PRIMARY KEY (entity, row_key));",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {

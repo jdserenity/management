@@ -12,6 +12,7 @@ import type {
   StreakActivity,
   StreakActivityMeta,
   StreakLogCell,
+  SyncTombstone,
   UserData,
   UserDataTable,
   WaterConfig,
@@ -232,6 +233,20 @@ const waterEntries: UserDataTableSchema<WaterEntry, { id: string }> = {
   getRows: (d) => d.waterEntries ?? []
 };
 
+const syncTombstones: UserDataTableSchema<SyncTombstone, { entity: string; row_key: string }> = {
+  field: 'syncTombstones',
+  sqlTable: 'sync_tombstones',
+  columns: ['entity', 'row_key', 'deleted_at'],
+  rowKey: ['entity', 'row_key'],
+  serverUserIdIndex: 2,
+  mergeKind: 'row_lww',
+  singleton: false,
+  updatedAtColumn: 'deleted_at',
+  bind: (r) => [r.entity, r.row_key, r.deleted_at],
+  bindDeleteKey: (k) => [k.entity, k.row_key],
+  getRows: (d) => d.syncTombstones ?? []
+};
+
 /** Ordered list — delete/replace uses this order. */
 export const USER_DATA_TABLE_SCHEMAS = [
   focus,
@@ -245,7 +260,8 @@ export const USER_DATA_TABLE_SCHEMAS = [
   streakLogCells,
   streakActivityMeta,
   waterConfig,
-  waterEntries
+  waterEntries,
+  syncTombstones
 ] as const;
 
 export type AnyUserDataTableSchema = (typeof USER_DATA_TABLE_SCHEMAS)[number];
@@ -302,6 +318,7 @@ export const serverConflictColumns = (s: AnyUserDataTableSchema): string[] => {
   if (s.sqlTable === 'streak_log_cells') return ['log_date', 'activity_id', 'user_id'];
   if (s.sqlTable === 'nutrition_entries' || s.sqlTable === 'water_entries') return ['id', 'user_id', 'log_day'];
   if (s.sqlTable === 'streak_activity_meta') return ['activity_id', 'user_id'];
+  if (s.sqlTable === 'sync_tombstones') return ['entity', 'row_key', 'user_id'];
   // default: id + user_id (first rowKey is typically id)
   return [s.rowKey[0]!, 'user_id'];
 };
@@ -314,7 +331,15 @@ export const serverPatchUpsertSql = (s: AnyUserDataTableSchema): string => {
     return `${insert} ON CONFLICT(${conflict}) DO NOTHING`;
   }
   const updatable = s.columns.filter((c) => !s.rowKey.includes(c));
-  const sets = updatable.map((c) => `${c}=excluded.${c}`).join(',\n              ');
+  // Sticky archive: never clear archived_at via a newer active-only upsert (reorder/edit race).
+  const sets = updatable
+    .map((c) => {
+      if (s.sqlTable === 'streak_activities' && c === 'archived_at') {
+        return `archived_at=COALESCE(excluded.archived_at, ${s.sqlTable}.archived_at)`;
+      }
+      return `${c}=excluded.${c}`;
+    })
+    .join(',\n              ');
   const clock = s.updatedAtColumn ?? 'updated_at';
   return `${insert}
             ON CONFLICT(${conflict}) DO UPDATE SET
@@ -335,6 +360,9 @@ export const serverDeleteSql = (s: AnyUserDataTableSchema): string => {
   }
   if (s.sqlTable === 'app_kv') {
     return `DELETE FROM ${s.sqlTable} WHERE user_id=? AND key=?`;
+  }
+  if (s.sqlTable === 'sync_tombstones') {
+    return `DELETE FROM ${s.sqlTable} WHERE user_id=? AND entity=? AND row_key=?`;
   }
   // nutrition_entries / water_entries delete by id only in current server code
   if (s.rowKey[0] === 'id') {

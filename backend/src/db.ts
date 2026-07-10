@@ -161,6 +161,15 @@ const SCHEMA_SQL = `
     deleted INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (id, user_id, log_day)
   );
+
+  -- Hard-delete markers so clients can drop rows that still exist only locally
+  CREATE TABLE IF NOT EXISTS sync_tombstones (
+    entity TEXT NOT NULL,
+    row_key TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    deleted_at TEXT NOT NULL,
+    PRIMARY KEY (entity, row_key, user_id)
+  );
 `;
 
 const migrateServerSchema = (db: Database.Database): void => {

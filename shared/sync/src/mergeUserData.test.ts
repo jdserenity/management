@@ -6,7 +6,7 @@ const empty = (): UserData => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
   streakActivities: [], streakLogCells: [], streakActivityMeta: [],
-  waterConfig: null, waterEntries: []
+  waterConfig: null, waterEntries: [], syncTombstones: []
 });
 
 const streakActivity = (overrides: Partial<UserData['streakActivities'][0]> = {}) => ({
@@ -119,6 +119,49 @@ describe('mergeUserData', () => {
     };
     const merged = mergeUserData(local, server);
     expect(merged.streakActivities[0].archived_at).toBe('2026-07-07');
+  });
+
+  it('keeps archive sticky when a newer active-only row would otherwise un-archive', () => {
+    const local = {
+      ...empty(),
+      streakActivities: [streakActivity({ name: 'Renamed', archived_at: null, updated_at: '2026-07-08T12:00:00.000Z', sort_order: 3 })]
+    };
+    const server = {
+      ...empty(),
+      streakActivities: [streakActivity({ name: 'Run', archived_at: '2026-07-07', updated_at: '2026-07-07T12:00:00.000Z', sort_order: 0 })]
+    };
+    const merged = mergeUserData(local, server);
+    expect(merged.streakActivities[0].archived_at).toBe('2026-07-07');
+    expect(merged.streakActivities[0].name).toBe('Renamed');
+    expect(merged.streakActivities[0].sort_order).toBe(3);
+  });
+
+  it('drops local rows covered by a newer server tombstone (hard delete)', () => {
+    const local = {
+      ...empty(),
+      streakActivities: [streakActivity({ id: 'gone', updated_at: '2026-07-01T00:00:00.000Z' })],
+      syncTombstones: []
+    };
+    const server = {
+      ...empty(),
+      streakActivities: [],
+      syncTombstones: [{ entity: 'streakActivities', row_key: 'gone', deleted_at: '2026-07-08T12:00:00.000Z' }]
+    };
+    const merged = mergeUserData(local, server);
+    expect(merged.streakActivities).toEqual([]);
+    expect(merged.syncTombstones).toHaveLength(1);
+  });
+
+  it('keeps a recreated row newer than its tombstone', () => {
+    const local = {
+      ...empty(),
+      streakActivities: [streakActivity({ id: 'back', updated_at: '2026-07-09T00:00:00.000Z' })],
+      syncTombstones: [{ entity: 'streakActivities', row_key: 'back', deleted_at: '2026-07-08T00:00:00.000Z' }]
+    };
+    const server = { ...empty(), streakActivities: [], syncTombstones: local.syncTombstones };
+    const merged = mergeUserData(local, server);
+    expect(merged.streakActivities).toHaveLength(1);
+    expect(merged.streakActivities[0].id).toBe('back');
   });
 
   it('merges nutrition staples per row by updated_at', () => {

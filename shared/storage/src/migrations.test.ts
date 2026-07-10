@@ -22,8 +22,8 @@ const tableColumns = (db: Database.Database, table: string): string[] =>
 describe('SCHEMA_MIGRATIONS', () => {
   it('has contiguous versions through the latest schema', () => {
     const versions = SCHEMA_MIGRATIONS.map((m) => m.version);
-    expect(LATEST_SCHEMA_VERSION).toBe(13);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    expect(LATEST_SCHEMA_VERSION).toBe(14);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
   });
 
   it('includes water tracker and streak cross-log migrations', () => {
@@ -48,6 +48,13 @@ describe('SCHEMA_MIGRATIONS', () => {
     expect(cols).toContain('linked_staple_id');
     expect(cols).toContain('linked_water');
     expect(cols).toContain('linked_movement_burst');
+    db.close();
+  });
+
+  it('creates sync_tombstones in migration v14', async () => {
+    const db = new Database(':memory:');
+    await runSchemaMigrations(wrapSqlite(db));
+    expect(tableColumns(db, 'sync_tombstones')).toEqual(expect.arrayContaining(['entity', 'row_key', 'deleted_at']));
     db.close();
   });
 });

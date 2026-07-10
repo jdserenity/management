@@ -11,7 +11,7 @@ const emptyData = (): UserData => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
   streakActivities: [], streakLogCells: [], streakActivityMeta: [],
-  waterConfig: null, waterEntries: []
+  waterConfig: null, waterEntries: [], syncTombstones: []
 });
 
 describe('userDataSafety', () => {

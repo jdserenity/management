@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v13). */
+/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v14). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -66,6 +66,11 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 13,
     description: 'streak_activity_linked_movement_burst',
     sql: 'ALTER TABLE streak_activities ADD COLUMN linked_movement_burst INTEGER NOT NULL DEFAULT 0;'
+  },
+  {
+    version: 14,
+    description: 'sync_tombstones_for_hard_deletes',
+    sql: 'CREATE TABLE IF NOT EXISTS sync_tombstones (entity TEXT NOT NULL, row_key TEXT NOT NULL, deleted_at TEXT NOT NULL, PRIMARY KEY (entity, row_key));'
   }
 ];
 

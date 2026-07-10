@@ -1,6 +1,7 @@
 import type { SqlDatabase } from '@mgmt/storage';
 import { dispatchDataSyncRefresh } from './dataSyncEvents';
 import { logSyncError, logSyncInfo, summarizeUserDataCounts } from './syncLog';
+import { drainSyncOutbox } from './syncOutbox';
 import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff, emptyUserData } from './userData';
 import { mergeUserData } from './mergeUserData';
 import { totalUserDataRows } from './userDataSafety';
@@ -49,6 +50,8 @@ export const runBidirectionalInitialSync = async (opts: BidirectionalSyncOpts): 
     return { pullOk: false, pushOk: false, skipped: true, reason: 'no-creds', pullError: msg };
   }
   logSyncInfo(`${logLabel} initial sync starting`, { serverUrl });
+  // Push pending local patches (including archive / tombstones) before merge so we don't lose them to LWW races.
+  await drainSyncOutbox(db, serverUrl, serverToken);
   const localBefore = await extractUserData(db);
   const localRows = totalUserDataRows(localBefore);
   let serverData;
@@ -109,6 +112,7 @@ export const pullAndMergeUserData = async (opts: BidirectionalSyncOpts): Promise
   const { db, serverUrl, serverToken, logLabel } = opts;
   if (!serverUrl || !serverToken) return false;
   try {
+    await drainSyncOutbox(db, serverUrl, serverToken);
     const localBefore = await extractUserData(db);
     const serverData = await fetchUserData(serverUrl, serverToken);
     const localRows = totalUserDataRows(localBefore);

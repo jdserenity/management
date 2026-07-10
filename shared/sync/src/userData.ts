@@ -56,6 +56,12 @@ export interface StreakActivityMeta {
   activity_id: string; start_date: string | null; pause_since: string | null;
   unpaused_at: string | null; reset_count: number; updated_at: string;
 }
+/** Hard-delete record so pull-merge can drop ghost rows (absence alone is ambiguous). */
+export interface SyncTombstone {
+  entity: string;
+  row_key: string;
+  deleted_at: string;
+}
 
 export interface UserData {
   focusLog: FocusLogRow[];
@@ -70,6 +76,7 @@ export interface UserData {
   streakActivityMeta: StreakActivityMeta[];
   waterConfig: WaterConfig | null;
   waterEntries: WaterEntry[];
+  syncTombstones: SyncTombstone[];
 }
 
 export type UserDataTable = keyof UserData;
@@ -86,6 +93,7 @@ export type StreakActivityDeleteKey = Pick<StreakActivity, 'id'>;
 export type StreakLogCellDeleteKey = Pick<StreakLogCell, 'log_date' | 'activity_id'>;
 export type StreakActivityMetaDeleteKey = Pick<StreakActivityMeta, 'activity_id'>;
 export type WaterEntryDeleteKey = Pick<WaterEntry, 'id'>;
+export type SyncTombstoneDeleteKey = Pick<SyncTombstone, 'entity' | 'row_key'>;
 
 export interface UserDataRowPatch {
   focusLog?: { upserts?: FocusLogRow[]; deletes?: FocusLogDeleteKey[] };
@@ -100,7 +108,11 @@ export interface UserDataRowPatch {
   streakActivityMeta?: { upserts?: StreakActivityMeta[]; deletes?: StreakActivityMetaDeleteKey[] };
   waterConfig?: { set?: WaterConfig | null; deletes?: WaterConfigDeleteKey[] };
   waterEntries?: { upserts?: WaterEntry[]; deletes?: WaterEntryDeleteKey[] };
+  syncTombstones?: { upserts?: SyncTombstone[]; deletes?: SyncTombstoneDeleteKey[] };
 }
+
+/** Stable tombstone key for composite row keys. */
+export const tombstoneRowKey = (...parts: string[]): string => parts.join('\0');
 
 export const USER_DATA_TABLES: UserDataTable[] = USER_DATA_TABLE_SCHEMAS.map((s) => s.field);
 
@@ -293,8 +305,63 @@ export const emptyUserData = (): UserData => ({
   streakLogCells: [],
   streakActivityMeta: [],
   waterConfig: null,
-  waterEntries: []
+  waterEntries: [],
+  syncTombstones: []
 });
+
+type EntityDeleteSpec = {
+  entity: UserDataTable;
+  deletes?: Array<Record<string, unknown>>;
+  keyOf: (d: Record<string, unknown>) => string;
+};
+
+/** Attach tombstones for hard deletes so other devices can drop ghost rows on pull. */
+export const enrichPatchWithTombstones = (
+  rowPatch: UserDataRowPatch,
+  deletedAt = new Date().toISOString()
+): UserDataRowPatch => {
+  const specs: EntityDeleteSpec[] = [
+    { entity: 'focusLog', deletes: rowPatch.focusLog?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
+    { entity: 'workoutLog', deletes: rowPatch.workoutLog?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
+    { entity: 'appKv', deletes: rowPatch.appKv?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.key ?? '') },
+    { entity: 'nutritionStaples', deletes: rowPatch.nutritionStaples?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
+    { entity: 'nutritionRegulars', deletes: rowPatch.nutritionRegulars?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
+    { entity: 'nutritionEntries', deletes: rowPatch.nutritionEntries?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
+    { entity: 'streakActivities', deletes: rowPatch.streakActivities?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
+    {
+      entity: 'streakLogCells',
+      deletes: rowPatch.streakLogCells?.deletes as Array<Record<string, unknown>> | undefined,
+      keyOf: (d) => tombstoneRowKey(String(d.log_date ?? ''), String(d.activity_id ?? ''))
+    },
+    {
+      entity: 'streakActivityMeta',
+      deletes: rowPatch.streakActivityMeta?.deletes as Array<Record<string, unknown>> | undefined,
+      keyOf: (d) => String(d.activity_id ?? '')
+    },
+    { entity: 'waterEntries', deletes: rowPatch.waterEntries?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') }
+  ];
+  const upserts: SyncTombstone[] = [...(rowPatch.syncTombstones?.upserts ?? [])];
+  const seen = new Set(upserts.map((t) => `${t.entity}\0${t.row_key}`));
+  for (const spec of specs) {
+    for (const del of spec.deletes ?? []) {
+      const row_key = spec.keyOf(del);
+      if (!row_key) continue;
+      const k = `${spec.entity}\0${row_key}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      upserts.push({ entity: spec.entity, row_key, deleted_at: deletedAt });
+    }
+  }
+  // Recreated rows with updated_at > tombstone.deleted_at survive merge without clearing the tombstone.
+  if (!upserts.length) return rowPatch;
+  return {
+    ...rowPatch,
+    syncTombstones: {
+      upserts,
+      deletes: rowPatch.syncTombstones?.deletes
+    }
+  };
+};
 
 /** Push only rows that differ between two snapshots (normal sync path; not full replace). */
 export const pushUserDataDiff = async (
@@ -404,9 +471,21 @@ export const buildUserDataRowPatch = (
     if (table === 'waterEntries') {
       const { upserts, deletes } = diffRows(before.waterEntries ?? [], after.waterEntries ?? [], (r) => r.id, (r) => ({ id: r.id }));
       if (upserts.length || deletes.length) rowPatch.waterEntries = { upserts, deletes: deletes as WaterEntryDeleteKey[] };
+      continue;
+    }
+    if (table === 'syncTombstones') {
+      const { upserts, deletes } = diffRows(
+        before.syncTombstones ?? [],
+        after.syncTombstones ?? [],
+        (r) => `${r.entity}\0${r.row_key}`,
+        (r) => ({ entity: r.entity, row_key: r.row_key })
+      );
+      if (upserts.length || deletes.length) {
+        rowPatch.syncTombstones = { upserts, deletes: deletes as SyncTombstoneDeleteKey[] };
+      }
     }
   }
-  return rowPatch;
+  return enrichPatchWithTombstones(rowPatch);
 };
 
 export const hasUserDataRowPatchChanges = (rowPatch: UserDataRowPatch): boolean =>

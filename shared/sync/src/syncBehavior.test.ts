@@ -26,6 +26,55 @@ describe('sync behavior matrix', () => {
     expect(mergeUserData(local, server).streakActivities[0]?.archived_at).toBe('2026-07-07');
   });
 
+  it('archive: sticky when other device reorders after archive (newer active-only row)', () => {
+    const local = {
+      ...emptyUserData(),
+      streakActivities: [streakActivity({ archived_at: null, updated_at: '2026-07-08T18:00:00.000Z', sort_order: 2 })]
+    };
+    const server = {
+      ...emptyUserData(),
+      streakActivities: [streakActivity({ archived_at: '2026-07-07', updated_at: '2026-07-07T12:00:00.000Z', sort_order: 0 })]
+    };
+    expect(mergeUserData(local, server).streakActivities[0]?.archived_at).toBe('2026-07-07');
+  });
+
+  it('hard delete: tombstone prevents local ghost from reappearing after pull merge', () => {
+    const local = {
+      ...emptyUserData(),
+      streakActivities: [streakActivity({ id: 'old-habit', updated_at: '2026-07-01T00:00:00.000Z' })]
+    };
+    const server = {
+      ...emptyUserData(),
+      streakActivities: [],
+      syncTombstones: [{ entity: 'streakActivities', row_key: 'old-habit', deleted_at: '2026-07-08T00:00:00.000Z' }]
+    };
+    expect(mergeUserData(local, server).streakActivities).toEqual([]);
+  });
+
+  it('outbox: newer archive upsert beats older active upsert for same habit', () => {
+    const merged = mergeUserDataRowPatches(
+      {
+        streakActivities: {
+          upserts: [streakActivity({ archived_at: null, updated_at: '2026-07-01T00:00:00.000Z' }) as never]
+        }
+      },
+      {
+        streakActivities: {
+          upserts: [streakActivity({ archived_at: '2026-07-07', updated_at: '2026-07-07T12:00:00.000Z' }) as never]
+        }
+      }
+    );
+    expect(merged.streakActivities?.upserts?.[0]?.archived_at).toBe('2026-07-07');
+  });
+
+  it('delete patch attaches a tombstone so other devices can drop the row', () => {
+    const before = { ...emptyUserData(), streakActivities: [streakActivity({ id: 'x' })] };
+    const after = { ...emptyUserData(), streakActivities: [] };
+    const patch = buildUserDataRowPatch(before, after, USER_DATA_TABLES);
+    expect(patch.streakActivities?.deletes).toEqual([{ id: 'x' }]);
+    expect(patch.syncTombstones?.upserts?.some((t) => t.entity === 'streakActivities' && t.row_key === 'x')).toBe(true);
+  });
+
   it('staple edit: row patch carries only changed staple', () => {
     const before = {
       ...emptyUserData(),
