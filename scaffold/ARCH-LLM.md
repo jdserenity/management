@@ -75,6 +75,7 @@ Boot: `DesktopBoot.tsx` / `CompanionBoot.tsx` → `SyncBootScreen` until SQLite 
 | `nutrition_*` | TDEE config, staples, regulars, today entries | shared |
 | `water_*` | Water target + today entries | shared |
 | `streak_*` | Activities, log cells, pause/reset meta | shared |
+| `sync_tombstones` | Hard-delete markers (entity, row_key, deleted_at) | shared |
 | `sync_outbox` | Pending row patches | local only |
 
 Sync classification: `shared/sync/src/syncRegistry.ts` (`SYNC_TABLE_REGISTRY`, `SHARED_APP_KV_KEYS`, `DESKTOP_ONLY_APP_KV_KEYS`).
@@ -87,7 +88,7 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 **Flow:** `runBidirectionalInitialSync` on boot (empty local → full `GET /v1/data`; else registry merge). Foreground poll `GET /v1/data` every 5s (`startUserDataPolling`). Local writes enqueue `sync_outbox` → `POST /v1/data/patch`. Full `POST /v1/data` bootstrap-only; empty snapshot rejected (409).
 
-**Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards.
+**Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards. **Streak archive is sticky** (`archived_at` kept via COALESCE on server + merge) so a later active-only upsert (reorder/edit race) cannot un-archive. **Hard deletes** write `sync_tombstones` rows (entity + row_key + deleted_at); pull-merge drops local ghost rows covered by a newer tombstone.
 
 **Table SQL truth:** `shared/sync/src/userDataSchema.ts` — column lists, bind order, client select/insert, server select/insert/patch/delete. `backend/src/dataStore.ts` and client `extractUserData`/`hydrateDb` loop the schema (no per-table SQL copies).
 

@@ -68,6 +68,14 @@ Key paths: `mergeUserData.ts`, `syncOutbox.ts`, `userData.ts`, `dataSync.ts` (de
 
 `POST /v1/data` full replace is bootstrap-only (empty device). Clients never push empty snapshots; server returns 409.
 
+## Streak archive / delete sync (2026-07)
+
+Hard deletes cannot be expressed as “row missing from GET /v1/data” — pull merge is a union, so the other device keeps its copy and may re-upload it. Fix: `sync_tombstones` (schema v14) records entity + row_key + deleted_at; `enrichPatchWithTombstones` attaches them whenever a patch includes deletes.
+
+Archive is soft (`archived_at` on the activity row). A later active-only write with a newer `updated_at` (e.g. reorder on the other device before it pulled the archive) used to clear archive via LWW. Fix: sticky `archived_at` in merge + server `COALESCE(excluded.archived_at, streak_activities.archived_at)`. There is no unarchive UI today; sticky matches that.
+
+Outbox patch merge now picks same-key upserts by clock (`updated_at` / `deleted_at`), not FIFO-last, so an older active upsert cannot overwrite a newer archive in a combined drain.
+
 ## Streaks + TDEE origin
 
 Habits and nutrition were ported from Obsidian plugins (Streak Tracker, TDEE Tracker) into SQLite + React. Vault data was one-time imported via `npm run import:vault`. Wikilinks and Obsidian sync were dropped. Nutrition history is today-only (v1).

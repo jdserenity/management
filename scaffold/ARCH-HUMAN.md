@@ -37,6 +37,8 @@ flowchart TB
 
 Posture data stays on the desktop — it never uploads.
 
+When you **archive** a habit on one device, the other devices should hide it too. Sync keeps archive status sticky (so a simultaneous edit on the other phone can’t accidentally “un-archive” it), and hard deletes leave a small marker (`sync_tombstones`) so deleted rows don’t reappear after the next pull.
+
 ## UI shell
 
 ```mermaid
