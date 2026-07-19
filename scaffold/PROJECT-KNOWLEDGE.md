@@ -97,3 +97,11 @@ HTTPS: expose API via reverse proxy (Caddy/nginx) to `127.0.0.1:8787`; allow 443
 ## DEPLOY.md note
 
 Older docs referenced `mgmt.db`; the desktop file is now `local.db` (auto-renamed from `mgmt.db` on first boot). `npm run db:backup` backs up `local.db`.
+
+## Desktop power audit: first root causes (2026-07)
+
+Largest confirmed desktop-only drain was posture tracking: unset prefs started monitoring at boot, normal mode held a continuous `nokhwa` camera stream, Rust emitted JPEG data URLs every few seconds, and the webview ran MediaPipe CPU pose detection on each frame. First-pass fixes on `refactor/performance`: monitoring is opt-in by default, pose model preload happens only when monitoring starts active, and unset posture capture defaults to battery-saving mode (minute-based ephemeral capture).
+
+Steady idle network/DB wakeups were also present: desktop user-data polling ran every 5s while open, and active-flow sync polled `/v1/active-flow` every 2s while `SessionProvider` was mounted. First-pass fixes: both desktop poll loops skip scheduled ticks while the document is hidden and pull again on normal foreground/focus paths where applicable.
+
+Remaining performance suspects to profile before deeper refactors: Posture tab can use both browser `react-webcam` preview and Rust background frames; normal posture mode still holds the camera continuously by design when explicitly enabled; Rust background tasks still wake on fixed timers even when inactive (`background_monitoring_task`, `background_alert_task`, macOS `camera_watch`); frame transfer uses base64 JPEG data URLs between Rust and the webview.
