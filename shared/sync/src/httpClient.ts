@@ -14,6 +14,7 @@ export interface HttpSyncClientOptions {
   role?: SyncDeviceRole;
   deviceId?: string;
   pollIntervalMs?: number;
+  shouldPoll?: () => boolean;
   fetchImpl?: typeof fetch;
 }
 
@@ -39,6 +40,7 @@ export class HttpSyncClient implements SyncClient {
   private readonly baseUrl: string;
   private readonly token: string;
   private readonly pollIntervalMs: number;
+  private readonly shouldPoll?: () => boolean;
   private lastError: string | null = null;
 
   constructor(options: HttpSyncClientOptions) {
@@ -47,6 +49,7 @@ export class HttpSyncClient implements SyncClient {
     this.role = options.role ?? 'viewer';
     this.deviceId = options.deviceId ?? createDeviceId();
     this.pollIntervalMs = options.pollIntervalMs ?? 2000;
+    this.shouldPoll = options.shouldPoll;
     this.fetchImpl = options.fetchImpl ?? syncFetch;
   }
 
@@ -112,7 +115,10 @@ export class HttpSyncClient implements SyncClient {
     const schedulePoll = () => {
       if (this.pollTimer) clearInterval(this.pollTimer);
       const ms = this.pollBackoffMs || this.pollIntervalMs;
-      this.pollTimer = setInterval(() => void this.pull(), ms);
+      this.pollTimer = setInterval(() => {
+        if (this.shouldPoll && !this.shouldPoll()) return;
+        void this.pull();
+      }, ms);
     };
     void this.pull().finally(schedulePoll);
     return () => {

@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createActiveFlowDocument } from '@mgmt/sync';
 import type { PersistedFlowState } from '@mgmt/core';
-import { applyRemoteActiveFlow, isRemoteActiveFlow, isSyncViewer, shouldFollowRemoteFlowClear, syncLeaderDeviceIdFromDoc } from './sessionSync';
+import { applyRemoteActiveFlow, isRemoteActiveFlow, isSyncViewer, shouldFollowRemoteFlowClear, shouldPollDesktopActiveFlow, syncLeaderDeviceIdFromDoc } from './sessionSync';
 
 const flow = (): PersistedFlowState => ({
   version: 1,
@@ -24,6 +24,10 @@ const flow = (): PersistedFlowState => ({
 });
 
 describe('sessionSync', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('flags remote leader documents', () => {
     const doc = createActiveFlowDocument(flow(), 'phone', Date.now() + 60_000);
     expect(isRemoteActiveFlow(doc, 'desktop')).toBe(true);
@@ -54,5 +58,17 @@ describe('sessionSync', () => {
     expect(shouldFollowRemoteFlowClear('phone', 'desktop', 'break')).toBe(true);
     expect(shouldFollowRemoteFlowClear('desktop', 'desktop', 'break')).toBe(false);
     expect(shouldFollowRemoteFlowClear('phone', 'desktop', 'idle')).toBe(false);
+  });
+
+  it('polls desktop active flow only while visible', () => {
+    vi.stubGlobal('document', { visibilityState: 'visible' });
+    expect(shouldPollDesktopActiveFlow()).toBe(true);
+    vi.stubGlobal('document', { visibilityState: 'hidden' });
+    expect(shouldPollDesktopActiveFlow()).toBe(false);
+  });
+
+  it('allows desktop active-flow polling outside browser contexts', () => {
+    vi.stubGlobal('document', undefined);
+    expect(shouldPollDesktopActiveFlow()).toBe(true);
   });
 });

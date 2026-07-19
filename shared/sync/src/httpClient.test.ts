@@ -71,6 +71,34 @@ describe('HttpSyncClient', () => {
     expect(body.doc.leaderDeviceId).toBe('leader-1');
   });
 
+  it('skips scheduled active-flow polls when shouldPoll returns false', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ doc: null })
+      })) as unknown as typeof fetch;
+      let allowed = false;
+      const client = new HttpSyncClient({
+        baseUrl: 'http://localhost:8787',
+        token: 'test',
+        pollIntervalMs: 1000,
+        shouldPoll: () => allowed,
+        fetchImpl
+      });
+      const unsubscribe = client.subscribeActiveFlow(() => {});
+      await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      allowed = true;
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      unsubscribe();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('default fetch is bound to globalThis', async () => {
     const fetchSpy = vi.fn(async () => ({
       ok: true,

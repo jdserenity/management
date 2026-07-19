@@ -94,7 +94,7 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 **Leader:** Companion auto-claims during exercise breaks; desktop viewer mode (`sessionSync.ts` `isSyncViewer`).
 
-**Active session:** `active_flow_singleton` on server — live `ActiveFlowDocument` (phase, break workout, leader). Not in user-data snapshot.
+**Active session:** `active_flow_singleton` on server — live `ActiveFlowDocument` (phase, break workout, leader). Not in user-data snapshot. Desktop active-flow polling skips scheduled ticks while hidden.
 
 **Status UI:** `SyncStatusCard` in Settings; `DATA_SYNC_REFRESH_EVENT` reloads Daily/Customize after pull.
 

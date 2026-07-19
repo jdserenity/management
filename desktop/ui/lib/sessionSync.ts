@@ -15,6 +15,9 @@ export const getOrCreateSyncDeviceId = (): string => {
   }
 };
 
+export const shouldPollDesktopActiveFlow = (): boolean =>
+  typeof document === 'undefined' || document.visibilityState === 'visible';
+
 export const createDesktopSyncClient = async (): Promise<SyncClient> => {
   const { serverUrl, serverToken } = getBuildTimeSyncCreds();
   return createSyncClient({
@@ -22,6 +25,7 @@ export const createDesktopSyncClient = async (): Promise<SyncClient> => {
     apiUrl: serverUrl,
     apiToken: serverToken,
     deviceId: getOrCreateSyncDeviceId(),
+    shouldPoll: shouldPollDesktopActiveFlow,
     memoryBusKey: 'mgmt-desktop-local'
   });
 };

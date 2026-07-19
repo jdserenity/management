@@ -8,6 +8,7 @@ export interface CreateSyncClientOptions {
   apiUrl?: string;
   apiToken?: string;
   deviceId?: string;
+  shouldPoll?: () => boolean;
   memoryBusKey?: string;
 }
 
@@ -20,7 +21,8 @@ export const createSyncClient = (options: CreateSyncClientOptions): SyncClient =
       baseUrl: url,
       token,
       role: options.role,
-      deviceId: options.deviceId
+      deviceId: options.deviceId,
+      shouldPoll: options.shouldPoll
     });
   }
   if (import.meta.env?.DEV) {
