@@ -41,10 +41,15 @@ describe('runDesktopInitialSync', () => {
   });
 
   it('startDesktopForegroundPull registers periodic user-data polling', () => {
-    vi.stubGlobal('document', { visibilityState: 'visible', addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    const doc = { visibilityState: 'visible', addEventListener: vi.fn(), removeEventListener: vi.fn() };
+    vi.stubGlobal('document', doc);
     vi.stubGlobal('window', { addEventListener: vi.fn(), removeEventListener: vi.fn() });
     const stop = startDesktopForegroundPull();
-    expect(startUserDataPolling).toHaveBeenCalledWith({ pull: expect.any(Function) });
+    expect(startUserDataPolling).toHaveBeenCalledWith({ pull: expect.any(Function), shouldPoll: expect.any(Function) });
+    const opts = vi.mocked(startUserDataPolling).mock.calls[0][0];
+    expect(opts.shouldPoll?.()).toBe(true);
+    doc.visibilityState = 'hidden';
+    expect(opts.shouldPoll?.()).toBe(false);
     stop();
   });
 });

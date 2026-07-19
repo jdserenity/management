@@ -61,13 +61,17 @@ const scheduleForegroundPull = (): void => {
 
 export const startDesktopForegroundPull = (): (() => void) => {
   if (getAppKind() !== 'desktop' || typeof document === 'undefined' || typeof window === 'undefined') return () => {};
+  const isVisible = () => document.visibilityState === 'visible';
   const onVisible = () => {
-    if (document.visibilityState === 'visible') scheduleForegroundPull();
+    if (isVisible()) scheduleForegroundPull();
   };
   document.addEventListener('visibilitychange', onVisible);
   window.addEventListener('focus', scheduleForegroundPull);
   stopDataPolling?.();
-  stopDataPolling = startUserDataPolling({ pull: () => { void pullAndMergeFromServer(); } });
+  stopDataPolling = startUserDataPolling({
+    pull: () => { void pullAndMergeFromServer(); },
+    shouldPoll: isVisible
+  });
   return () => {
     document.removeEventListener('visibilitychange', onVisible);
     window.removeEventListener('focus', scheduleForegroundPull);

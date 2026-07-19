@@ -86,7 +86,7 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 **Creds:** `VITE_SERVER_URL` + `VITE_SERVER_TOKEN` baked at build time (`@mgmt/sync` `getBuildTimeSyncCreds`). Local dev: root `.env`. Companion prod: Cloudflare Pages env vars.
 
-**Flow:** `runBidirectionalInitialSync` on boot (empty local → full `GET /v1/data`; else registry merge). Foreground poll `GET /v1/data` every 5s (`startUserDataPolling`). Local writes enqueue `sync_outbox` → `POST /v1/data/patch`. Full `POST /v1/data` bootstrap-only; empty snapshot rejected (409).
+**Flow:** `runBidirectionalInitialSync` on boot (empty local → full `GET /v1/data`; else registry merge). Foreground poll `GET /v1/data` every 5s (`startUserDataPolling`); desktop skips periodic ticks while hidden and pulls on focus/visibility return. Local writes enqueue `sync_outbox` → `POST /v1/data/patch`. Full `POST /v1/data` bootstrap-only; empty snapshot rejected (409).
 
 **Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards. **Streak archive is sticky** (`archived_at` kept via COALESCE on server + merge) so a later active-only upsert (reorder/edit race) cannot un-archive. **Hard deletes** write `sync_tombstones` rows (entity + row_key + deleted_at); pull-merge drops local ghost rows covered by a newer tombstone.
 
