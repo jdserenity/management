@@ -15,6 +15,7 @@ import { applyHideToMenuBarOnCloseFromPref } from '@/lib/hideToMenuBarOnClosePre
 import { loadSessionAlertsPrefs } from '@/lib/sessionAlertsPref';
 import { primeSessionAudio } from '@/lib/sessionSounds';
 import SyncWarningBanner from '@/components/SyncWarningBanner';
+import { isPostureBatterySavingModeEnabled } from '@/lib/postureDetectionPrefs';
 
 function App() {
 
@@ -41,7 +42,7 @@ function App() {
     })();
     applyPostureMonitoringFromPref((cmd) => invoke(cmd)).catch(console.error);
 
-    const batterySavingMode = localStorage.getItem(MGMT_LS.batterySavingMode) === 'true';
+    const batterySavingMode = isPostureBatterySavingModeEnabled();
     invoke('set_battery_saving_mode', { mode: batterySavingMode }).catch(console.error);
 
     const savedCameraIndex = Number.parseInt(localStorage.getItem(MGMT_LS.cameraIndex) || '0', 10);

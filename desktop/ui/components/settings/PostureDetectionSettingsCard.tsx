@@ -3,15 +3,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { invoke } from '@tauri-apps/api/core';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
+import { isPostureBatterySavingModeEnabled, savePostureBatterySavingMode } from '@/lib/postureDetectionPrefs';
 
 const NOTIFICATION_FREQUENCY_KEY = MGMT_LS.notificationFrequency;
 const TURTLE_NECK_SENSITIVITY_KEY = MGMT_LS.turtleNeckSensitivity;
 const SHOULDER_SENSITIVITY_KEY = MGMT_LS.shoulderSensitivity;
 const MONITORING_INTERVAL_KEY = MGMT_LS.monitoringInterval;
-const BATTERY_SAVING_MODE_KEY = MGMT_LS.batterySavingMode;
 
 export default function PostureDetectionSettingsCard() {
-  const [batterySavingMode, setBatterySavingMode] = useState(() => localStorage.getItem(BATTERY_SAVING_MODE_KEY) === 'true');
+  const [batterySavingMode, setBatterySavingMode] = useState(() => isPostureBatterySavingModeEnabled());
   const [frequency, setFrequency] = useState<string>(() => localStorage.getItem(NOTIFICATION_FREQUENCY_KEY) || '2');
   const [turtleNeckSensitivity, setTurtleNeckSensitivity] = useState<string>(() => localStorage.getItem(TURTLE_NECK_SENSITIVITY_KEY) || '2');
   const [shoulderSensitivity, setShoulderSensitivity] = useState<string>(() => localStorage.getItem(SHOULDER_SENSITIVITY_KEY) || '2');
@@ -44,7 +44,7 @@ export default function PostureDetectionSettingsCard() {
 
   const handleBatterySavingToggle = (checked: boolean) => {
     setBatterySavingMode(checked);
-    localStorage.setItem(BATTERY_SAVING_MODE_KEY, checked.toString());
+    savePostureBatterySavingMode(checked);
     if (checked) setFrequency('1');
   };
 

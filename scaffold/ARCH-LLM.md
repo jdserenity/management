@@ -113,7 +113,7 @@ Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`. Prod: systemd (`backend
 
 ## Posture (desktop)
 
-MediaPipe Tasks in webview (`@mediapipe/tasks-vision`); Rust captures camera frames, receives `submit_posture_analysis` from `PosturePipeline.tsx`. Scoring adapted from BatesPosture. Monitoring is opt-in by default (`posture_monitoring_enabled_v1` + tray); when unset, boot applies `stop_monitoring` so the camera stays off. `PosturePipeline` only preloads the pose model when monitoring starts active.
+MediaPipe Tasks in webview (`@mediapipe/tasks-vision`); Rust captures camera frames, receives `submit_posture_analysis` from `PosturePipeline.tsx`. Scoring adapted from BatesPosture. Monitoring is opt-in by default (`posture_monitoring_enabled_v1` + tray); when unset, boot applies `stop_monitoring` so the camera stays off. Posture battery-saving mode defaults on when unset (`mgmt_battery_saving_mode`), so opt-in tracking uses minute-based ephemeral captures unless explicitly disabled. `PosturePipeline` only preloads the pose model when monitoring starts active.
 
 ## Tauri boundary
 
