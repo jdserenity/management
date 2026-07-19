@@ -51,6 +51,23 @@ describe('sync behavior matrix', () => {
     expect(mergeUserData(local, server).streakActivities).toEqual([]);
   });
 
+  it('tombstone row keys use unit separator so sql.js can store same-day streak deletes', () => {
+    const before = {
+      ...emptyUserData(),
+      streakLogCells: [
+        { log_date: '2026-07-17', activity_id: 'jog', state: 'success', updated_at: '2026-07-17T10:00:00.000Z' },
+        { log_date: '2026-07-17', activity_id: 'water', state: 'success', updated_at: '2026-07-17T11:00:00.000Z' }
+      ]
+    };
+    const after = { ...emptyUserData(), streakLogCells: [] };
+    const patch = buildUserDataRowPatch(before, after, USER_DATA_TABLES);
+    const keys = (patch.syncTombstones?.upserts ?? [])
+      .filter((t) => t.entity === 'streakLogCells')
+      .map((t) => t.row_key);
+    expect(keys).toEqual(['2026-07-17\u001fjog', '2026-07-17\u001fwater']);
+    expect(keys.every((k) => !k.includes('\0'))).toBe(true);
+  });
+
   it('outbox: newer archive upsert beats older active upsert for same habit', () => {
     const merged = mergeUserDataRowPatches(
       {

@@ -201,6 +201,28 @@ const migrateServerSchema = (db: Database.Database): void => {
     UPDATE nutrition_config SET updated_at = COALESCE(NULLIF(log_day, '') || 'T12:00:00', datetime('now')) WHERE updated_at IS NULL;
     UPDATE water_config SET updated_at = COALESCE(NULLIF(log_day, '') || 'T12:00:00', datetime('now')) WHERE updated_at IS NULL;
   `);
+  // SQLite string ops truncate at NUL; rewrite tombstone keys in JS (sql.js / phone cannot store \0).
+  rewriteSyncTombstoneRowKeys(db);
+};
+
+/** Replace legacy \\0 separators with U+001F so phone hydrate does not hit UNIQUE collisions. */
+export const rewriteSyncTombstoneRowKeys = (db: Database.Database): number => {
+  const rows = db.prepare('SELECT entity, row_key, user_id, deleted_at FROM sync_tombstones').all() as Array<{
+    entity: string; row_key: string; user_id: string; deleted_at: string;
+  }>;
+  let changed = 0;
+  const del = db.prepare('DELETE FROM sync_tombstones WHERE entity=? AND row_key=? AND user_id=?');
+  const ins = db.prepare(
+    'INSERT INTO sync_tombstones (entity, row_key, user_id, deleted_at) VALUES (?, ?, ?, ?) ON CONFLICT(entity, row_key, user_id) DO UPDATE SET deleted_at=excluded.deleted_at WHERE excluded.deleted_at >= sync_tombstones.deleted_at'
+  );
+  for (const row of rows) {
+    if (!row.row_key.includes('\0')) continue;
+    const next = row.row_key.replace(/\0/g, '\x1f');
+    del.run(row.entity, row.row_key, row.user_id);
+    ins.run(row.entity, next, row.user_id, row.deleted_at);
+    changed += 1;
+  }
+  return changed;
 };
 
 export const openServerDb = (dbPath: string): Database.Database => {

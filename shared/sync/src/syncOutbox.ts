@@ -1,5 +1,5 @@
 import type { SqlDatabase } from '@mgmt/storage';
-import { hasUserDataRowPatchChanges, pushUserDataPatch, type UserDataRowPatch } from './userData';
+import { hasUserDataRowPatchChanges, pushUserDataPatch, type UserDataRowPatch, TOMBSTONE_KEY_SEP } from './userData';
 import { logSyncError, logSyncInfo } from './syncLog';
 import { markSyncPushResult } from './syncStatus';
 
@@ -112,7 +112,7 @@ export const mergeUserDataRowPatches = (left: UserDataRowPatch, right: UserDataR
       upserts: mergeUpserts(
         merged.syncTombstones?.upserts,
         right.syncTombstones.upserts,
-        (r) => `${r.entity}\0${r.row_key}`,
+        (r) => `${r.entity}${TOMBSTONE_KEY_SEP}${r.row_key}`,
         (r) => parseTs(r.deleted_at)
       ),
       deletes: mergeDeletes(merged.syncTombstones?.deletes, right.syncTombstones.deletes)

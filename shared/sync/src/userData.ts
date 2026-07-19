@@ -111,8 +111,36 @@ export interface UserDataRowPatch {
   syncTombstones?: { upserts?: SyncTombstone[]; deletes?: SyncTombstoneDeleteKey[] };
 }
 
+/**
+ * Separator for composite tombstone row keys.
+ * Must NOT be `\0`: sql.js (phone companion) treats embedded nulls as C-string terminators,
+ * so keys like `2026-07-17\0jog` and `2026-07-17\0water` collide and hydrate throws UNIQUE.
+ * Unit separator (U+001F) is safe in sql.js, better-sqlite3, and JSON.
+ */
+export const TOMBSTONE_KEY_SEP = '\x1f';
+
 /** Stable tombstone key for composite row keys. */
-export const tombstoneRowKey = (...parts: string[]): string => parts.join('\0');
+export const tombstoneRowKey = (...parts: string[]): string => parts.join(TOMBSTONE_KEY_SEP);
+
+/** Rewrite legacy null-byte separators so phone + server agree on the same key string. */
+export const normalizeTombstoneRowKey = (rowKey: string): string =>
+  rowKey.replace(/\0/g, TOMBSTONE_KEY_SEP);
+
+export const normalizeSyncTombstones = (rows: SyncTombstone[] | undefined): SyncTombstone[] => {
+  if (!rows?.length) return rows ?? [];
+  const byKey = new Map<string, SyncTombstone>();
+  for (const row of rows) {
+    const normalized: SyncTombstone = {
+      entity: row.entity,
+      row_key: normalizeTombstoneRowKey(row.row_key),
+      deleted_at: row.deleted_at
+    };
+    const k = `${normalized.entity}${TOMBSTONE_KEY_SEP}${normalized.row_key}`;
+    const prev = byKey.get(k);
+    if (!prev || Date.parse(normalized.deleted_at) >= Date.parse(prev.deleted_at)) byKey.set(k, normalized);
+  }
+  return [...byKey.values()];
+};
 
 export const USER_DATA_TABLES: UserDataTable[] = USER_DATA_TABLE_SCHEMAS.map((s) => s.field);
 
@@ -126,6 +154,7 @@ export const extractUserData = async (db: SqlDatabase): Promise<UserData> => {
       s.singleton ? ((rows as unknown[])[0] ?? null) : rows
     ) as UserData[UserDataTable];
   }
+  out.syncTombstones = normalizeSyncTombstones(out.syncTombstones);
   return out;
 };
 
@@ -144,6 +173,7 @@ export const extractUserDataForTables = async (db: SqlDatabase, tables: UserData
       s.singleton ? ((rows as unknown[])[0] ?? null) : rows
     ) as UserData[UserDataTable];
   }
+  if (patch.syncTombstones) patch.syncTombstones = normalizeSyncTombstones(patch.syncTombstones);
   return patch;
 };
 
@@ -173,9 +203,13 @@ export const hydrateDbFromServer = async (
  */
 export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> => {
   await runWithoutDataSync(async () => {
+    const normalized: UserData = {
+      ...data,
+      syncTombstones: normalizeSyncTombstones(data.syncTombstones)
+    };
     const local = await extractUserData(db);
     for (const s of USER_DATA_TABLE_SCHEMAS) {
-      const incoming = s.getRows(data);
+      const incoming = s.getRows(normalized);
       const existing = s.getRows(local);
       let rowsToWrite = incoming;
       if (incoming.length === 0 && existing.length > 0) {
@@ -224,9 +258,13 @@ export const fetchUserData = async (baseUrl: string, token: string): Promise<Use
     throw new Error(`fetchUserData: HTTP ${res.status}`);
   }
   const body = (await res.json()) as { data: UserData };
-  logSyncInfo('GET /v1/data ok', summarizeUserDataCounts(body.data));
+  const data: UserData = {
+    ...body.data,
+    syncTombstones: normalizeSyncTombstones(body.data?.syncTombstones)
+  };
+  logSyncInfo('GET /v1/data ok', summarizeUserDataCounts(data));
   markSyncPullResult(true);
-  return body.data;
+  return data;
 };
 
 export const pushUserData = async (
@@ -340,13 +378,13 @@ export const enrichPatchWithTombstones = (
     },
     { entity: 'waterEntries', deletes: rowPatch.waterEntries?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') }
   ];
-  const upserts: SyncTombstone[] = [...(rowPatch.syncTombstones?.upserts ?? [])];
-  const seen = new Set(upserts.map((t) => `${t.entity}\0${t.row_key}`));
+  const upserts: SyncTombstone[] = normalizeSyncTombstones(rowPatch.syncTombstones?.upserts);
+  const seen = new Set(upserts.map((t) => `${t.entity}${TOMBSTONE_KEY_SEP}${t.row_key}`));
   for (const spec of specs) {
     for (const del of spec.deletes ?? []) {
       const row_key = spec.keyOf(del);
       if (!row_key) continue;
-      const k = `${spec.entity}\0${row_key}`;
+      const k = `${spec.entity}${TOMBSTONE_KEY_SEP}${row_key}`;
       if (seen.has(k)) continue;
       seen.add(k);
       upserts.push({ entity: spec.entity, row_key, deleted_at: deletedAt });
@@ -475,9 +513,9 @@ export const buildUserDataRowPatch = (
     }
     if (table === 'syncTombstones') {
       const { upserts, deletes } = diffRows(
-        before.syncTombstones ?? [],
-        after.syncTombstones ?? [],
-        (r) => `${r.entity}\0${r.row_key}`,
+        normalizeSyncTombstones(before.syncTombstones),
+        normalizeSyncTombstones(after.syncTombstones),
+        (r) => `${r.entity}${TOMBSTONE_KEY_SEP}${r.row_key}`,
         (r) => ({ entity: r.entity, row_key: r.row_key })
       );
       if (upserts.length || deletes.length) {

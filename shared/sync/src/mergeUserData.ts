@@ -1,6 +1,6 @@
 import { SYNC_TABLE_REGISTRY, type SyncTableDef } from './syncRegistry';
 import type { StreakActivity, SyncTombstone, UserData } from './userData';
-import { tombstoneRowKey } from './userData';
+import { normalizeSyncTombstones, tombstoneRowKey, TOMBSTONE_KEY_SEP } from './userData';
 
 const parseTs = (v: string | number): number => (typeof v === 'number' ? v : Date.parse(v) || 0);
 
@@ -83,9 +83,9 @@ const mergeSingleton = <T>(
 
 const mergeTombstones = (local: SyncTombstone[], server: SyncTombstone[]): SyncTombstone[] =>
   mergeByKey(
-    local,
-    server,
-    (t) => `${t.entity}\0${t.row_key}`,
+    normalizeSyncTombstones(local),
+    normalizeSyncTombstones(server),
+    (t) => `${t.entity}${TOMBSTONE_KEY_SEP}${t.row_key}`,
     (a, b) => (parseTs(b.deleted_at) >= parseTs(a.deleted_at) ? b : a)
   );
 

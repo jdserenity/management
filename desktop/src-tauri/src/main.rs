@@ -747,6 +747,12 @@ pub fn run() {
                         sql: "CREATE TABLE IF NOT EXISTS sync_tombstones (entity TEXT NOT NULL, row_key TEXT NOT NULL, deleted_at TEXT NOT NULL, PRIMARY KEY (entity, row_key));",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 15,
+                        description: "sync_tombstones_drop_nul_corrupted_keys",
+                        sql: "DROP TABLE IF EXISTS sync_tombstones; CREATE TABLE IF NOT EXISTS sync_tombstones (entity TEXT NOT NULL, row_key TEXT NOT NULL, deleted_at TEXT NOT NULL, PRIMARY KEY (entity, row_key));",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {

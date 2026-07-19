@@ -8,6 +8,8 @@ import {
   serverPatchUpsertSql,
   serverPlainInsertSql,
   serverSelectSql,
+  normalizeSyncTombstones,
+  normalizeTombstoneRowKey,
   type UserData,
   type UserDataRowPatch,
   type UserDataTable
@@ -44,19 +46,24 @@ export class SqliteDataStore {
         (out as Record<string, unknown>)[s.field] = this.db.prepare(sql).all(userId);
       }
     }
+    out.syncTombstones = normalizeSyncTombstones(out.syncTombstones);
     return out;
   }
 
   putData(userId: string, data: UserData): void {
     const existingRows = totalUserDataRows(this.getData(userId));
-    assertSafeSnapshotPush(data, existingRows);
+    const normalized: UserData = {
+      ...data,
+      syncTombstones: normalizeSyncTombstones(data.syncTombstones)
+    };
+    assertSafeSnapshotPush(normalized, existingRows);
     this.db.transaction(() => {
       for (const s of USER_DATA_TABLE_SCHEMAS) {
         this.db.prepare(`DELETE FROM ${s.sqlTable} WHERE user_id=?`).run(userId);
       }
       for (const s of USER_DATA_TABLE_SCHEMAS) {
         const insert = this.db.prepare(serverPlainInsertSql(s));
-        for (const row of s.getRows(data)) {
+        for (const row of s.getRows(normalized)) {
           insert.run(...serverBindInsert(s, row, userId));
         }
       }
@@ -85,12 +92,20 @@ export class SqliteDataStore {
         if (patch.deletes) {
           const del = this.db.prepare(serverDeleteSql(s));
           for (const key of patch.deletes) {
-            del.run(userId, ...s.bindDeleteKey(key as never));
+            const normalizedKey =
+              s.sqlTable === 'sync_tombstones' && key && typeof key === 'object' && 'row_key' in key
+                ? { ...(key as object), row_key: normalizeTombstoneRowKey(String((key as { row_key: string }).row_key)) }
+                : key;
+            del.run(userId, ...s.bindDeleteKey(normalizedKey as never));
           }
         }
         if (patch.upserts) {
           const upsert = this.db.prepare(serverPatchUpsertSql(s));
-          for (const row of patch.upserts) {
+          const rows =
+            s.sqlTable === 'sync_tombstones'
+              ? normalizeSyncTombstones(patch.upserts as never)
+              : patch.upserts;
+          for (const row of rows) {
             upsert.run(...serverBindInsert(s, row, userId));
           }
         }

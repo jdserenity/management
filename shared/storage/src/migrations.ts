@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v14). */
+/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v15). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -71,6 +71,12 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 14,
     description: 'sync_tombstones_for_hard_deletes',
     sql: 'CREATE TABLE IF NOT EXISTS sync_tombstones (entity TEXT NOT NULL, row_key TEXT NOT NULL, deleted_at TEXT NOT NULL, PRIMARY KEY (entity, row_key));'
+  },
+  {
+    // sql.js truncates TEXT at embedded NUL; drop corrupted keys so the next sync can reload fixed separators.
+    version: 15,
+    description: 'sync_tombstones_drop_nul_corrupted_keys',
+    sql: 'DROP TABLE IF EXISTS sync_tombstones; CREATE TABLE IF NOT EXISTS sync_tombstones (entity TEXT NOT NULL, row_key TEXT NOT NULL, deleted_at TEXT NOT NULL, PRIMARY KEY (entity, row_key));'
   }
 ];
 
