@@ -5,6 +5,23 @@ import { analyzeDataUrl, initPoseLandmarker } from '@/posture/postureEngine';
 import { usePostureSession } from '@/context/PostureSessionContext';
 import { isPostureMonitoringEnabledPref, setPostureMonitoringEnabledPref } from '@/lib/postureMonitoringPref';
 
+type InitialMonitoringDeps = {
+  loadPref: () => Promise<boolean>;
+  markMonitoring: (active: boolean) => void;
+  preloadPoseModel: () => Promise<void>;
+};
+
+export async function applyInitialPostureMonitoringState({
+  loadPref,
+  markMonitoring,
+  preloadPoseModel,
+}: InitialMonitoringDeps): Promise<boolean> {
+  const initial = await loadPref();
+  markMonitoring(initial);
+  if (initial) await preloadPoseModel();
+  return initial;
+}
+
 /**
  * Runs MediaPipe pose on frames emitted by the Rust camera loop and sends results
  * back for notifications, SQLite logging, and UI updates.
@@ -16,10 +33,14 @@ const PosturePipeline: React.FC = () => {
 
   useEffect(() => {
     const unsubs: Array<() => void> = [];
-    void isPostureMonitoringEnabledPref().then((initial) => {
-      monitoringRef.current = initial;
-      markMonitoring(initial);
-    });
+    void applyInitialPostureMonitoringState({
+      loadPref: isPostureMonitoringEnabledPref,
+      markMonitoring: (initial) => {
+        monitoringRef.current = initial;
+        markMonitoring(initial);
+      },
+      preloadPoseModel: initPoseLandmarker,
+    }).catch((e) => console.error('Pose landmarker preload failed:', e));
 
     void listen<{ active: boolean }>('monitoring-state-changed', (e) => {
       const active = Boolean(e.payload?.active);
@@ -52,8 +73,6 @@ const PosturePipeline: React.FC = () => {
         busyRef.current = false;
       }
     }).then((u) => unsubs.push(u));
-
-    void initPoseLandmarker().catch((e) => console.error('Pose landmarker preload failed:', e));
 
     return () => {
       unsubs.forEach((fn) => {
