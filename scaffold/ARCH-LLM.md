@@ -88,7 +88,7 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 **Flow:** `runBidirectionalInitialSync` on boot (empty local → full `GET /v1/data`; else registry merge). Foreground poll `GET /v1/data` every 5s (`startUserDataPolling`). Local writes enqueue `sync_outbox` → `POST /v1/data/patch`. Full `POST /v1/data` bootstrap-only; empty snapshot rejected (409).
 
-**Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards. **Streak archive is sticky** (`archived_at` kept via COALESCE on server + merge) so a later active-only upsert (reorder/edit race) cannot un-archive. **Hard deletes** write `sync_tombstones` rows (entity + row_key + deleted_at); pull-merge drops local ghost rows covered by a newer tombstone.
+**Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards. **Streak archive is sticky** (`archived_at` kept via COALESCE on server + merge) so a later active-only upsert (reorder/edit race) cannot un-archive. **Hard deletes** write `sync_tombstones` rows (entity + row_key + deleted_at); pull-merge drops local ghost rows covered by a newer tombstone. Composite `row_key` parts join with U+001F (`TOMBSTONE_KEY_SEP` in `userData.ts`) — never `\0` (sql.js truncates at NUL → UNIQUE crash on companion).
 
 **Table SQL truth:** `shared/sync/src/userDataSchema.ts` — column lists, bind order, client select/insert, server select/insert/patch/delete. `backend/src/dataStore.ts` and client `extractUserData`/`hydrateDb` loop the schema (no per-table SQL copies).
 

@@ -76,6 +76,16 @@ Archive is soft (`archived_at` on the activity row). A later active-only write w
 
 Outbox patch merge now picks same-key upserts by clock (`updated_at` / `deleted_at`), not FIFO-last, so an older active upsert cannot overwrite a newer archive in a combined drain.
 
+### Tombstone keys must not use NUL (sql.js) — 2026-07
+
+Composite tombstone keys (streak log cells) originally joined parts with `\0`. That works on the VPS (`better-sqlite3`) and in plain JS, but **sql.js** (phone companion) treats embedded null bytes like C strings: the activity id is cut off, so `2026-07-17\0jog` and `2026-07-17\0water` both look like `2026-07-17`. Hydrate then throws `UNIQUE constraint failed: sync_tombstones.entity, sync_tombstones.row_key` and the companion stuck on “Could not start”.
+
+Fix: separator is U+001F (`TOMBSTONE_KEY_SEP`); server rewrites legacy `\0` keys on boot; client schema v15 drops/recreates `sync_tombstones` so truncated phone rows are cleared and re-pulled.
+
+## mgmt.levier.cc vs phone app URL
+
+`https://mgmt.levier.cc` is the **sync API** on the VPS (Cloudflare → origin). `/health` → `{"ok":true}`; `/` is not a website — it returns JSON pointing at the companion. The phone PWA is Cloudflare Pages project **mgmt-companion** (`https://mgmt-companion.pages.dev`). GitHub Actions deploy needs `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `VITE_SERVER_URL`, `VITE_SERVER_TOKEN` repo secrets; without them CI build may succeed but deploy fails. Manual: `npm run deploy:companion` from a Mac with wrangler auth + root `.env`.
+
 ## Streaks + TDEE origin
 
 Habits and nutrition were ported from Obsidian plugins (Streak Tracker, TDEE Tracker) into SQLite + React. Vault data was one-time imported via `npm run import:vault`. Wikilinks and Obsidian sync were dropped. Nutrition history is today-only (v1).

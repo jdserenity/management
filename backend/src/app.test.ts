@@ -72,6 +72,18 @@ describe('server', () => {
     expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
   });
 
+  it('root explains this host is the sync API, not the phone app', async () => {
+    const app = createSyncApp(new MemoryActiveFlowStore(), null, 'test-token');
+    const res = await app.request('/');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      service: 'mgmt-server',
+      health: '/health',
+      companion: 'https://mgmt-companion.pages.dev'
+    });
+  });
+
   it('applies row patch without wiping other tables', async () => {
     const db = openServerDb(':memory:');
     seedOwnerUser(db, 'owner');

@@ -33,6 +33,15 @@ export const createSyncApp = (store: ActiveFlowStore, dataStore: SqliteDataStore
   });
 
   app.get('/health', (c) => c.json({ ok: true }));
+  // Root is not the phone app — that lives on Cloudflare Pages (mgmt-companion).
+  app.get('/', (c) =>
+    c.json({
+      ok: true,
+      service: 'mgmt-server',
+      health: '/health',
+      companion: 'https://mgmt-companion.pages.dev'
+    })
+  );
 
   // ── Active flow (timer sync) ────────────────────────────────────────────────
   app.get('/v1/active-flow', async (c) => {

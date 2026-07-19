@@ -39,6 +39,8 @@ Posture data stays on the desktop — it never uploads.
 
 When you **archive** a habit on one device, the other devices should hide it too. Sync keeps archive status sticky (so a simultaneous edit on the other phone can’t accidentally “un-archive” it), and hard deletes leave a small marker (`sync_tombstones`) so deleted rows don’t reappear after the next pull.
 
+**Phone app URL vs sync API:** `https://mgmt.levier.cc` is the sync server (check `/health`). The phone companion PWA is at `https://mgmt-companion.pages.dev` (Cloudflare Pages). Opening the API host in a browser is not meant to show the app UI.
+
 ## UI shell
 
 ```mermaid
