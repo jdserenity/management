@@ -8,8 +8,8 @@ const LEGACY_POSTURE_MONITORING_LS_KEY = 'mgmt_posture_monitoring_enabled';
 let migratePromise: Promise<void> | null = null;
 
 const pref = boolPref(KV_POSTURE_MONITORING_ENABLED, {
-  defaultValue: true,
-  mode: 'defaultOn',
+  defaultValue: false,
+  mode: 'defaultOff',
   encode: 'truefalse'
 });
 
@@ -33,7 +33,7 @@ export const resetPostureMonitoringPrefMigrationForTests = (): void => {
   migratePromise = null;
 };
 
-/** `true` when user has not turned posture monitoring off (default). */
+/** `true` only when the user has turned posture monitoring on. */
 export async function isPostureMonitoringEnabledPref(): Promise<boolean> {
   await ensureMigrated();
   return pref.load();

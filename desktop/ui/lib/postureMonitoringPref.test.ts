@@ -44,8 +44,8 @@ describe('postureMonitoringPref', () => {
     resetPostureMonitoringPrefMigrationForTests();
   });
 
-  it('defaults to enabled when unset in app_kv', async () => {
-    expect(await isPostureMonitoringEnabledPref()).toBe(true);
+  it('defaults to disabled when unset in app_kv', async () => {
+    expect(await isPostureMonitoringEnabledPref()).toBe(false);
   });
 
   it('persists disabled state in app_kv', async () => {
@@ -64,7 +64,16 @@ describe('postureMonitoringPref', () => {
     expect(localStorage.getItem(LEGACY_POSTURE_MONITORING_LS_KEY)).toBeNull();
   });
 
+  it('applyPostureMonitoringFromPref stops when pref is unset', async () => {
+    const calls: string[] = [];
+    await applyPostureMonitoringFromPref(async (cmd) => {
+      calls.push(cmd);
+    });
+    expect(calls).toEqual(['stop_monitoring']);
+  });
+
   it('applyPostureMonitoringFromPref starts when pref is enabled', async () => {
+    await setPostureMonitoringEnabledPref(true);
     const calls: string[] = [];
     await applyPostureMonitoringFromPref(async (cmd) => {
       calls.push(cmd);
