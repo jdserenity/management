@@ -31,7 +31,7 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Workout logged when break timer finishes (≥15s) or Complete Workout tapped (≥15s); stopping flow mid-break does not log.
 - Morning stretch: built-in id `morning-stretch`; hides after completion or hide-after hour (default 11 AM); logs to `workout_log`.
 - Stretch creator routine refs (`MorningStretchRef`) may carry optional `amount` (hold seconds) for that routine only; does not change global stretch pool / `stretchHoldSeconds`.
-- Movement bursts (UI name; internal ids still `movement-snack*`): Customize lives under Exercises tab (top); completed chips show `Hard/Easy ·` nearest half-hour (`formatNearestHalfHourLabel`).
+- Movement bursts (UI name; internal ids still `movement-snack*`): Customize lives under Exercises tab (top); completed chips show `Hard/Easy ·` nearest half-hour (`formatNearestHalfHourLabel`). `movement_snack_prefs_v1` stores daily goal, hard/easy burst lists, and `quickLogExercises` (one-tap increments on Daily + panel); syncs via `SHARED_APP_KV_KEYS`.
 - Streak fire emoji only when current streak ≥ 5 days (`currentStreakFireEmojiClass`); under 5 shows the number only.
 - Water: exact goal (0 ml remaining) uses success style `water-remaining-done` (green).
 - TDEE food editor (+ menu) lists staples with portion controls; logging a staple (chip or editor) uses `kind: staple` + `refId` so the day's staple chip is replaced.

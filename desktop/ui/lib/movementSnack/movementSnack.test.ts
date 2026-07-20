@@ -17,6 +17,7 @@ describe('defaultMovementSnackPrefs', () => {
     expect(prefs.dailyGoal).toBe(6);
     expect(prefs.hardExercises.length).toBe(3);
     expect(prefs.easyExercises.length).toBe(3);
+    expect(prefs.quickLogExercises.length).toBe(5);
   });
 });
 

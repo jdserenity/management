@@ -4,6 +4,7 @@ import {
   type ExerciseDefinition,
   type WorkoutLogEntry
 } from '@/lib/workoutPlanner';
+import { cloneQuickLogDefaults } from './quickLogDefaults';
 
 export const MOVEMENT_SNACK_HARD_WORKOUT_ID = 'movement-snack';
 export const MOVEMENT_SNACK_EASY_WORKOUT_ID = 'movement-snack-easy';
@@ -15,6 +16,8 @@ export interface MovementSnackPrefs {
   dailyGoal: number;
   hardExercises: ExerciseDefinition[];
   easyExercises: ExerciseDefinition[];
+  /** One-tap exercises in the Daily movement burst + panel (increment per tap). */
+  quickLogExercises: ExerciseDefinition[];
 }
 
 export const defaultMovementSnackHardExercises = (): ExerciseDefinition[] => [
@@ -33,6 +36,7 @@ export const defaultMovementSnackPrefs = (): MovementSnackPrefs => ({
   dailyGoal: 6,
   hardExercises: defaultMovementSnackHardExercises(),
   easyExercises: defaultMovementSnackEasyExercises(),
+  quickLogExercises: cloneQuickLogDefaults(),
 });
 
 export const normalizeMovementSnackPrefs = (
@@ -61,11 +65,13 @@ export const normalizeMovementSnackPrefs = (
 
   const hardExercises = parseExercises(raw.hardExercises);
   const easyExercises = parseExercises(raw.easyExercises);
+  const quickParsed = raw.quickLogExercises === undefined ? null : parseExercises(raw.quickLogExercises);
 
   return {
     dailyGoal: parseGoal(),
     hardExercises: hardExercises.length > 0 ? hardExercises : base.hardExercises,
     easyExercises: easyExercises.length > 0 ? easyExercises : base.easyExercises,
+    quickLogExercises: quickParsed === null ? base.quickLogExercises : quickParsed,
   };
 };
 

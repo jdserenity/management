@@ -30,6 +30,7 @@ import {
   listNonZeroExerciseTotals,
   sumExerciseVolume
 } from './sessionStats';
+import { DEFAULT_MOVEMENT_QUICK_LOG_EXERCISES } from '@/lib/movementSnack/quickLogDefaults';
 
 export { STRETCH_DEFAULT_SECONDS } from '@/lib/workoutCustomize';
 
@@ -274,13 +275,7 @@ const collectBreakMoveUnits = (prefs: WorkoutCustomizePrefs): BreakMoveUnit[] =>
 };
 
 /** Quick-add rows on Dashboard (today totals + manual increment). */
-export const DASHBOARD_MANUAL_EXERCISES: readonly ExerciseDefinition[] = [
-  { id: 'pushups', name: 'Push-ups', amount: 5, unit: 'reps' },
-  { id: 'jacks', name: 'Jumping jacks', amount: 10, unit: 'reps' },
-  { id: 'squats', name: 'Air squats', amount: 5, unit: 'reps' },
-  { id: 'march', name: 'Marching in place', amount: 1, unit: 'minutes' },
-  { id: 'shadow', name: 'Shadowboxing', amount: 30, unit: 'seconds' }
-];
+export const DASHBOARD_MANUAL_EXERCISES: readonly ExerciseDefinition[] = DEFAULT_MOVEMENT_QUICK_LOG_EXERCISES;
 
 /** Random 2–3 min circuit: one row per move id from everything you allow in Customize. */
 export const buildMixedBreakWorkout = (prefs: WorkoutCustomizePrefs, randomValue: number = Math.random()): WorkoutDefinition => {

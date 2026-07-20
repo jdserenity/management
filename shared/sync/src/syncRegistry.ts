@@ -171,6 +171,7 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
 
 /** app_kv keys that sync across desktop + companion. */
 export const SHARED_APP_KV_KEYS = [
+  'movement_snack_prefs_v1',
   'workout_customize_prefs_v1',
   'stretch_definitions_v1',
   'cant_exercise_mode_v1',
