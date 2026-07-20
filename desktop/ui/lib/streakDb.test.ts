@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreakState } from '@/lib/streak/types';
-import { archiveStreakActivity, saveStreakLog } from '@/lib/streakDb';
+import { archiveStreakActivity, reorderStreakActivities, saveStreakLog } from '@/lib/streakDb';
 
 const { executeCalls, activityRows, logRows, metaRows } = vi.hoisted(() => ({
   executeCalls: [] as string[],
@@ -124,5 +124,36 @@ describe('streakDb row-level saves', () => {
     expect(executeCalls.some((sql) => sql === 'DELETE FROM streak_log_cells')).toBe(false);
     expect(executeCalls.filter((sql) => sql.startsWith('INSERT INTO streak_log_cells'))).toHaveLength(1);
     expect(logRows.get('2026-07-07:run')?.state).toBe('success');
+  });
+
+  it('reorderStreakActivities writes sort_order for each active row', async () => {
+    activityRows.set('lift', {
+      id: 'lift',
+      name: 'Lift',
+      description: null,
+      frequency: 'daily',
+      weekly_target: null,
+      scheduled_days_json: null,
+      can_fail: 0,
+      necessary: 0,
+      archived_at: null,
+      sort_order: 1,
+      linked_staple_id: null,
+      linked_water: 0,
+      linked_movement_burst: 0,
+      extra_calories: null,
+      extra_protein: null,
+      extra_water_ml: null,
+      updated_at: '2026-07-01T00:00:00.000Z'
+    });
+    const state = baseState();
+    state.config.activities = [
+      { id: 'run', name: 'Run', frequency: 'daily', canFail: false },
+      { id: 'lift', name: 'Lift', frequency: 'daily', canFail: false }
+    ];
+    const next = await reorderStreakActivities(state, ['lift', 'run']);
+    expect(next.config.activities.map((a) => a.id)).toEqual(['lift', 'run']);
+    expect(activityRows.get('lift')?.sort_order).toBe(0);
+    expect(activityRows.get('run')?.sort_order).toBe(1);
   });
 });

@@ -8,7 +8,7 @@ Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (d
 
 | Tab       | Component                                        | Role                                                                                                                                  |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF in `desktop/ui/assets/fonts/`, white), then stretches, streaks, TDEE, water, movement bursts |
+| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF via `npm run font:haglos` → `desktop/ui/assets/fonts/`, white; OTF not in git), then stretches, streaks, TDEE, water, movement bursts |
 | Work      | `Dashboard.tsx`                                  | Focus flow timer, today's work/movement totals, can't-exercise toggle                                                                 |
 | Posture   | `PosturePage.tsx`                                | Live score, charts, camera (desktop/Tauri only)                                                                                       |
 | Stats     | `StatsPage.tsx`                                  | All-time / monthly / weekly focus + movement aggregates                                                                               |
@@ -36,7 +36,7 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Water: exact goal (0 ml remaining) uses success style `water-remaining-done` (green).
 - TDEE food editor (+ menu) lists staples with portion controls; logging a staple (chip or editor) uses `kind: staple` + `refId` so the day's staple chip is replaced.
 - Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
-- Streak activities: order by `sort_order` (add order + drag reorder in Customize; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
+- Streak activities: order by `sort_order` (add order + up/down arrows in Customize, HTML5 drag on desktop; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
 
 Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/core` (`flowEngine.ts`, `flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`, `exerciseMode.ts`). Workout modules: `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` (break picking + stretch helpers).
 

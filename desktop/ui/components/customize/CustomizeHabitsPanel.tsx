@@ -3,9 +3,10 @@ import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
 import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { resetButtonLabel } from '@/lib/streak/display';
+import { moveIdBefore, moveIdInOrder } from '@/lib/streak/reorder';
 import type { StreakActivity } from '@/lib/streak/types';
 import { archiveStreakActivity, loadStreakState, reorderStreakActivities, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
-import { GripVertical } from 'lucide-react';
+import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
 
 export default function CustomizeHabitsPanel() {
   const { data: state, loadError, setData: setState, storageReady } = useAppDataLoad(
@@ -24,17 +25,15 @@ export default function CustomizeHabitsPanel() {
 
   const activities = state.config.activities;
 
-  const handleDropOn = (targetId: string) => {
-    if (!dragId || dragId === targetId) { setDragId(null); return; }
-    const ids = activities.map((a) => a.id);
-    const from = ids.indexOf(dragId);
-    const to = ids.indexOf(targetId);
-    if (from < 0 || to < 0) { setDragId(null); return; }
-    const next = [...ids];
-    next.splice(from, 1);
-    next.splice(to, 0, dragId);
-    setDragId(null);
+  const applyOrder = (next: string[] | null) => {
+    if (!next) return;
     void reorderStreakActivities(state, next).then(setState);
+  };
+
+  const handleDropOn = (targetId: string) => {
+    const next = dragId ? moveIdBefore(activities.map((a) => a.id), dragId, targetId) : null;
+    setDragId(null);
+    applyOrder(next);
   };
 
   return (
@@ -52,13 +51,13 @@ export default function CustomizeHabitsPanel() {
             </button>
           </span>
         }
-        description="Drag to reorder. This order is what you see on the Daily tab."
+        description="Use the arrows to reorder (drag also works on desktop). This order is what you see on the Daily tab."
       >
         {activities.length === 0 ? (
           <p className="plugin-empty text-sm">No habits yet. Add an activity to show it on the Daily tab.</p>
         ) : (
           <ul className="space-y-2">
-            {activities.map((activity) => {
+            {activities.map((activity, index) => {
               const resetCount = state.data.activityResetCounts[activity.id] || 0;
               const isPaused = !!state.data.pausedActivities[activity.id];
               const linkBits: string[] = [];
@@ -66,6 +65,7 @@ export default function CustomizeHabitsPanel() {
               if (activity.linkedStapleId) linkBits.push('→ staple');
               if (activity.linkedWater) linkBits.push('→ water');
               if (activity.linkedMovementBurst) linkBits.push('→ burst');
+              const ids = activities.map((a) => a.id);
               return (
                 <li
                   key={activity.id}
@@ -88,6 +88,26 @@ export default function CustomizeHabitsPanel() {
                         {linkBits.length ? ` · ${linkBits.join(' · ')}` : ''}
                         {activity.description ? ` · ${activity.description}` : ''}
                       </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        className="plugin-btn-ghost px-2"
+                        disabled={index === 0}
+                        aria-label={`Move ${activity.name || activity.id} up`}
+                        onClick={() => applyOrder(moveIdInOrder(ids, activity.id, -1))}
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="plugin-btn-ghost px-2"
+                        disabled={index === activities.length - 1}
+                        aria-label={`Move ${activity.name || activity.id} down`}
+                        onClick={() => applyOrder(moveIdInOrder(ids, activity.id, 1))}
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 pl-6">
