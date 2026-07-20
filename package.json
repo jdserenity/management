@@ -24,7 +24,7 @@
     "app:deploy": "node scripts/install-app.mjs"
   },
   "dependencies": {
-    "@fontsource/archivo-black": "^5.3.0",
+    "@fontsource/alfa-slab-one": "^5.3.0",
     "@mediapipe/tasks-vision": "^0.10.35",
     "@mgmt/core": "0.0.1",
     "@mgmt/storage": "0.0.1",

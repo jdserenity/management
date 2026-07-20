@@ -6,7 +6,7 @@
   margin: 0;
   font-size: clamp(2.75rem, 9vw, 4rem);
   font-weight: 400;
-  letter-spacing: -0.03em;
+  letter-spacing: 0.01em;
   line-height: 0.95;
   text-transform: none;
 }
