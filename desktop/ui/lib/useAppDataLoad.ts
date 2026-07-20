@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { DATA_SYNC_REFRESH_EVENT } from '@mgmt/sync';
 import { hasAppStorage } from '@/lib/appRuntime';
 
@@ -30,13 +30,18 @@ export function useAppDataLoad<T>(
   const [data, setData] = useState<T | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const storageReady = hasAppStorage();
+  const loadGen = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!hasAppStorage()) { setLoadError(null); setData(null); return; }
+    const gen = ++loadGen.current;
     try {
       setLoadError(null);
-      setData(await load());
+      const next = await load();
+      if (gen !== loadGen.current) return;
+      setData(next);
     } catch (e) {
+      if (gen !== loadGen.current) return;
       console.error(e);
       setLoadError(e instanceof Error ? e.message : failLabel);
     }

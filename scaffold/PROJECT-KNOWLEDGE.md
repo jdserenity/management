@@ -82,6 +82,12 @@ Composite tombstone keys (streak log cells) originally joined parts with `\0`. T
 
 Fix: separator is U+001F (`TOMBSTONE_KEY_SEP`); server rewrites legacy `\0` keys on boot; client schema v15 drops/recreates `sync_tombstones` so truncated phone rows are cleared and re-pulled.
 
+## Foreground pull vs in-flight local saves (2026-07)
+
+If you save a streak while a sync pull is waiting on the network, the pull used to merge from a **stale** local snapshot (taken before your save) and `hydrateDb` could overwrite the row you just wrote — so add/edit looked like it needed 2–3 tries until a pull happened in a quiet gap.
+
+Fix: after `GET /v1/data` returns, re-read local SQLite and fold any newer rows into the merge before hydrating; compare `localNow` (not the pre-fetch snapshot) when deciding whether to hydrate. `useAppDataLoad` also ignores stale overlapping reloads after `DATA_SYNC_REFRESH_EVENT`.
+
 ## mgmt.levier.cc vs phone app URL
 
 `https://mgmt.levier.cc` is the **sync API** on the VPS (Cloudflare → origin). `/health` → `{"ok":true}`; `/` is not a website — it returns JSON pointing at the companion. The phone PWA is Cloudflare Pages project **mgmt-companion** (`https://mgmt-companion.pages.dev`). GitHub Actions deploy needs `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `VITE_SERVER_URL`, `VITE_SERVER_TOKEN` repo secrets; without them CI build may succeed but deploy fails. Manual: `npm run deploy:companion` from a Mac with wrangler auth + root `.env`.

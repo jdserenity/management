@@ -2,7 +2,7 @@ import type { SqlDatabase } from '@mgmt/storage';
 import { dispatchDataSyncRefresh } from './dataSyncEvents';
 import { logSyncError, logSyncInfo, summarizeUserDataCounts } from './syncLog';
 import { drainSyncOutbox } from './syncOutbox';
-import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff, emptyUserData } from './userData';
+import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff, emptyUserData, type UserData } from './userData';
 import { mergeUserData } from './mergeUserData';
 import { totalUserDataRows } from './userDataSafety';
 
@@ -27,6 +27,35 @@ export type BidirectionalSyncOpts = {
 let lastSyncWarning: string | null = null;
 
 const sameUserData = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Merge a pull snapshot with the server, then fold in any local writes that landed while the
+ * network fetch was in flight (so hydrate does not wipe a just-saved streak edit).
+ */
+const mergePullWithLocalNow = async (
+  db: SqlDatabase,
+  localBefore: UserData,
+  serverData: UserData
+): Promise<{ merged: UserData; localNow: UserData }> => {
+  const localNow = await extractUserData(db);
+  const remoteMerged = mergeUserData(localBefore, serverData);
+  const merged = sameUserData(localBefore, localNow)
+    ? remoteMerged
+    : mergeUserData(remoteMerged, localNow);
+  return { merged, localNow };
+};
+
+const applyPullMerge = async (
+  db: SqlDatabase,
+  serverUrl: string,
+  serverToken: string,
+  localBefore: UserData,
+  serverData: UserData
+): Promise<void> => {
+  const { merged, localNow } = await mergePullWithLocalNow(db, localBefore, serverData);
+  if (!sameUserData(localNow, merged)) await hydrateDb(db, merged);
+  if (!sameUserData(serverData, merged)) await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
+};
 
 export const getSyncWarning = (): string | null => lastSyncWarning;
 
@@ -80,20 +109,18 @@ export const runBidirectionalInitialSync = async (opts: BidirectionalSyncOpts): 
       logSyncError(`${logLabel} initial sync: push failed`, err, { serverUrl });
     }
   } else {
-    const merged = mergeUserData(localBefore, serverData);
-    const localMatchesMerged = sameUserData(localBefore, merged);
-    const serverMatchesMerged = sameUserData(serverData, merged);
-    if (!localMatchesMerged) await hydrateDb(db, merged);
-    if (!serverMatchesMerged) {
-      try {
-        await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
-      } catch (err) {
-        pushOk = false;
-        logSyncError(`${logLabel} initial sync: merge push failed`, err, { serverUrl });
-      }
+    try {
+      await applyPullMerge(db, serverUrl, serverToken, localBefore, serverData);
+    } catch (err) {
+      pushOk = false;
+      logSyncError(`${logLabel} initial sync: merge push failed`, err, { serverUrl });
     }
     dispatchDataSyncRefresh();
-    logSyncInfo(`${logLabel} initial sync: merged and uploaded`, { localRows, serverRows, merged: summarizeUserDataCounts(merged) });
+    logSyncInfo(`${logLabel} initial sync: merged and uploaded`, {
+      localRows,
+      serverRows,
+      merged: summarizeUserDataCounts(await extractUserData(db))
+    });
   }
   const counts = summarizeUserDataCounts(await extractUserData(db));
   if (!pushOk) {
@@ -123,11 +150,7 @@ export const pullAndMergeUserData = async (opts: BidirectionalSyncOpts): Promise
     } else if (serverRows === 0 && localRows > 0) {
       return true;
     } else {
-      const merged = mergeUserData(localBefore, serverData);
-      const localMatchesMerged = sameUserData(localBefore, merged);
-      const serverMatchesMerged = sameUserData(serverData, merged);
-      if (!localMatchesMerged) await hydrateDb(db, merged);
-      if (!serverMatchesMerged) await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
+      await applyPullMerge(db, serverUrl, serverToken, localBefore, serverData);
     }
     dispatchDataSyncRefresh();
     logSyncInfo(`${logLabel} foreground pull complete`, summarizeUserDataCounts(await extractUserData(db)));

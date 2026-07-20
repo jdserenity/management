@@ -12,6 +12,7 @@ vi.mock('./userData', async (importOriginal) => {
   };
 });
 
+vi.mock('./syncOutbox', () => ({ drainSyncOutbox: vi.fn().mockResolvedValue({ ok: true, drained: 0 }) }));
 vi.mock('./mergeUserData', () => ({ mergeUserData: vi.fn() }));
 vi.mock('./dataSyncEvents', () => ({ dispatchDataSyncRefresh: vi.fn() }));
 
@@ -83,6 +84,7 @@ describe('runBidirectionalInitialSync', () => {
 
 describe('pullAndMergeUserData', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(extractUserData).mockResolvedValue(empty());
     vi.mocked(fetchUserData).mockResolvedValue(empty());
     vi.mocked(hydrateDbFromServer).mockResolvedValue('hydrated');
@@ -93,5 +95,76 @@ describe('pullAndMergeUserData', () => {
 
   it('returns false without creds', async () => {
     expect(await pullAndMergeUserData({ logLabel: 'test', db })).toBe(false);
+  });
+
+  it('skips hydrate when local edits landed during fetch and already match merge', async () => {
+    const localBefore = {
+      ...empty(),
+      streakActivities: [{
+        id: 'run', name: 'Run', description: null, frequency: 'daily', weekly_target: null,
+        scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
+        linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
+        extra_calories: null, extra_protein: null, extra_water_ml: null,
+        updated_at: '2026-07-01T00:00:00.000Z'
+      }]
+    };
+    const localNow = {
+      ...empty(),
+      streakActivities: [{
+        id: 'run', name: 'Morning run', description: null, frequency: 'daily', weekly_target: null,
+        scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
+        linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
+        extra_calories: null, extra_protein: null, extra_water_ml: null,
+        updated_at: '2026-07-20T12:00:00.000Z'
+      }]
+    };
+    const server = {
+      ...empty(),
+      appKv: [{ key: 'prefs', value: 'x', updated_at: 1 }]
+    };
+    vi.mocked(extractUserData)
+      .mockResolvedValueOnce(localBefore)
+      .mockResolvedValueOnce(localNow)
+      .mockResolvedValue(localNow);
+    vi.mocked(fetchUserData).mockResolvedValue(server);
+    vi.mocked(mergeUserData)
+      .mockReturnValueOnce(server)
+      .mockReturnValueOnce(localNow);
+    const ok = await pullAndMergeUserData({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
+    expect(ok).toBe(true);
+    expect(mergeUserData).toHaveBeenCalledTimes(2);
+    expect(hydrateDb).not.toHaveBeenCalled();
+    expect(pushUserDataDiff).toHaveBeenCalledWith('https://mgmt.levier.cc', 'tok', server, localNow);
+  });
+
+  it('hydrates when concurrent local edit is missing a newer server row', async () => {
+    const oldA = {
+      id: 'run', name: 'Run', description: null, frequency: 'daily', weekly_target: null,
+      scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
+      linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
+      extra_calories: null, extra_protein: null, extra_water_ml: null,
+      updated_at: '2026-07-01T00:00:00.000Z'
+    };
+    const oldB = { ...oldA, id: 'water', name: 'Water', sort_order: 1 };
+    const serverA = { ...oldA, name: 'Server run', updated_at: '2026-07-20T10:00:00.000Z' };
+    const localB = { ...oldB, name: 'Local water', updated_at: '2026-07-20T11:00:00.000Z' };
+    const mergedA = serverA;
+    const mergedB = localB;
+    const localBefore = { ...empty(), streakActivities: [oldA, oldB] };
+    const localNow = { ...empty(), streakActivities: [oldA, localB] };
+    const server = { ...empty(), streakActivities: [serverA, oldB], appKv: [{ key: 'prefs', value: 'x', updated_at: 1 }] };
+    const remoteMerged = { ...empty(), streakActivities: [serverA, oldB] };
+    const merged = { ...empty(), streakActivities: [mergedA, mergedB] };
+    vi.mocked(extractUserData)
+      .mockResolvedValueOnce(localBefore)
+      .mockResolvedValueOnce(localNow)
+      .mockResolvedValue(merged);
+    vi.mocked(fetchUserData).mockResolvedValue(server);
+    vi.mocked(mergeUserData)
+      .mockReturnValueOnce(remoteMerged)
+      .mockReturnValueOnce(merged);
+    const ok = await pullAndMergeUserData({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
+    expect(ok).toBe(true);
+    expect(hydrateDb).toHaveBeenCalledWith(db, merged);
   });
 });
