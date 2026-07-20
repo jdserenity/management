@@ -1,8 +1,11 @@
-/* Daily brand wordmark — Haglos (bundled OTF in assets/fonts). */
+/* Daily brand wordmark — Haglos (OTF via `npm run font:haglos` → assets/fonts/). */
 
 @font-face {
   font-family: 'Haglos';
   src: url('../../assets/fonts/Haglos-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 .daily-brand-wordmark__text {

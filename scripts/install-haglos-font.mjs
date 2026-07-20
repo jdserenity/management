@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Fetches Haglos from 1001fonts and copies Haglos-Regular.otf into desktop/ui/assets/fonts/.
- * License: 1001Fonts FFP — personal use only unless you buy a commercial license from Vultype.
+ * Fetches Haglos (personal-use demo) and copies Haglos-Regular.otf into desktop/ui/assets/fonts/.
+ * License: free for personal use only — commercial license from Vultype if needed.
+ * The OTF is not committed (redistribution restricted); builds must run this script first.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +16,8 @@ const dest = path.join(outDir, 'Haglos-Regular.otf');
 const licenseDest = path.join(outDir, 'HAGLOS-LICENSE.txt');
 
 const DOWNLOAD_URLS = [
+  // dafont is the reliable CI/source; 1001fonts often blocks automated fetch.
+  'https://dl.dafont.com/dl/?f=haglos',
   'https://www.1001fonts.com/download/font/haglos.zip',
   'https://dl.1001freefonts.net/alphanumeric-data/h/haglos.zip'
 ];
@@ -34,7 +37,10 @@ function findOtf(dir) {
 }
 
 async function downloadToFile(url, filePath) {
-  const res = await fetch(url, { redirect: 'follow' });
+  const res = await fetch(url, {
+    redirect: 'follow',
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; mgmt-font-install/1.0)' }
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length < 1024) throw new Error('response too small');

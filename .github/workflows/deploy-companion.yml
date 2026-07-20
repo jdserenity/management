@@ -32,6 +32,7 @@ jobs:
           # Production sync target — set these secrets in the GitHub repo settings.
           VITE_SERVER_URL: ${{ secrets.VITE_SERVER_URL }}
           VITE_SERVER_TOKEN: ${{ secrets.VITE_SERVER_TOKEN }}
+        # build:companion runs `font:haglos` first so Daily wordmark OTF is present (not in git).
         run: npm run build:companion
 
       - name: Deploy to Cloudflare Pages (main only)

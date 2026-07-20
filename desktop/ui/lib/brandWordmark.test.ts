@@ -22,6 +22,7 @@ describe('brandWordmark', () => {
     const css = fs.readFileSync(cssPath, 'utf8');
     expect(css).toContain("font-family: 'Haglos'");
     expect(css).toContain('Haglos-Regular.otf');
+    expect(css).toContain('font-display: swap');
   });
 
   it('renders the wordmark as a page title at the top of Daily', () => {

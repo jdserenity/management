@@ -13,6 +13,9 @@ dist-ssr
 *.local
 .env
 
+# Haglos OTF is personal-use / no-redistribute — install via `npm run font:haglos`
+desktop/ui/assets/fonts/Haglos-Regular.otf
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

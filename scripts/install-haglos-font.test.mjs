@@ -11,5 +11,6 @@ describe('install-haglos-font script', () => {
     const src = fs.readFileSync(scriptPath, 'utf8');
     expect(src).toContain('Haglos-Regular.otf');
     expect(src).toContain('desktop/ui/assets/fonts');
+    expect(src).toContain('dl.dafont.com');
   });
 });
