@@ -6,6 +6,14 @@ import { hasAppStorage } from '@/lib/appRuntime';
 import { isEasyMovementSnackLog, movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
 import { formatNearestHalfHourLabel } from '@/lib/movementSnack/nearestHalfHour';
 import {
+  defaultQuickLogEntryForExercise,
+  formatQuickLogIncrementLabel,
+  listPickableCatalogExercises,
+  quickLogEntryForId,
+  removeQuickLogExercise,
+  upsertQuickLogExercise
+} from '@/lib/movementSnack/movementSnackQuickLog';
+import {
   completeTasksLinkedToMovementBurst,
   uncompleteTasksLinkedToMovementBurst
 } from '@/lib/streak/crossLinks';
@@ -16,19 +24,12 @@ import {
   TrackerSummary
 } from '@/components/daily/TrackerChain';
 import {
-  DASHBOARD_MANUAL_EXERCISES,
   formatExerciseRunAggLine,
   listTodayMovementTotals,
   type ExerciseDefinition,
   type ExerciseUnit
 } from '@/lib/workoutPlanner';
 import './movement.css';
-
-const manualIncrementLabel = (unit: ExerciseUnit, amount: number) => {
-  if (unit === 'reps') return `+${amount}`;
-  if (unit === 'seconds') return `+${amount}s`;
-  return `+${amount}m`;
-};
 
 const cloneExercises = (exercises: ExerciseDefinition[]): ExerciseDefinition[] =>
   exercises.map((ex) => ({ ...ex }));
@@ -40,6 +41,7 @@ type Props = {
 export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
   const {
     movementSnackPrefs,
+    workoutCustomizePrefs,
     todayMovementSnacks,
     todayExerciseTotals,
     todayStretchTotals,
@@ -48,6 +50,7 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
     logMovementSnackCompletion,
     addManualExercise,
     removeWorkoutLog,
+    updateMovementSnackPrefs,
     sessionStorageReady
   } = useSession();
 
@@ -57,12 +60,57 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
   const [customName, setCustomName] = useState('');
   const [customAmount, setCustomAmount] = useState(10);
   const [customUnit, setCustomUnit] = useState<ExerciseUnit>('reps');
+  const [addQuickId, setAddQuickId] = useState('');
+
+  const quickLogExercises = movementSnackPrefs.quickLogExercises;
+  const catalogExercises = useMemo(
+    () => listPickableCatalogExercises(workoutCustomizePrefs),
+    [workoutCustomizePrefs]
+  );
+  const catalogNotInQuickLog = useMemo(
+    () => catalogExercises.filter((ex) => !quickLogEntryForId(movementSnackPrefs, ex.id)),
+    [catalogExercises, movementSnackPrefs]
+  );
 
   useEffect(() => {
     if (!addMode) return;
     setHardDraft(cloneExercises(movementSnackPrefs.hardExercises));
     setEasyDraft(cloneExercises(movementSnackPrefs.easyExercises));
   }, [addMode, movementSnackPrefs.hardExercises, movementSnackPrefs.easyExercises]);
+
+  useEffect(() => {
+    if (catalogNotInQuickLog.length === 0) {
+      setAddQuickId('');
+      return;
+    }
+    if (!catalogNotInQuickLog.some((ex) => ex.id === addQuickId)) {
+      setAddQuickId(catalogNotInQuickLog[0].id);
+    }
+  }, [catalogNotInQuickLog, addQuickId]);
+
+  const persistQuickLog = useCallback(
+    (next: ExerciseDefinition[]) => updateMovementSnackPrefs({ quickLogExercises: next }),
+    [updateMovementSnackPrefs]
+  );
+
+  const updateQuickLogAmount = useCallback(
+    (index: number, amount: number) => {
+      const rounded = Math.max(0, Math.round(amount));
+      persistQuickLog(quickLogExercises.map((ex, i) => (i === index ? { ...ex, amount: rounded } : ex)));
+    },
+    [persistQuickLog, quickLogExercises]
+  );
+
+  const removeQuickLogRow = useCallback(
+    (exerciseId: string) => persistQuickLog(removeQuickLogExercise(quickLogExercises, exerciseId)),
+    [persistQuickLog, quickLogExercises]
+  );
+
+  const addQuickFromCatalog = useCallback(() => {
+    const picked = catalogExercises.find((ex) => ex.id === addQuickId);
+    if (!picked || quickLogEntryForId(movementSnackPrefs, picked.id)) return;
+    persistQuickLog(upsertQuickLogExercise(quickLogExercises, defaultQuickLogEntryForExercise(picked)));
+  }, [addQuickId, catalogExercises, movementSnackPrefs, persistQuickLog, quickLogExercises]);
 
   const goal = movementSnackPrefs.dailyGoal;
   const done = todayMovementSnacks;
@@ -224,15 +272,50 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
         <TrackerAddPanel prefix="movement" title="Log movement" onClose={() => setAddMode(false)}>
           {renderSnackEditor('hard', hardDraft, true)}
           {renderSnackEditor('easy', easyDraft, false)}
+          <div className="movement-snack-editor">
+            <p className="movement-snack-editor-title">One-tap exercises</p>
+            <p className="plugin-muted text-xs" style={{ margin: '0 0 8px' }}>Each button logs one hit at the size you set. Customize → Exercises mirrors this list.</p>
+            <ul className="movement-snack-editor-rows">
+              {quickLogExercises.map((ex, index) => (
+                <li key={ex.id} className="movement-snack-editor-row">
+                  <span className="movement-snack-editor-name">{ex.name}</span>
+                  <label className="movement-snack-editor-amount">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      className="movement-custom-input"
+                      value={ex.amount}
+                      onChange={(e) => updateQuickLogAmount(index, Number(e.target.value))}
+                    />
+                    <span className="movement-snack-editor-unit">{ex.unit === 'reps' ? 'reps' : ex.unit === 'seconds' ? 'sec' : 'min'}</span>
+                  </label>
+                  <button type="button" className="movement-quick-btn" onClick={() => removeQuickLogRow(ex.id)} title="Remove from one-tap list">
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {catalogNotInQuickLog.length > 0 ? (
+              <div className="movement-custom-row">
+                <select className="movement-custom-input movement-custom-input-wide" value={addQuickId} onChange={(e) => setAddQuickId(e.target.value)}>
+                  {catalogNotInQuickLog.map((ex) => (
+                    <option key={ex.id} value={ex.id}>{ex.name}</option>
+                  ))}
+                </select>
+                <button type="button" className="movement-log-btn" onClick={addQuickFromCatalog}>Add</button>
+              </div>
+            ) : null}
+          </div>
           <div className="movement-snack-quick">
-            {DASHBOARD_MANUAL_EXERCISES.map((ex) => (
+            {quickLogExercises.map((ex) => (
               <button
                 key={ex.id}
                 type="button"
                 className="movement-quick-btn"
                 onClick={() => { addManualExercise(ex); setAddMode(false); }}
               >
-                {ex.name} {manualIncrementLabel(ex.unit, ex.amount)}
+                {ex.name} {formatQuickLogIncrementLabel(ex.unit, ex.amount)}
               </button>
             ))}
           </div>

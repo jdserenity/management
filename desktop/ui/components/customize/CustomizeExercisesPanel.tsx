@@ -18,6 +18,13 @@ import {
   resolveAllowedWorkoutIdsFromPrefs
 } from '@/lib/workoutCustomize';
 import {
+  defaultQuickLogEntryForExercise,
+  formatQuickLogIncrementLabel,
+  quickLogEntryForId,
+  removeQuickLogExercise,
+  upsertQuickLogExercise
+} from '@/lib/movementSnack/movementSnackQuickLog';
+import {
   PREDEFINED_WORKOUTS,
   formatExerciseAmount,
   type ExerciseDefinition,
@@ -38,6 +45,8 @@ type PendingConfirm =
 export default function CustomizeExercisesPanel() {
   const {
     workoutCustomizePrefs,
+    movementSnackPrefs,
+    updateMovementSnackPrefs,
     handleAllowedWorkoutToggle,
     updateExerciseOverride,
     addCustomExercise,
@@ -55,6 +64,39 @@ export default function CustomizeExercisesPanel() {
   const displayExercise = useCallback(
     (ex: ExerciseDefinition): ExerciseDefinition => applyExerciseOverride(ex, workoutCustomizePrefs.exerciseOverrides),
     [workoutCustomizePrefs.exerciseOverrides]
+  );
+
+  const quickLogPropsFor = useCallback(
+    (ex: ExerciseDefinition) => {
+      const entry = quickLogEntryForId(movementSnackPrefs, ex.id);
+      const enabled = Boolean(entry);
+      const amount = entry?.amount ?? defaultQuickLogEntryForExercise(ex).amount;
+      const unit = entry?.unit ?? defaultQuickLogEntryForExercise(ex).unit;
+      const persist = (nextList: ExerciseDefinition[]) => updateMovementSnackPrefs({ quickLogExercises: nextList });
+      const list = movementSnackPrefs.quickLogExercises;
+      return {
+        enabled,
+        incrementLabel: formatQuickLogIncrementLabel(unit, amount),
+        amount,
+        unit,
+        onToggle: (on: boolean) => {
+          if (!on) {
+            persist(removeQuickLogExercise(list, ex.id));
+            return;
+          }
+          persist(upsertQuickLogExercise(list, { ...defaultQuickLogEntryForExercise(ex), name: ex.name, id: ex.id }));
+        },
+        onAmount: (n: number) => {
+          if (!entry) return;
+          persist(upsertQuickLogExercise(list, { ...entry, amount: Math.max(0, Math.round(n)) }));
+        },
+        onUnit: (u: ExerciseUnit) => {
+          if (!entry) return;
+          persist(upsertQuickLogExercise(list, { ...entry, unit: u }));
+        }
+      };
+    },
+    [movementSnackPrefs, updateMovementSnackPrefs]
   );
 
   const tryOverride = useCallback(
@@ -104,7 +146,7 @@ export default function CustomizeExercisesPanel() {
     <>
       <CustomizePanel
         title="Exercises"
-        description="Exercise breaks build a random ~2–3 minute circuit from the moves you turn on below. Stretches live under Customize → Stretches."
+        description="Exercise breaks build a random ~2–3 minute circuit from the moves you turn on below. Check Daily one-tap to add a move to the movement burst logger (+ panel) and set how much each tap logs."
       >
         {predefinedRows.map((workout) => {
           const enabled = allowedWorkoutIds.includes(workout.id);
@@ -132,6 +174,7 @@ export default function CustomizeExercisesPanel() {
                       preview={formatExerciseAmount(shown)}
                       onAmount={(n) => tryOverride(ex, n, shown.unit)}
                       onUnit={(u) => tryOverride(ex, shown.amount, u)}
+                      quickLog={quickLogPropsFor(shown)}
                     />
                   );
                 })}
@@ -169,6 +212,7 @@ export default function CustomizeExercisesPanel() {
                     onUnit={(u) => tryOverride(ex, shown.amount, u)}
                     onRemove={() => removeCustomExercise(ex.id)}
                     removeDisabled={enabledMoveCount === 1}
+                    quickLog={quickLogPropsFor(shown)}
                   />
                 );
               })}

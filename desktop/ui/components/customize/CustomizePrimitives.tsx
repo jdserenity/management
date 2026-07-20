@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { EXERCISE_UNIT_OPTIONS, type ExerciseUnit } from '@/lib/exerciseForm';
 import type { ExerciseDefinition } from '@/lib/workoutPlanner';
 
@@ -72,7 +73,8 @@ export function ExerciseEditRow({
   preview,
   onRemove,
   removeDisabled,
-  removeLabel
+  removeLabel,
+  quickLog
 }: {
   name: string;
   amount: number;
@@ -83,25 +85,77 @@ export function ExerciseEditRow({
   onRemove?: () => void;
   removeDisabled?: boolean;
   removeLabel?: string;
+  quickLog?: {
+    enabled: boolean;
+    incrementLabel: string;
+    amount: number;
+    unit: ExerciseUnit;
+    onToggle: (on: boolean) => void;
+    onAmount: (n: number) => void;
+    onUnit: (u: ExerciseUnit) => void;
+  };
 }) {
   return (
     <li className="plugin-row !border-border !py-2 px-0">
-      <span className="text-sm font-medium min-w-0 flex-1">{name}</span>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} showPreview={preview} />
-        {onRemove ? (
-          <button
-            type="button"
-            className="plugin-btn-ghost p-1"
-            disabled={removeDisabled}
-            aria-label={removeLabel ?? `Remove ${name}`}
-            onClick={onRemove}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        ) : null}
+      <div className="flex items-center gap-1.5 w-full">
+        <span className="text-sm font-medium min-w-0 flex-1">{name}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} showPreview={preview} />
+          {onRemove ? (
+            <button
+              type="button"
+              className="plugin-btn-ghost p-1"
+              disabled={removeDisabled}
+              aria-label={removeLabel ?? `Remove ${name}`}
+              onClick={onRemove}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
+      {quickLog ? (
+        <QuickLogExerciseRow
+          enabled={quickLog.enabled}
+          incrementLabel={quickLog.incrementLabel}
+          amount={quickLog.amount}
+          unit={quickLog.unit}
+          onToggle={quickLog.onToggle}
+          onAmount={quickLog.onAmount}
+          onUnit={quickLog.onUnit}
+        />
+      ) : null}
     </li>
+  );
+}
+
+export function QuickLogExerciseRow({
+  enabled,
+  incrementLabel,
+  amount,
+  unit,
+  onToggle,
+  onAmount,
+  onUnit
+}: {
+  enabled: boolean;
+  incrementLabel: string;
+  amount: number;
+  unit: ExerciseUnit;
+  onToggle: (on: boolean) => void;
+  onAmount: (n: number) => void;
+  onUnit: (u: ExerciseUnit) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 pl-0 pt-1 pb-2 border-b border-border/40 last:border-b-0">
+      <label className="flex items-center gap-2 text-xs plugin-muted shrink-0">
+        <Switch checked={enabled} onCheckedChange={onToggle} className="scale-75" />
+        <span>Daily one-tap{enabled ? ` · ${incrementLabel}` : ''}</span>
+      </label>
+      {enabled ? (
+        <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} />
+      ) : null}
+    </div>
   );
 }
 
