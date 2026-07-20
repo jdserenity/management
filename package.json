@@ -12,7 +12,7 @@
     "dev": "vite",
     "dev:companion": "npm run dev -w @mgmt/companion",
     "dev:server": "npm run dev -w @mgmt/server",
-    "build": "npm run font:haglos && tsc && vite build",
+    "build": "tsc && vite build",
     "build:companion": "npm run font:haglos && npm run build -w @mgmt/companion",
     "deploy:companion": "node scripts/deploy-companion.mjs",
     "test": "vitest run",

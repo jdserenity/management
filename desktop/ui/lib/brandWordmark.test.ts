@@ -18,9 +18,10 @@ describe('brandWordmark', () => {
     expect(BRAND_WORDMARK_COLOR).toBe('#ffffff');
   });
 
-  it('declares Haglos @font-face pointing at the bundled OTF', () => {
+  it('declares Haglos @font-face with system local() before bundled OTF', () => {
     const css = fs.readFileSync(cssPath, 'utf8');
     expect(css).toContain("font-family: 'Haglos'");
+    expect(css).toContain("local('Haglos')");
     expect(css).toContain('Haglos-Regular.otf');
     expect(css).toContain('font-display: swap');
   });

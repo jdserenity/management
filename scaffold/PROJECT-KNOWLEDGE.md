@@ -3,8 +3,8 @@
 ## Haglos Daily wordmark font
 
 - Haglos is **not** on npm and **must not** be committed (personal-use / no-redistribute demo). Install with `npm run font:haglos` (dafont zip is the reliable source; 1001fonts often fails automated fetch).
-- `npm run build` and `npm run build:companion` run `font:haglos` first. Without the OTF at build time, `@font-face` keeps a broken relative URL and the phone companion falls back to a generic cursive face — desktop can look “fine” if the Mac already has Haglos, which hides the bug.
-- Companion Cloudflare deploy uses `build:companion`, so production builds download the font in CI.
+- `npm run build:companion` runs `font:haglos` first so the PWA has a bundled fallback. `@font-face` lists `local('Haglos')` **before** the OTF URL so desktop keeps using a system-installed Haglos when present — the auto-downloaded dafont file is a demo cut and must not override the Mac install.
+- Without any Haglos (no system font, no OTF at build time), the wordmark falls back to generic cursive on companion.
 
 ## Customize habit reorder (drag)
 
