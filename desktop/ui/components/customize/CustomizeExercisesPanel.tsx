@@ -146,7 +146,7 @@ export default function CustomizeExercisesPanel() {
     <>
       <CustomizePanel
         title="Exercises"
-        description="Exercise breaks build a random ~2–3 minute circuit from the moves you turn on below. Check Daily one-tap to add a move to the movement burst logger (+ panel) and set how much each tap logs."
+        description="Exercise breaks build a random ~2–3 minute circuit from the moves you turn on below. Toggle Individual on a move to show it in the movement burst logger (+ panel) and set how much each tap logs."
       >
         {predefinedRows.map((workout) => {
           const enabled = allowedWorkoutIds.includes(workout.id);

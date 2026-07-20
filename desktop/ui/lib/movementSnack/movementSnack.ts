@@ -16,7 +16,7 @@ export interface MovementSnackPrefs {
   dailyGoal: number;
   hardExercises: ExerciseDefinition[];
   easyExercises: ExerciseDefinition[];
-  /** One-tap exercises in the Daily movement burst + panel (increment per tap). */
+  /** Individual exercises in the Daily movement burst + panel (increment per tap). */
   quickLogExercises: ExerciseDefinition[];
 }
 

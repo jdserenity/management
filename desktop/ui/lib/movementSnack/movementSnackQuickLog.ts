@@ -4,7 +4,7 @@ import type { ExerciseDefinition, ExerciseUnit } from '@/lib/workoutTypes';
 import type { MovementSnackPrefs } from './movementSnack';
 import { cloneQuickLogDefaults, DEFAULT_MOVEMENT_QUICK_LOG_EXERCISES } from './quickLogDefaults';
 
-/** Default one-tap increments on Daily → movement burst logger (+ panel). */
+/** Default Individual exercise increments on Daily → movement burst logger (+ panel). */
 export const defaultMovementQuickLogExercises = (): ExerciseDefinition[] => cloneQuickLogDefaults();
 
 export const quickLogEntryForId = (prefs: MovementSnackPrefs, exerciseId: string): ExerciseDefinition | undefined =>

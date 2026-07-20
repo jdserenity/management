@@ -1,6 +1,6 @@
 import type { ExerciseDefinition } from '@/lib/workoutTypes';
 
-/** Default one-tap increments on Daily → movement burst logger (+ panel). */
+/** Default Individual exercise increments on Daily → movement burst logger (+ panel). */
 export const DEFAULT_MOVEMENT_QUICK_LOG_EXERCISES: ExerciseDefinition[] = [
   { id: 'pushups', name: 'Push-ups', amount: 5, unit: 'reps' },
   { id: 'jacks', name: 'Jumping jacks', amount: 10, unit: 'reps' },

@@ -150,7 +150,7 @@ export function QuickLogExerciseRow({
     <div className="flex flex-wrap items-center gap-2 pl-0 pt-1 pb-2 border-b border-border/40 last:border-b-0">
       <label className="flex items-center gap-2 text-xs plugin-muted shrink-0">
         <Switch checked={enabled} onCheckedChange={onToggle} className="scale-75" />
-        <span>Daily one-tap{enabled ? ` · ${incrementLabel}` : ''}</span>
+        <span>Individual{enabled ? ` · ${incrementLabel}` : ''}</span>
       </label>
       {enabled ? (
         <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} />
