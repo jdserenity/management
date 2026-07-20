@@ -3,18 +3,9 @@
 @font-face {
   font-family: 'Haglos';
   src: url('../../assets/fonts/Haglos-Regular.otf') format('opentype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
 }
 
-.daily-brand-wordmark { margin: 0 0 0.25rem; }
-
 .daily-brand-wordmark__text {
-  margin: 0;
   font-size: clamp(2.75rem, 10vw, 20rem);
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  line-height: 0.95;
-  text-transform: none;
+  text-align: center;
 }
