@@ -8,7 +8,7 @@ Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (d
 
 | Tab | Component | Role |
 | --- | --- | --- |
-| Daily | `DailyPage.tsx` | Scheduled stretches (`DailyStretchSections`), streaks, TDEE log, water log, movement bursts |
+| Daily | `DailyPage.tsx` | Brand wordmark (`BrandWordmark`: lowercase "management", Archivo Black, `#0437F2`), then stretches, streaks, TDEE, water, movement bursts |
 | Work | `Dashboard.tsx` | Focus flow timer, today's work/movement totals, can't-exercise toggle |
 | Posture | `PosturePage.tsx` | Live score, charts, camera (desktop/Tauri only) |
 | Stats | `StatsPage.tsx` | All-time / monthly / weekly focus + movement aggregates |

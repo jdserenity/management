@@ -1,0 +1,12 @@
+/* Daily brand wordmark — oversized block letters above the trackers. */
+
+.daily-brand-wordmark { margin: 0 0 0.25rem; }
+
+.daily-brand-wordmark__text {
+  margin: 0;
+  font-size: clamp(2.75rem, 9vw, 4rem);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  text-transform: none;
+}
