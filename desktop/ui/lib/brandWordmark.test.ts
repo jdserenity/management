@@ -5,15 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import BrandWordmark from '@/components/daily/BrandWordmark';
-import {
-  BRAND_WORDMARK_COLOR,
-  BRAND_WORDMARK_FONT,
-  BRAND_WORDMARK_TEXT,
-  brandWordmarkInlineStyle,
-  buildBrandWordmarkInlineStyle,
-  mockBrandWordmarkInlineStyleBuilder,
-  resetBrandWordmarkInlineStyleBuilder
-} from './brandWordmark';
+import { BRAND_WORDMARK_COLOR, BRAND_WORDMARK_FONT, BRAND_WORDMARK_TEXT } from './brandWordmark';
 import { brandWordmarkFontPath } from './brandWordmarkFontPath';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -24,20 +16,6 @@ describe('brandWordmark', () => {
     expect(BRAND_WORDMARK_TEXT).toBe('Management');
     expect(BRAND_WORDMARK_FONT).toBe('"Haglos", cursive');
     expect(BRAND_WORDMARK_COLOR).toBe('#ffffff');
-  });
-
-  it('buildBrandWordmarkInlineStyle maps constants to inline style', () => {
-    expect(buildBrandWordmarkInlineStyle()).toEqual({
-      fontFamily: BRAND_WORDMARK_FONT,
-      color: BRAND_WORDMARK_COLOR
-    });
-  });
-
-  it('mockBrandWordmarkInlineStyleBuilder swaps the style source', () => {
-    mockBrandWordmarkInlineStyleBuilder(() => ({ fontFamily: 'mock', color: '#000000' }));
-    expect(brandWordmarkInlineStyle()).toEqual({ fontFamily: 'mock', color: '#000000' });
-    resetBrandWordmarkInlineStyleBuilder();
-    expect(brandWordmarkInlineStyle()).toEqual(buildBrandWordmarkInlineStyle());
   });
 
   it('declares Haglos @font-face pointing at the bundled OTF', () => {
