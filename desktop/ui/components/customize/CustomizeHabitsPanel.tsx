@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import ActivityEditorDialog from '@/components/daily/ActivityEditorDialog';
 import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { resetButtonLabel } from '@/lib/streak/display';
-import { moveIdBefore, moveIdInOrder } from '@/lib/streak/reorder';
+import { findDropTargetId, moveIdBefore, type RowBox } from '@/lib/streak/reorder';
 import type { StreakActivity } from '@/lib/streak/types';
 import { archiveStreakActivity, loadStreakState, reorderStreakActivities, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
-import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 
 export default function CustomizeHabitsPanel() {
   const { data: state, loadError, setData: setState, storageReady } = useAppDataLoad(
@@ -18,22 +18,79 @@ export default function CustomizeHabitsPanel() {
   const [editingActivity, setEditingActivity] = useState<StreakActivity | null>(null);
   const [isNewActivity, setIsNewActivity] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [previewIds, setPreviewIds] = useState<string[] | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const dragIdRef = useRef<string | null>(null);
+  const baseIdsRef = useRef<string[] | null>(null);
+  const boxesRef = useRef<RowBox[]>([]);
+  const previewIdsRef = useRef<string[] | null>(null);
 
   if (!storageReady) return <p className="plugin-muted text-sm">Storage is not ready yet.</p>;
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (!state) return <p className="plugin-muted text-sm">Loading habits…</p>;
 
   const activities = state.config.activities;
+  const byId = new Map(activities.map((a) => [a.id, a]));
+  const orderedIds = previewIds ?? activities.map((a) => a.id);
+  const displayActivities = orderedIds.map((id) => byId.get(id)).filter((a): a is StreakActivity => !!a);
 
-  const applyOrder = (next: string[] | null) => {
-    if (!next) return;
+  const measureRows = (): RowBox[] => {
+    const list = listRef.current;
+    if (!list) return [];
+    return [...list.querySelectorAll<HTMLElement>('[data-habit-id]')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { id: el.dataset.habitId!, top: r.top, bottom: r.bottom };
+    });
+  };
+
+  const clearDrag = () => {
+    dragIdRef.current = null;
+    baseIdsRef.current = null;
+    boxesRef.current = [];
+    previewIdsRef.current = null;
+    setDragId(null);
+    setPreviewIds(null);
+  };
+
+  const finishDrag = () => {
+    const next = previewIdsRef.current;
+    const base = baseIdsRef.current;
+    clearDrag();
+    if (!next || !base) return;
+    if (next.length === base.length && next.every((id, i) => id === base[i])) return;
     void reorderStreakActivities(state, next).then(setState);
   };
 
-  const handleDropOn = (targetId: string) => {
-    const next = dragId ? moveIdBefore(activities.map((a) => a.id), dragId, targetId) : null;
-    setDragId(null);
-    applyOrder(next);
+  const onGripPointerDown = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const ids = activities.map((a) => a.id);
+    dragIdRef.current = id;
+    baseIdsRef.current = ids;
+    boxesRef.current = measureRows(); // freeze hit targets so live preview does not flicker
+    previewIdsRef.current = ids;
+    setDragId(id);
+    setPreviewIds(ids);
+  };
+
+  const onGripPointerMove = (e: React.PointerEvent) => {
+    const from = dragIdRef.current;
+    const base = baseIdsRef.current;
+    if (!from || !base) return;
+    const target = findDropTargetId(e.clientY, boxesRef.current);
+    if (!target) return;
+    // Always rebase from the order at drag-start (not the live preview) to avoid swap flicker.
+    const next = moveIdBefore(base, from, target) ?? base;
+    if (previewIdsRef.current && next.every((id, i) => id === previewIdsRef.current![i])) return;
+    previewIdsRef.current = next;
+    setPreviewIds(next);
+  };
+
+  const onGripPointerUp = (e: React.PointerEvent) => {
+    if (!dragIdRef.current) return;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    finishDrag();
   };
 
   return (
@@ -51,13 +108,13 @@ export default function CustomizeHabitsPanel() {
             </button>
           </span>
         }
-        description="Use the arrows to reorder (drag also works on desktop). This order is what you see on the Daily tab."
+        description="Drag the grip to reorder. This order is what you see on the Daily tab."
       >
         {activities.length === 0 ? (
           <p className="plugin-empty text-sm">No habits yet. Add an activity to show it on the Daily tab.</p>
         ) : (
-          <ul className="space-y-2">
-            {activities.map((activity, index) => {
+          <ul ref={listRef} className="space-y-2">
+            {displayActivities.map((activity) => {
               const resetCount = state.data.activityResetCounts[activity.id] || 0;
               const isPaused = !!state.data.pausedActivities[activity.id];
               const linkBits: string[] = [];
@@ -65,21 +122,25 @@ export default function CustomizeHabitsPanel() {
               if (activity.linkedStapleId) linkBits.push('→ staple');
               if (activity.linkedWater) linkBits.push('→ water');
               if (activity.linkedMovementBurst) linkBits.push('→ burst');
-              const ids = activities.map((a) => a.id);
               return (
                 <li
                   key={activity.id}
+                  data-habit-id={activity.id}
                   className={`plugin-panel-flat space-y-2${dragId === activity.id ? ' opacity-60 ring-2 ring-primary/40' : ''}`}
-                  draggable
-                  onDragStart={() => setDragId(activity.id)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDropOn(activity.id)}
-                  onDragEnd={() => setDragId(null)}
                 >
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 shrink-0 cursor-grab plugin-muted" title="Drag to reorder" aria-hidden>
+                    <button
+                      type="button"
+                      className="mt-0.5 shrink-0 cursor-grab touch-none plugin-muted active:cursor-grabbing"
+                      title="Drag to reorder"
+                      aria-label={`Drag to reorder ${activity.name || activity.id}`}
+                      onPointerDown={(e) => onGripPointerDown(e, activity.id)}
+                      onPointerMove={onGripPointerMove}
+                      onPointerUp={onGripPointerUp}
+                      onPointerCancel={onGripPointerUp}
+                    >
                       <GripVertical className="h-4 w-4" />
-                    </span>
+                    </button>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{activity.name || activity.id}</p>
                       <p className="plugin-muted text-xs">
@@ -88,26 +149,6 @@ export default function CustomizeHabitsPanel() {
                         {linkBits.length ? ` · ${linkBits.join(' · ')}` : ''}
                         {activity.description ? ` · ${activity.description}` : ''}
                       </p>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        className="plugin-btn-ghost px-2"
-                        disabled={index === 0}
-                        aria-label={`Move ${activity.name || activity.id} up`}
-                        onClick={() => applyOrder(moveIdInOrder(ids, activity.id, -1))}
-                      >
-                        <ArrowUp className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="plugin-btn-ghost px-2"
-                        disabled={index === activities.length - 1}
-                        aria-label={`Move ${activity.name || activity.id} down`}
-                        onClick={() => applyOrder(moveIdInOrder(ids, activity.id, 1))}
-                      >
-                        <ArrowDown className="h-4 w-4" />
-                      </button>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 pl-6">
