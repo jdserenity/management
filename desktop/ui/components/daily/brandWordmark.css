@@ -1,0 +1,11 @@
+/* Daily brand wordmark — Haglos (bundled OTF in assets/fonts). */
+
+@font-face {
+  font-family: 'Haglos';
+  src: url('../../assets/fonts/Haglos-Regular.otf') format('opentype');
+}
+
+.daily-brand-wordmark__text {
+  font-size: clamp(2.75rem, 10vw, 20rem);
+  text-align: center;
+}

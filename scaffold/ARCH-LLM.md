@@ -6,14 +6,14 @@ Personal focus + movement manager: Pomodoro/Deep Work timer, guided break exerci
 
 Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (desktop only) → **Stats** → **Customize** → **Settings**. Default tab: `daily`. Companion drops Posture; Settings → `CompanionSettingsPage`.
 
-| Tab | Component | Role |
-| --- | --- | --- |
-| Daily | `DailyPage.tsx` | Scheduled stretches (`DailyStretchSections`), streaks, TDEE log, water log, movement bursts |
-| Work | `Dashboard.tsx` | Focus flow timer, today's work/movement totals, can't-exercise toggle |
-| Posture | `PosturePage.tsx` | Live score, charts, camera (desktop/Tauri only) |
-| Stats | `StatsPage.tsx` | All-time / monthly / weekly focus + movement aggregates |
-| Customize | `CustomizePage.tsx` | Subtabs: Exercises (bursts at top), Stretches, Streaks (habits), TDEE (targets) |
-| Settings | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | General, alerts, posture, sync, theme, app presence |
+| Tab       | Component                                        | Role                                                                                                                                  |
+| --------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF in `desktop/ui/assets/fonts/`, white), then stretches, streaks, TDEE, water, movement bursts |
+| Work      | `Dashboard.tsx`                                  | Focus flow timer, today's work/movement totals, can't-exercise toggle                                                                 |
+| Posture   | `PosturePage.tsx`                                | Live score, charts, camera (desktop/Tauri only)                                                                                       |
+| Stats     | `StatsPage.tsx`                                  | All-time / monthly / weekly focus + movement aggregates                                                                               |
+| Customize | `CustomizePage.tsx`                              | Subtabs: Exercises (bursts at top), Stretches, Streaks (habits), TDEE (targets)                                                       |
+| Settings  | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | General, alerts, posture, sync, theme, app presence                                                                                   |
 
 Header **Start flow** (`FlowHeaderControl.tsx` in `AppShell.tsx`): idle → start pomodoro chain; active → show phase label, click → Work tab.
 
@@ -44,15 +44,15 @@ Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/co
 
 ## Repo layout
 
-| Path | Package / role |
-| --- | --- |
-| `desktop/ui/` | React UI (`@/` alias), session engine, libs |
-| `desktop/src-tauri/` | Tauri shell: tray, camera loop, SQL migrations, posture bridge |
-| `shared/core/` | `@mgmt/core` — session types, timer math, flow state |
-| `shared/storage/` | `@mgmt/storage` — shared SQLite schema migrations |
-| `shared/sync/` | `@mgmt/sync` — sync client, merge, outbox, polling (not the server) |
-| `backend/` | `@mgmt/server` — Hono HTTP sync API |
-| `mobile/` | `@mgmt/companion` — Vite PWA; reuses `desktop/ui/` via aliases |
+| Path                 | Package / role                                                      |
+| -------------------- | ------------------------------------------------------------------- |
+| `desktop/ui/`        | React UI (`@/` alias), session engine, libs                         |
+| `desktop/src-tauri/` | Tauri shell: tray, camera loop, SQL migrations, posture bridge      |
+| `shared/core/`       | `@mgmt/core` — session types, timer math, flow state                |
+| `shared/storage/`    | `@mgmt/storage` — shared SQLite schema migrations                   |
+| `shared/sync/`       | `@mgmt/sync` — sync client, merge, outbox, polling (not the server) |
+| `backend/`           | `@mgmt/server` — Hono HTTP sync API                                 |
+| `mobile/`            | `@mgmt/companion` — Vite PWA; reuses `desktop/ui/` via aliases      |
 
 Root `package.json` workspaces: `shared/*`, `backend`, `mobile`. Desktop Vite root: `desktop/ui/`; build outDir: repo `dist/` (Tauri `frontendDist`).
 
@@ -66,17 +66,17 @@ Boot: `DesktopBoot.tsx` / `CompanionBoot.tsx` → `SyncBootScreen` until SQLite 
 
 ### Tables (local.db)
 
-| Table | Purpose | Sync |
-| --- | --- | --- |
-| `posture_log` | Posture samples | desktop_only |
-| `focus_log` | Completed focus sessions | shared, append_only |
-| `workout_log` | Break workouts, stretches, manual increments | shared, append_only |
-| `app_kv` | Key-value prefs + active flow state | per-key (see registry) |
-| `nutrition_*` | TDEE config, staples, regulars, today entries | shared |
-| `water_*` | Water target + today entries | shared |
-| `streak_*` | Activities, log cells, pause/reset meta | shared |
-| `sync_tombstones` | Hard-delete markers (entity, row_key, deleted_at) | shared |
-| `sync_outbox` | Pending row patches | local only |
+| Table             | Purpose                                           | Sync                   |
+| ----------------- | ------------------------------------------------- | ---------------------- |
+| `posture_log`     | Posture samples                                   | desktop_only           |
+| `focus_log`       | Completed focus sessions                          | shared, append_only    |
+| `workout_log`     | Break workouts, stretches, manual increments      | shared, append_only    |
+| `app_kv`          | Key-value prefs + active flow state               | per-key (see registry) |
+| `nutrition_*`     | TDEE config, staples, regulars, today entries     | shared                 |
+| `water_*`         | Water target + today entries                      | shared                 |
+| `streak_*`        | Activities, log cells, pause/reset meta           | shared                 |
+| `sync_tombstones` | Hard-delete markers (entity, row_key, deleted_at) | shared                 |
+| `sync_outbox`     | Pending row patches                               | local only             |
 
 Sync classification: `shared/sync/src/syncRegistry.ts` (`SYNC_TABLE_REGISTRY`, `SHARED_APP_KV_KEYS`, `DESKTOP_ONLY_APP_KV_KEYS`).
 
@@ -102,12 +102,12 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 Hono on default port 8787. Auth: `Authorization: Bearer $SERVER_TOKEN`.
 
-| Endpoint | Use |
-| --- | --- |
-| `GET /health` | No auth |
-| `GET /v1/data` | Full user snapshot |
-| `POST /v1/data` | Bootstrap replace (empty device) |
-| `POST /v1/data/patch` | Row-level upsert/delete |
+| Endpoint              | Use                              |
+| --------------------- | -------------------------------- |
+| `GET /health`         | No auth                          |
+| `GET /v1/data`        | Full user snapshot               |
+| `POST /v1/data`       | Bootstrap replace (empty device) |
+| `POST /v1/data/patch` | Row-level upsert/delete          |
 
 Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`. Prod: systemd (`backend/mgmt-server.service.example`, `server.env.example`).
 
@@ -125,25 +125,25 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 
 ## Deploy (facts)
 
-| Client | Creds location | Deploy |
-| --- | --- | --- |
-| Desktop | root `.env` | `npm run tauri build` → `npm run app:deploy` → `/Applications/Management.app` |
+| Client         | Creds location                    | Deploy                                                                                                  |
+| -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Desktop        | root `.env`                       | `npm run tauri build` → `npm run app:deploy` → `/Applications/Management.app`                           |
 | Companion prod | Cloudflare Pages env / GH secrets | Deploy **only** on `main` (`.github/workflows/deploy-companion.yml`); never on PR. Output `mobile/dist` |
-| Server | `/etc/mgmt/server.env` | `npm run start:prod -w @mgmt/server` via systemd |
+| Server         | `/etc/mgmt/server.env`            | `npm run start:prod -w @mgmt/server` via systemd                                                        |
 
 `npm run db:backup` → `~/Library/Application Support/com.diamari.management/backups/`. App version: root `package.json` → `VITE_APP_VERSION`.
 
 ## Key files
 
-| Concern | Path |
-| --- | --- |
-| Nav | `desktop/ui/lib/navConfig.ts` |
-| Session state | `desktop/ui/context/SessionContext.tsx` (holds one `PersistedFlowState`); pure transitions in `@mgmt/core` `flowEngine.ts` / `exerciseMode.ts` |
-| Feature DBs | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/` |
-| Workout modules | `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` |
-| Plugin UI | `desktop/ui/plugin-ui.css`, tokens in `App.css` |
-| app_kv prefs | `desktop/ui/lib/appKv.ts` (get/set + bool/json/int factories); thin `*Pref.ts` wrappers |
-| Sync wiring | `dataSync.ts`, `dataSyncBootstrap.ts`, `shared/sync/src/` |
-| UserData SQL schema | `shared/sync/src/userDataSchema.ts` |
-| Migrations (desktop) | `desktop/src-tauri/src/main.rs` |
-| Shared schema | `shared/storage/src/migrations.ts` |
+| Concern              | Path                                                                                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nav                  | `desktop/ui/lib/navConfig.ts`                                                                                                                  |
+| Session state        | `desktop/ui/context/SessionContext.tsx` (holds one `PersistedFlowState`); pure transitions in `@mgmt/core` `flowEngine.ts` / `exerciseMode.ts` |
+| Feature DBs          | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/`                                                                    |
+| Workout modules      | `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts`                                                         |
+| Plugin UI            | `desktop/ui/plugin-ui.css`, tokens in `App.css`                                                                                                |
+| app_kv prefs         | `desktop/ui/lib/appKv.ts` (get/set + bool/json/int factories); thin `*Pref.ts` wrappers                                                        |
+| Sync wiring          | `dataSync.ts`, `dataSyncBootstrap.ts`, `shared/sync/src/`                                                                                      |
+| UserData SQL schema  | `shared/sync/src/userDataSchema.ts`                                                                                                            |
+| Migrations (desktop) | `desktop/src-tauri/src/main.rs`                                                                                                                |
+| Shared schema        | `shared/storage/src/migrations.ts`                                                                                                             |

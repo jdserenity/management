@@ -1,6 +1,7 @@
 // src/components/DailyPage.tsx
 
 import { useState } from 'react';
+import BrandWordmark from '@/components/daily/BrandWordmark';
 import DailyStretchSections from '@/components/daily/DailyStretchSections';
 import MovementSnackSection from '@/components/daily/MovementSnackSection';
 import StreakSection from '@/components/daily/StreakSection';
@@ -24,6 +25,7 @@ export default function DailyPage() {
 
   return (
     <div className="plugin-page space-y-6 lg:space-y-8">
+      <BrandWordmark />
       <DailyStretchSections />
       <StreakSection refreshKey={streakRefreshKey} onCrossLog={handleCrossLog} />
       <TdeeSection refreshKey={tdeeRefreshKey} onLinkedTaskComplete={handleLinkedTaskComplete} />

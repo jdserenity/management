@@ -11,6 +11,7 @@ export default defineConfig({
     include: [
       'desktop/ui/**/*.test.ts',
       'scripts/**/*.test.ts',
+      'scripts/**/*.test.mjs',
       'shared/**/*.test.ts',
       'backend/**/*.test.ts',
       'mobile/**/*.test.ts'

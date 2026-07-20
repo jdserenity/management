@@ -21,7 +21,8 @@
     "db:backup": "node scripts/backup-db.mjs",
     "db:server-overview": "node scripts/db-server-overview.mjs",
     "test:push": "node scripts/test-push.mjs",
-    "app:deploy": "node scripts/install-app.mjs"
+    "app:deploy": "node scripts/install-app.mjs",
+    "font:haglos": "node scripts/install-haglos-font.mjs"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.35",
