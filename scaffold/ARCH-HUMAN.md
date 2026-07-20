@@ -1,32 +1,19 @@
 # Architecture (human-readable)
 
-**Management** is a personal desktop app (macOS via Tauri) with a phone companion (PWA). It helps you stay focused (Pomodoro / Deep Work timers), move during breaks, track daily habits and nutrition, and monitor posture from your webcam. Data syncs through a small server you run on a VPS so desktop and phone stay aligned.
-
-## Tabs at a glance
-
-| Tab | What you do here |
-| --- | --- |
-| **Daily** | Morning/scheduled stretches, check off habits, log food and water |
-| **Work** | Run focus sessions, see today's pomodoros and movement |
-| **Posture** | Live posture score and history (desktop only — needs camera) |
-| **Stats** | Weekly/monthly/all-time focus and exercise totals |
-| **Customize** | Set up exercises, stretches, habits, and nutrition targets |
-| **Settings** | Alerts, sync health, theme, camera, app presence |
-
-The **Start flow** button in the header kicks off a Pomodoro chain from any tab.
+**Management** is a personal desktop app (macOS via Tauri) with a phone companion (PWA). It helps me stay focused (Pomodoro / Deep Work timers), move during breaks, track daily habits and nutrition, and monitor posture from my webcam. Data syncs through a small server I run on my VPS so desktop and phone stay aligned.
 
 ## How the pieces connect
 
 ```mermaid
 flowchart TB
-  subgraph clients["Your devices"]
+  subgraph clients["My devices"]
     desk["Desktop app\nTauri + React"]
     phone["Companion PWA\nphone browser"]
   end
   subgraph local["On each device"]
     sqlite["SQLite\ndesktop: local.db\nphone: IndexedDB + sql.js"]
   end
-  subgraph server["Your VPS"]
+  subgraph server["My VPS"]
     api["mgmt-server\nHono + SQLite"]
   end
   desk --> sqlite
@@ -37,7 +24,7 @@ flowchart TB
 
 Posture data stays on the desktop — it never uploads.
 
-When you **archive** a habit on one device, the other devices should hide it too. Sync keeps archive status sticky (so a simultaneous edit on the other phone can’t accidentally “un-archive” it), and hard deletes leave a small marker (`sync_tombstones`) so deleted rows don’t reappear after the next pull.
+When I **archive** a habit on one device, the other devices should hide it too. Sync keeps archive status sticky (so a simultaneous edit on the other phone can’t accidentally “un-archive” it), and hard deletes leave a small marker (`sync_tombstones`) so deleted rows don’t reappear after the next pull.
 
 **Phone app URL vs sync API:** `https://mgmt.levier.cc` is the sync server (check `/health`). The phone companion PWA is at `https://mgmt-companion.pages.dev` (Cloudflare Pages). Opening the API host in a browser is not meant to show the app UI.
 
@@ -111,7 +98,7 @@ flowchart LR
 
 ## Install & update (macOS)
 
-Your data lives outside the app bundle, so replacing the app keeps history.
+My data lives outside the app bundle, so replacing the app keeps history.
 
 1. `npm install`
 2. `npm run tauri build` — produces `desktop/src-tauri/target/release/bundle/macos/Management.app`
@@ -121,12 +108,12 @@ SQLite file: `~/Library/Application Support/com.diamari.management/local.db`
 
 Backups: `npm run db:backup`
 
-| Command | What it does |
-| --- | --- |
-| `npm run tauri dev` | Dev desktop app (same data as installed app) |
-| `npm run dev` | Browser-only Vite — no SQLite, not for real use |
-| `npm run dev:companion` | Phone companion at localhost:5173 |
-| `npm run dev:server` | Local sync server at localhost:8787 |
+| Command                 | What it does                                    |
+| ----------------------- | ----------------------------------------------- |
+| `npm run tauri dev`     | Dev desktop app (same data as installed app)    |
+| `npm run dev`           | Browser-only Vite — no SQLite, not for real use |
+| `npm run dev:companion` | Phone companion at localhost:5173               |
+| `npm run dev:server`    | Local sync server at localhost:8787             |
 
 If macOS blocks an unsigned build: System Settings → Privacy & Security, or `xattr -cr /Applications/Management.app`.
 
@@ -143,14 +130,12 @@ Desktop and companion talk to `backend/` over HTTPS. Templates: `backend/mgmt-se
 
 **Client credentials** are fixed at build time — changing the server token requires rebuilding:
 
-| Client | Where to set URL + token |
-| --- | --- |
+| Client                 | Where to set URL + token                                              |
+| ---------------------- | --------------------------------------------------------------------- |
 | Companion (production) | Cloudflare Pages → project **mgmt-companion** → Environment variables |
-| Desktop | Repo root `.env` on your Mac |
-| Local dev | Repo root `.env` |
+| Desktop                | Repo root `.env` on my Mac                                            |
+| Local dev              | Repo root `.env`                                                      |
 
-Companion Cloudflare build: deploy only when **main** updates (GitHub Actions `deploy-companion.yml`, or Cloudflare production branch = main with preview deploys off). Build: `npm ci && npm run build:companion`, output `mobile/dist`. Pull requests should not publish.
+Companion Cloudflare build: `npm ci && npm run build:companion`, output `mobile/dist`.
 
 **Update server code:** `git pull && npm install && sudo systemctl restart mgmt-server`
-
-VPS troubleshooting tables live in `scaffold/PROJECT-KNOWLEDGE.md`.
