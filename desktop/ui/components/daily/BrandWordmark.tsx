@@ -1,4 +1,3 @@
-import '@fontsource/alfa-slab-one';
 import { BRAND_WORDMARK_COLOR, BRAND_WORDMARK_FONT, BRAND_WORDMARK_TEXT } from '@/lib/brandWordmark';
 import './brandWordmark.css';
 

@@ -8,7 +8,7 @@ Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (d
 
 | Tab       | Component                                        | Role                                                                                                                                  |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Alfa Slab One, white), then stretches, streaks, TDEE, water, movement bursts |
+| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF in `desktop/ui/assets/fonts/`, white), then stretches, streaks, TDEE, water, movement bursts |
 | Work      | `Dashboard.tsx`                                  | Focus flow timer, today's work/movement totals, can't-exercise toggle                                                                 |
 | Posture   | `PosturePage.tsx`                                | Live score, charts, camera (desktop/Tauri only)                                                                                       |
 | Stats     | `StatsPage.tsx`                                  | All-time / monthly / weekly focus + movement aggregates                                                                               |
