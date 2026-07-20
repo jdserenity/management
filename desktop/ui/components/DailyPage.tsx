@@ -24,7 +24,7 @@ export default function DailyPage() {
   };
 
   return (
-    <div className="plugin-page space-y-6 lg:space-y-8">
+    <div className="plugin-page">
       <BrandWordmark />
       <DailyStretchSections />
       <StreakSection refreshKey={streakRefreshKey} onCrossLog={handleCrossLog} />

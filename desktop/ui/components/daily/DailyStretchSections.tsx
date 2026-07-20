@@ -27,10 +27,10 @@ export default function DailyStretchSections() {
   if (scheduled.length === 0) return null;
 
   return (
-    <div className="space-y-6">
+    <>
       {scheduled.map((stretch) => (
         <StretchSection key={stretch.id} stretch={stretch} />
       ))}
-    </div>
+    </>
   );
 }

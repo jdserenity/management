@@ -4,7 +4,7 @@ import './brandWordmark.css';
 /** Big block-letter brand title for the Daily tab. */
 export default function BrandWordmark() {
   return (
-    <header aria-label="Management">
+    <header aria-label="Management" style={{ margin: 0 }}>
       <h1
         className="daily-brand-wordmark__text"
         style={{ fontFamily: BRAND_WORDMARK_FONT, color: BRAND_WORDMARK_COLOR }}

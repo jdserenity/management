@@ -13,4 +13,8 @@
 .daily-brand-wordmark__text {
   font-size: clamp(2.75rem, 10vw, 20rem);
   text-align: center;
+  margin: 0;
+  margin-bottom: 1rem;
+  padding: 0;
+  line-height: 1;
 }
