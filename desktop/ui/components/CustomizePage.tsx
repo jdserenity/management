@@ -14,13 +14,17 @@ export default function CustomizePage() {
           <TabsTrigger value="body">Body</TabsTrigger>
           <TabsTrigger value="energy">Energy</TabsTrigger>
         </TabsList>
-        <TabsContent value="tasks"><CustomizeHabitsPanel /></TabsContent>
+        <TabsContent value="tasks">
+          <CustomizeHabitsPanel />
+        </TabsContent>
         <TabsContent value="body" className="space-y-3">
           <CustomizeMovementSnacksPanel />
           <CustomizeExercisesPanel />
           <CustomizeStretchesPanel />
         </TabsContent>
-        <TabsContent value="energy"><CustomizeFoodPanel /></TabsContent>
+        <TabsContent value="energy">
+          <CustomizeFoodPanel />
+        </TabsContent>
       </Tabs>
     </div>
   );
