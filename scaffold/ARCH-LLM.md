@@ -12,7 +12,7 @@ Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (d
 | Work      | `Dashboard.tsx`                                  | Focus flow timer, today's work/movement totals, can't-exercise toggle                                                                 |
 | Posture   | `PosturePage.tsx`                                | Live score, charts, camera (desktop/Tauri only)                                                                                       |
 | Stats     | `StatsPage.tsx`                                  | All-time / monthly / weekly focus + movement aggregates                                                                               |
-| Customize | `CustomizePage.tsx`                              | Subtabs: Exercises (bursts at top), Stretches, Streaks (habits), TDEE (targets)                                                       |
+| Customize | `CustomizePage.tsx`                              | Subtabs: **Tasks** (habits/streaks), **Body** (bursts + exercises + stretches), **Energy** (TDEE targets) — that order                          |
 | Settings  | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | General, alerts, posture, sync, theme, app presence                                                                                   |
 
 Header **Start flow** (`FlowHeaderControl.tsx` in `AppShell.tsx`): idle → start pomodoro chain; active → show phase label, click → Work tab.
@@ -31,12 +31,12 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Workout logged when break timer finishes (≥15s) or Complete Workout tapped (≥15s); stopping flow mid-break does not log.
 - Morning stretch: built-in id `morning-stretch`; hides after completion or hide-after hour (default 11 AM); logs to `workout_log`.
 - Stretch creator routine refs (`MorningStretchRef`) may carry optional `amount` (hold seconds) for that routine only; does not change global stretch pool / `stretchHoldSeconds`.
-- Movement bursts (UI name; internal ids still `movement-snack*`): Customize lives under Exercises tab (top); completed chips show `Hard/Easy ·` nearest half-hour (`formatNearestHalfHourLabel`). `movement_snack_prefs_v1` stores daily goal, hard/easy burst lists, and `quickLogExercises` (Individual tap increments on Daily + panel; edit only in Customize → Exercises); syncs via `SHARED_APP_KV_KEYS`.
+- Movement bursts (UI name; internal ids still `movement-snack*`): Customize lives under Body tab (top); completed chips show `Hard/Easy ·` nearest half-hour (`formatNearestHalfHourLabel`). `movement_snack_prefs_v1` stores daily goal, hard/easy burst lists, and `quickLogExercises` (Individual tap increments on Daily + panel; edit only in Customize → Body); syncs via `SHARED_APP_KV_KEYS`.
 - Streak fire emoji only when current streak ≥ 5 days (`currentStreakFireEmojiClass`); under 5 shows the number only.
 - Water: exact goal (0 ml remaining) uses success style `water-remaining-done` (green).
 - TDEE food editor (+ menu) lists staples with portion controls; logging a staple (chip or editor) uses `kind: staple` + `refId` so the day's staple chip is replaced.
 - Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
-- Streak activities: order by `sort_order` (add order + grip pointer-drag reorder in Customize; Daily uses same order). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
+- Streak activities: order by `sort_order` (add order + grip pointer-drag reorder in Customize → Tasks; Daily uses same order). DnD keeps DOM order fixed during drag (ghost + insert line); hit-tests midpoints via `findInsertIndex` / `moveIdToInsertIndex` in `lib/streak/reorder.ts` — do not live-reorder against frozen boxes (that glitches). Flags: `necessary` (incomplete → daily heatmap red × via `isDayNecessaryFailed`; gold check when done), `linked_staple_id` / `linked_water` / `linked_movement_burst` — lockstep partners (check/uncheck either side). Schema v12–v13.
 
 Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/core` (`flowEngine.ts`, `flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`, `exerciseMode.ts`). Workout modules: `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` (break picking + stretch helpers).
 
