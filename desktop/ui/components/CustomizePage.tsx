@@ -8,20 +8,19 @@ import CustomizeHabitsPanel from '@/components/customize/CustomizeHabitsPanel';
 export default function CustomizePage() {
   return (
     <div className="plugin-page">
-      <Tabs defaultValue="exercises">
-        <TabsList className="mb-4 grid w-full grid-cols-4">
-          <TabsTrigger value="exercises">Exercises</TabsTrigger>
-          <TabsTrigger value="stretches">Stretches</TabsTrigger>
-          <TabsTrigger value="streaks">Streaks</TabsTrigger>
-          <TabsTrigger value="tdee">TDEE</TabsTrigger>
+      <Tabs defaultValue="tasks">
+        <TabsList className="mb-4 grid w-full grid-cols-3">
+          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="body">Body</TabsTrigger>
+          <TabsTrigger value="energy">Energy</TabsTrigger>
         </TabsList>
-        <TabsContent value="exercises" className="space-y-3">
+        <TabsContent value="tasks"><CustomizeHabitsPanel /></TabsContent>
+        <TabsContent value="body" className="space-y-3">
           <CustomizeMovementSnacksPanel />
           <CustomizeExercisesPanel />
+          <CustomizeStretchesPanel />
         </TabsContent>
-        <TabsContent value="stretches"><CustomizeStretchesPanel /></TabsContent>
-        <TabsContent value="streaks"><CustomizeHabitsPanel /></TabsContent>
-        <TabsContent value="tdee"><CustomizeFoodPanel /></TabsContent>
+        <TabsContent value="energy"><CustomizeFoodPanel /></TabsContent>
       </Tabs>
     </div>
   );

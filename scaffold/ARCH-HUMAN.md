@@ -46,7 +46,7 @@ flowchart TB
     Work["Work — focus timer"]
     Posture["Posture — charts"]
     Stats["Stats — aggregates"]
-    Customize["Customize — setup"]
+    Customize["Customize — Tasks / Body / Energy"]
     Settings["Settings"]
   end
   DB --> App
