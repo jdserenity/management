@@ -111,7 +111,7 @@ Hono on default port 8787. Auth: `Authorization: Bearer $SERVER_TOKEN`.
 | `POST /v1/data`       | Bootstrap replace (empty device) |
 | `POST /v1/data/patch` | Row-level upsert/delete          |
 
-Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`, optional `BACKUP_DIR`. Prod: systemd (`backend/mgmt-server.service.example`, `server.env.example`). **Daily backups** run in-process inside `mgmt-server` (`backend/src/dbBackup.ts`): snapshot `$DB_PATH` at 03:00 local + boot catch-up if none today; default dir `<DB_PATH dirname>/backups`; keep 14 days.
+Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`, optional `BACKUP_DIR`, optional R2 offsite (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, optional `R2_PREFIX`). Prod: systemd (`backend/mgmt-server.service.example`, `server.env.example`). **Daily backups** run in-process inside `mgmt-server` (`backend/src/dbBackup.ts` + `r2Offsite.ts`): snapshot `$DB_PATH` at 03:00 local + boot catch-up if none today; default dir `<DB_PATH dirname>/backups`; keep 14 days; if R2 env is set, upload the snapshot to the bucket and prune there to the same retention. Local backup still succeeds if R2 upload fails.
 
 ## Posture (desktop)
 

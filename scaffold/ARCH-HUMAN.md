@@ -140,4 +140,4 @@ Companion Cloudflare build: `npm ci && npm run build:companion`, output `mobile/
 
 **Update server code:** `git pull && npm install && sudo systemctl restart mgmt-server`
 
-The sync server process takes **daily backups** of `server.db` itself (no extra systemd unit): files land in `data/backups/` next to the DB (or `BACKUP_DIR`), kept for 14 days. Check logs with `journalctl -u mgmt-server | grep db-backup`.
+The sync server process takes **daily backups** of `server.db` itself (no extra systemd unit): files land in `data/backups/` next to the DB (or `BACKUP_DIR`), kept for 14 days. If the four `R2_*` vars are set in `/etc/mgmt/server.env`, each snapshot is also uploaded to a Cloudflare R2 bucket (off-VPS copy) with the same retention. Check logs with `journalctl -u mgmt-server | grep db-backup`.
