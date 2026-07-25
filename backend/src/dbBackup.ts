@@ -48,19 +48,45 @@ export const msUntilNextLocalHour = (hour: number, now = new Date()): number => 
 
 type BackupDb = Pick<Database.Database, 'backup'>;
 
-/** Snapshot open server.db into backupDir; prune to retention days. */
+export type OffsiteBackupUpload = (
+  localPath: string,
+  opts?: { retentionDays?: number }
+) => Promise<{ key: string; pruned: string[] }>;
+
+/** Snapshot open server.db into backupDir; prune to retention days; optionally upload offsite. */
 export const backupServerDb = async (
   db: BackupDb,
   dbPath: string,
-  opts: { backupDir?: string; retentionDays?: number; now?: Date } = {}
-): Promise<{ dest: string; pruned: string[] }> => {
+  opts: {
+    backupDir?: string;
+    retentionDays?: number;
+    now?: Date;
+    offsite?: OffsiteBackupUpload;
+  } = {}
+): Promise<{
+  dest: string;
+  pruned: string[];
+  offsiteKey?: string;
+  offsitePruned?: string[];
+  offsiteError?: string;
+}> => {
   const backupDir = opts.backupDir ?? defaultBackupDirFor(dbPath);
   const retentionDays = opts.retentionDays ?? DEFAULT_BACKUP_RETENTION_DAYS;
   fs.mkdirSync(backupDir, { recursive: true });
   const dest = path.join(backupDir, serverBackupFileName(opts.now ?? new Date()));
   await db.backup(dest);
   const pruned = pruneOldBackups(backupDir, retentionDays);
-  return { dest, pruned };
+  if (!opts.offsite) return { dest, pruned };
+  try {
+    const remote = await opts.offsite(dest, { retentionDays });
+    return { dest, pruned, offsiteKey: remote.key, offsitePruned: remote.pruned };
+  } catch (err) {
+    return {
+      dest,
+      pruned,
+      offsiteError: err instanceof Error ? err.message : String(err)
+    };
+  }
 };
 
 /** True if backupDir already has a server-*.db whose mtime is on the same local calendar day as `now`. */
@@ -85,6 +111,7 @@ export const startDailyServerDbBackup = (
     backupDir?: string;
     retentionDays?: number;
     hour?: number;
+    offsite?: OffsiteBackupUpload;
     log?: (msg: string, extra?: Record<string, unknown>) => void;
   } = {}
 ): (() => void) => {
@@ -99,9 +126,15 @@ export const startDailyServerDbBackup = (
     try {
       const result = await backupServerDb(db, dbPath, {
         backupDir,
-        retentionDays: opts.retentionDays
+        retentionDays: opts.retentionDays,
+        offsite: opts.offsite
       });
-      log('ok', { dest: result.dest, pruned: result.pruned.length });
+      log('ok', {
+        dest: result.dest,
+        pruned: result.pruned.length,
+        ...(result.offsiteKey ? { offsiteKey: result.offsiteKey, offsitePruned: result.offsitePruned?.length ?? 0 } : {}),
+        ...(result.offsiteError ? { offsiteError: result.offsiteError } : {})
+      });
     } catch (err) {
       log('failed', { error: err instanceof Error ? err.message : String(err) });
     }

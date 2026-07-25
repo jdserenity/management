@@ -90,6 +90,38 @@ describe('backupServerDb', () => {
     expect(result.pruned.length).toBeGreaterThanOrEqual(1);
     expect(fs.readdirSync(backupDir).filter((n) => n.startsWith('server-')).length).toBeLessThanOrEqual(2);
   });
+
+  it('uploads offsite after a local snapshot', async () => {
+    const dir = tmp();
+    const dbPath = path.join(dir, 'server.db');
+    const backupDir = path.join(dir, 'backups');
+    fs.writeFileSync(dbPath, 'live');
+    const backup = vi.fn(async (dest: string) => { fs.writeFileSync(dest, 'snap'); });
+    const offsite = vi.fn(async () => ({ key: 'server/snap.db', pruned: [] as string[] }));
+    const result = await backupServerDb({ backup }, dbPath, {
+      backupDir,
+      now: new Date('2026-07-25T15:04:05.000Z'),
+      offsite
+    });
+    expect(offsite).toHaveBeenCalledWith(result.dest, { retentionDays: 14 });
+    expect(result.offsiteKey).toBe('server/snap.db');
+  });
+
+  it('keeps the local snapshot when offsite upload fails', async () => {
+    const dir = tmp();
+    const dbPath = path.join(dir, 'server.db');
+    const backupDir = path.join(dir, 'backups');
+    fs.writeFileSync(dbPath, 'live');
+    const backup = vi.fn(async (dest: string) => { fs.writeFileSync(dest, 'snap'); });
+    const result = await backupServerDb({ backup }, dbPath, {
+      backupDir,
+      now: new Date('2026-07-25T15:04:05.000Z'),
+      offsite: async () => { throw new Error('r2 down'); }
+    });
+    expect(fs.readFileSync(result.dest, 'utf8')).toBe('snap');
+    expect(result.offsiteError).toBe('r2 down');
+    expect(result.offsiteKey).toBeUndefined();
+  });
 });
 
 describe('hasBackupForLocalDay', () => {
