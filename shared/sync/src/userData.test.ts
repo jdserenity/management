@@ -9,6 +9,7 @@ import {
   hydrateDb,
   hydrateDbFromServer,
   wrapWithDataSync,
+  runWithoutDataSync,
   type UserData
 } from './userData';
 import { setSyncFetchImpl } from './syncFetch';
@@ -471,5 +472,68 @@ describe('wrapWithDataSync', () => {
     expect(beforePush).toHaveBeenCalled();
     expect(callOrder).toEqual(['beforePush', 'fetch']);
     vi.unstubAllGlobals();
+  });
+
+  it('does not mint bulk streakLogCells deletes/tombstones when hydrate rewrites during debounce', async () => {
+    vi.useRealTimers();
+    const enqueued: Array<{ streakLogCells?: { deletes?: unknown[] }; syncTombstones?: { upserts?: unknown[] } }> = [];
+    type Cell = { log_date: string; activity_id: string; state: string; updated_at: string };
+    let cells: Cell[] = [
+      { log_date: '2026-05-01', activity_id: 'wake-up', state: 'success', updated_at: '2026-05-01T12:00:00.000Z' },
+      { log_date: '2026-05-02', activity_id: 'wake-up', state: 'success', updated_at: '2026-05-02T12:00:00.000Z' },
+      { log_date: '2026-07-25', activity_id: 'water', state: 'success', updated_at: '2026-07-25T10:00:00.000Z' }
+    ];
+    const base: SqlDatabase = {
+      select: async <T>(q: string): Promise<T> => {
+        if (q.includes('FROM sync_outbox')) return [] as T;
+        if (q.includes('FROM streak_log_cells')) return cells as T;
+        return [] as T;
+      },
+      execute: async (q, bind) => {
+        if (q.includes('INSERT INTO sync_outbox')) {
+          enqueued.push(JSON.parse(String(bind?.[0] ?? '{}')));
+          return { lastInsertId: 1, rowsAffected: 1 };
+        }
+        if (q.includes('INSERT INTO streak_log_cells')) {
+          const row = {
+            log_date: String(bind?.[0]),
+            activity_id: String(bind?.[1]),
+            state: String(bind?.[2]),
+            updated_at: String(bind?.[3])
+          };
+          const i = cells.findIndex((c) => c.log_date === row.log_date && c.activity_id === row.activity_id);
+          if (i >= 0) cells[i] = row;
+          else cells.push(row);
+        }
+        return { lastInsertId: 1, rowsAffected: 1 };
+      }
+    };
+    const wrapped = wrapWithDataSync(base, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 80);
+
+    await wrapped.execute(
+      'INSERT INTO streak_log_cells (log_date, activity_id, state, updated_at) VALUES (?,?,?,?)',
+      ['2026-07-25', 'wake-up', 'success', '2026-07-25T18:52:19.000Z']
+    );
+
+    let releaseHydrate!: () => void;
+    const hydrateGate = new Promise<void>((resolve) => { releaseHydrate = resolve; });
+    const hydratePromise = runWithoutDataSync(async () => {
+      const snapshot = [...cells];
+      cells = [];
+      await hydrateGate;
+      cells = snapshot;
+    });
+
+    await new Promise((r) => setTimeout(r, 30));
+    expect(enqueued).toEqual([]);
+    releaseHydrate();
+    await hydratePromise;
+    await new Promise((r) => setTimeout(r, 200));
+
+    expect(enqueued.length).toBeGreaterThan(0);
+    const deletes = enqueued.flatMap((p) => p.streakLogCells?.deletes ?? []);
+    const tombs = enqueued.flatMap((p) => p.syncTombstones?.upserts ?? []);
+    expect(deletes).toEqual([]);
+    expect(tombs).toEqual([]);
   });
 });

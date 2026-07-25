@@ -5,6 +5,7 @@ import { drainSyncOutbox } from './syncOutbox';
 import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff, emptyUserData, type UserData } from './userData';
 import { mergeUserData } from './mergeUserData';
 import { totalUserDataRows } from './userDataSafety';
+import { withDataSyncWriteLock } from './syncWriteLock';
 
 export type BidirectionalSyncResult = {
   pullOk: boolean;
@@ -52,9 +53,13 @@ const applyPullMerge = async (
   localBefore: UserData,
   serverData: UserData
 ): Promise<void> => {
-  const { merged, localNow } = await mergePullWithLocalNow(db, localBefore, serverData);
-  if (!sameUserData(localNow, merged)) await hydrateDb(db, merged);
-  if (!sameUserData(serverData, merged)) await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
+  // Hold the write lock across final re-read + hydrate so a habit check cannot land mid-merge.
+  const { merged, serverNeedsPush } = await withDataSyncWriteLock(async () => {
+    const { merged, localNow } = await mergePullWithLocalNow(db, localBefore, serverData);
+    if (!sameUserData(localNow, merged)) await hydrateDb(db, merged, { alreadyLocked: true });
+    return { merged, serverNeedsPush: !sameUserData(serverData, merged) };
+  });
+  if (serverNeedsPush) await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
 };
 
 export const getSyncWarning = (): string | null => lastSyncWarning;

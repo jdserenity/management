@@ -165,6 +165,6 @@ describe('pullAndMergeUserData', () => {
       .mockReturnValueOnce(merged);
     const ok = await pullAndMergeUserData({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
     expect(ok).toBe(true);
-    expect(hydrateDb).toHaveBeenCalledWith(db, merged);
+    expect(hydrateDb).toHaveBeenCalledWith(db, merged, { alreadyLocked: true });
   });
 });

@@ -12,6 +12,12 @@ import {
   clientSelectSql,
   schemaByField
 } from './userDataSchema';
+import { withDataSyncWriteLock } from './syncWriteLock';
+
+/** Wrapped DB → underlying DB so hydrate can rewrite tables without re-entering wrapWithDataSync. */
+const rawSqlDatabases = new WeakMap<SqlDatabase, SqlDatabase>();
+
+export const getRawSqlDatabase = (db: SqlDatabase): SqlDatabase => rawSqlDatabases.get(db) ?? db;
 
 // ── Row types — mirror local.db columns (no user_id) ──────────────────────────
 
@@ -198,34 +204,60 @@ export const hydrateDbFromServer = async (
 /**
  * Replace local synced tables with a snapshot.
  * Safety:
- * - Runs without data-sync outbox side effects (full-table DELETE must not push "delete every row").
+ * - Runs under the data-sync write lock (no interleaved user writes) unless alreadyLocked.
+ * - Uses the raw DB (not wrapWithDataSync) so full-table DELETE cannot enqueue outbox deletes.
+ * - Entire rewrite is one SQLite transaction when BEGIN/COMMIT are supported.
  * - Never replaces a non-empty local table with an empty snapshot (accidental wipe guard).
  */
-export const hydrateDb = async (db: SqlDatabase, data: UserData): Promise<void> => {
-  await runWithoutDataSync(async () => {
-    const normalized: UserData = {
-      ...data,
-      syncTombstones: normalizeSyncTombstones(data.syncTombstones)
-    };
-    const local = await extractUserData(db);
-    for (const s of USER_DATA_TABLE_SCHEMAS) {
-      const incoming = s.getRows(normalized);
-      const existing = s.getRows(local);
-      let rowsToWrite = incoming;
-      if (incoming.length === 0 && existing.length > 0) {
-        logSyncInfo('hydrateDb kept local rows (refusing empty wipe)', {
-          table: s.sqlTable,
-          localRows: existing.length
-        });
-        rowsToWrite = existing;
+export const hydrateDb = async (
+  db: SqlDatabase,
+  data: UserData,
+  opts?: { alreadyLocked?: boolean }
+): Promise<void> => {
+  const run = async () => {
+    const raw = getRawSqlDatabase(db);
+    await runWithoutDataSync(async () => {
+      const normalized: UserData = {
+        ...data,
+        syncTombstones: normalizeSyncTombstones(data.syncTombstones)
+      };
+      const local = await extractUserData(raw);
+      let began = false;
+      try {
+        await raw.execute('BEGIN');
+        began = true;
+      } catch {
+        /* some test mocks / drivers reject BEGIN — still rewrite without a txn */
       }
-      await db.execute(`DELETE FROM ${s.sqlTable}`);
-      const sql = clientInsertSql(s);
-      for (const row of rowsToWrite) {
-        await db.execute(sql, s.bind(row as never));
+      try {
+        for (const s of USER_DATA_TABLE_SCHEMAS) {
+          const incoming = s.getRows(normalized);
+          const existing = s.getRows(local);
+          let rowsToWrite = incoming;
+          if (incoming.length === 0 && existing.length > 0) {
+            logSyncInfo('hydrateDb kept local rows (refusing empty wipe)', {
+              table: s.sqlTable,
+              localRows: existing.length
+            });
+            rowsToWrite = existing;
+          }
+          await raw.execute(`DELETE FROM ${s.sqlTable}`);
+          const sql = clientInsertSql(s);
+          for (const row of rowsToWrite) {
+            await raw.execute(sql, s.bind(row as never));
+          }
+        }
+        if (began) await raw.execute('COMMIT');
+      } catch (err) {
+        if (began) {
+          try { await raw.execute('ROLLBACK'); } catch { /* ignore */ }
+        }
+        throw err;
       }
-    }
-  });
+    });
+  };
+  if (opts?.alreadyLocked) return run();
+  return withDataSyncWriteLock(run);
 };
 
 // ── HTTP helpers ───────────────────────────────────────────────────────────────
@@ -542,12 +574,23 @@ export type SyncCredsProvider = () => SyncCreds | Promise<SyncCreds>;
 /** Nestable: while > 0, wrapWithDataSync execute is pass-through (no outbox). Used by hydrateDb. */
 let dataSyncSuppressDepth = 0;
 
+/** Bumped when a suppress window ends so debounced pushes can drop stale before-snapshots. */
+let dataSyncSuppressGeneration = 0;
+
 export const runWithoutDataSync = async <T>(fn: () => Promise<T>): Promise<T> => {
   dataSyncSuppressDepth += 1;
   try {
     return await fn();
   } finally {
     dataSyncSuppressDepth -= 1;
+    if (dataSyncSuppressDepth === 0) dataSyncSuppressGeneration += 1;
+  }
+};
+
+/** Wait until hydrateDb / runWithoutDataSync is not rewriting tables (poll; works with fake timers). */
+export const waitWhileDataSyncSuppressed = async (pollMs = 25): Promise<void> => {
+  while (dataSyncSuppressDepth > 0) {
+    await new Promise<void>((resolve) => { setTimeout(resolve, pollMs); });
   }
 };
 
@@ -566,11 +609,14 @@ export const wrapWithDataSync = (
   const scheduleSync = () => {
     if (dataSyncSuppressDepth > 0) return;
     if (timer) clearTimeout(timer);
+    const genAtSchedule = dataSyncSuppressGeneration;
     timer = setTimeout(() => {
       timer = null;
       void Promise.resolve(getCreds()).then(async ({ serverUrl, token }) => {
         if (!serverUrl || !token) return;
         if (beforePush) await beforePush();
+        // Never diff against a mid-hydrate torn table (that minted mass false tombstones).
+        await waitWhileDataSyncSuppressed();
         const tables = [...dirtyTables];
         if (skippedUnknownMutation) {
           logSyncInfo('sync skipped unknown mutation SQL; use markSyncRowPatch for explicit patches');
@@ -579,6 +625,11 @@ export const wrapWithDataSync = (
         if (tables.length === 0) {
           await drainSyncOutbox(db, serverUrl, token);
           return;
+        }
+        // Hydrate finished after we captured "before" — that snapshot is stale; upsert only.
+        if (dataSyncSuppressGeneration !== genAtSchedule) {
+          for (const table of tables) delete beforeMutationSnapshot[table];
+          logSyncInfo('sync discarded before snapshot after hydrate', { tables });
         }
         const afterMutation = await extractUserDataForTables(db, tables);
         const missingBefore = tables.filter((table) => !(table in beforeMutationSnapshot));
@@ -606,25 +657,30 @@ export const wrapWithDataSync = (
       });
     }, debounceMs);
   };
-  return {
+  const wrapped: SqlDatabase = {
     select: (q, bind) => db.select(q, bind),
     execute: async (q, bind) => {
-      if (dataSyncSuppressDepth > 0) return db.execute(q, bind);
-      const touchedTables = inferSyncUserDataTablesFromSql(q);
-      const mutation = isMutationQuery(q);
-      if (mutation && touchedTables.length > 0) {
-        const missingTables = touchedTables.filter((table) => !(table in beforeMutationSnapshot));
-        if (missingTables.length > 0) {
-          const preMutation = await extractUserDataForTables(db, missingTables);
-          Object.assign(beforeMutationSnapshot, preMutation);
+      // Queue behind hydrate / other writers so a check cannot land mid wipe-and-refill.
+      return withDataSyncWriteLock(async () => {
+        if (dataSyncSuppressDepth > 0) return db.execute(q, bind);
+        const touchedTables = inferSyncUserDataTablesFromSql(q);
+        const mutation = isMutationQuery(q);
+        if (mutation && touchedTables.length > 0) {
+          const missingTables = touchedTables.filter((table) => !(table in beforeMutationSnapshot));
+          if (missingTables.length > 0) {
+            const preMutation = await extractUserDataForTables(db, missingTables);
+            Object.assign(beforeMutationSnapshot, preMutation);
+          }
         }
-      }
-      const result = await db.execute(q, bind);
-      if (mutation && touchedTables.length === 0) skippedUnknownMutation = true;
-      for (const table of touchedTables) dirtyTables.add(table);
-      if (mutation) markLocalSyncChangePending();
-      scheduleSync();
-      return result;
+        const result = await db.execute(q, bind);
+        if (mutation && touchedTables.length === 0) skippedUnknownMutation = true;
+        for (const table of touchedTables) dirtyTables.add(table);
+        if (mutation) markLocalSyncChangePending();
+        scheduleSync();
+        return result;
+      });
     }
   };
+  rawSqlDatabases.set(wrapped, db);
+  return wrapped;
 };
