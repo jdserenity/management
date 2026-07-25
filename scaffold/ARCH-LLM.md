@@ -90,6 +90,8 @@ Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active fl
 
 **Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards. **Streak archive is sticky** (`archived_at` kept via COALESCE on server + merge) so a later active-only upsert (reorder/edit race) cannot un-archive. **Hard deletes** write `sync_tombstones` rows (entity + row_key + deleted_at); pull-merge drops local ghost rows covered by a newer tombstone. Composite `row_key` parts join with U+001F (`TOMBSTONE_KEY_SEP` in `userData.ts`) — never `\0` (sql.js truncates at NUL → UNIQUE crash on companion).
 
+**Debounced push vs hydrate:** `wrapWithDataSync` must not diff a pre-write snapshot against a mid-`hydrateDb` table (wipe-then-refill). Debounce waits while `runWithoutDataSync` is active and discards the before-snapshot if a hydrate generation bumped — otherwise torn extracts mint bulk false `streakLogCells` deletes + tombstones (2026-07-25 wipe). **Write lock** (`withDataSyncWriteLock`) serializes user mutations vs hydrate; hydrate uses the raw DB + BEGIN/COMMIT. **Bulk streakLogCells deletes** spanning many habits+days are refused client-side (`sanitizeDangerousBulkDeletes`) and ignored server-side. **Versioned deletes** on the server only remove a row when `updated_at <=` the matching tombstone `deleted_at`. `saveLogs` is upsert-only (no delete-missing).
+
 **Table SQL truth:** `shared/sync/src/userDataSchema.ts` — column lists, bind order, client select/insert, server select/insert/patch/delete. `backend/src/dataStore.ts` and client `extractUserData`/`hydrateDb` loop the schema (no per-table SQL copies).
 
 **Leader:** Companion auto-claims during exercise breaks; desktop viewer mode (`sessionSync.ts` `isSyncViewer`).
@@ -109,7 +111,7 @@ Hono on default port 8787. Auth: `Authorization: Bearer $SERVER_TOKEN`.
 | `POST /v1/data`       | Bootstrap replace (empty device) |
 | `POST /v1/data/patch` | Row-level upsert/delete          |
 
-Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`. Prod: systemd (`backend/mgmt-server.service.example`, `server.env.example`).
+Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`, optional `BACKUP_DIR`. Prod: systemd (`backend/mgmt-server.service.example`, `server.env.example`). **Daily backups** run in-process inside `mgmt-server` (`backend/src/dbBackup.ts`): snapshot `$DB_PATH` at 03:00 local + boot catch-up if none today; default dir `<DB_PATH dirname>/backups`; keep 14 days.
 
 ## Posture (desktop)
 

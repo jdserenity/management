@@ -139,3 +139,5 @@ Desktop and companion talk to `backend/` over HTTPS. Templates: `backend/mgmt-se
 Companion Cloudflare build: `npm ci && npm run build:companion`, output `mobile/dist`.
 
 **Update server code:** `git pull && npm install && sudo systemctl restart mgmt-server`
+
+The sync server process takes **daily backups** of `server.db` itself (no extra systemd unit): files land in `data/backups/` next to the DB (or `BACKUP_DIR`), kept for 14 days. Check logs with `journalctl -u mgmt-server | grep db-backup`.

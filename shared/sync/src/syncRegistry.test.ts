@@ -16,7 +16,7 @@ import { USER_DATA_TABLES } from './userData';
 
 const extractTablesFromMigrations = (): string[] => {
   const names = new Set<string>();
-  const re = /(?:CREATE TABLE IF NOT EXISTS|ALTER TABLE|DROP TABLE|RENAME TO)\s+(\w+)/gi;
+  const re = /(?:CREATE TABLE IF NOT EXISTS|ALTER TABLE|DROP TABLE(?: IF EXISTS)?|RENAME TO)\s+(\w+)/gi;
   for (const migration of SCHEMA_MIGRATIONS) {
     let match: RegExpExecArray | null;
     while ((match = re.exec(migration.sql)) !== null) {
