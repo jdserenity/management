@@ -232,21 +232,16 @@ const saveActivities = async (config: StreakConfig): Promise<void> => {
 
 const saveLogs = async (logs: StreakData['logs']): Promise<void> => {
   const normalized = normalizeLogs(logs);
-  const keepKeys: string[] = [];
+  // Upsert only — never DELETE rows missing from an in-memory snapshot (that wiped history).
   for (const date of Object.keys(normalized)) {
     for (const [activityId, cell] of Object.entries(normalized[date])) {
-      keepKeys.push(`${date}\0${activityId}`);
+      if (cell.state === 'none') continue;
       await dbExecute(
         `INSERT INTO streak_log_cells (log_date, activity_id, state, updated_at) VALUES ($1, $2, $3, $4)
          ON CONFLICT(log_date, activity_id) DO UPDATE SET state=excluded.state, updated_at=excluded.updated_at`,
         [date, activityId, cell.state, cell.updatedAt]
       );
     }
-  }
-  const rows = await dbSelect<LogRow[]>('SELECT log_date, activity_id, state, updated_at FROM streak_log_cells');
-  for (const row of rows) {
-    const key = `${row.log_date}\0${row.activity_id}`;
-    if (!keepKeys.includes(key)) await deleteLogCell(row.log_date, row.activity_id);
   }
 };
 
