@@ -162,4 +162,28 @@ describe('SqliteDataStore.putData', () => {
     ]);
     db.close();
   });
+
+  it('ignores a stale streakLogCells delete when the row is newer than the tombstone', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', {
+      ...emptyData(),
+      streakLogCells: [{
+        log_date: '2026-07-25', activity_id: 'wake-up', state: 'success', updated_at: '2026-07-25T20:00:00.000Z'
+      }]
+    });
+    store.putDataPatch('owner', {
+      streakLogCells: { deletes: [{ log_date: '2026-07-25', activity_id: 'wake-up' }] },
+      syncTombstones: {
+        upserts: [{
+          entity: 'streakLogCells',
+          row_key: '2026-07-25\u001Fwake-up',
+          deleted_at: '2026-07-25T18:52:21.178Z'
+        }]
+      }
+    });
+    expect(store.getData('owner').streakLogCells).toHaveLength(1);
+    db.close();
+  });
 });

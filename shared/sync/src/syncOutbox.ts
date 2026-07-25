@@ -1,6 +1,7 @@
 import type { SqlDatabase } from '@mgmt/storage';
 import { hasUserDataRowPatchChanges, pushUserDataPatch, type UserDataRowPatch, TOMBSTONE_KEY_SEP } from './userData';
 import { logSyncError, logSyncInfo } from './syncLog';
+import { sanitizeDangerousBulkDeletes } from './syncPatchSafety';
 import { markSyncPushResult } from './syncStatus';
 
 type OutboxRow = { id: number; patch_json: string; created_at: number };
@@ -125,10 +126,11 @@ export const readSyncOutbox = async (db: SqlDatabase): Promise<OutboxRow[]> =>
   db.select<OutboxRow[]>('SELECT id,patch_json,created_at FROM sync_outbox ORDER BY id');
 
 export const enqueueSyncPatch = async (db: SqlDatabase, patch: UserDataRowPatch): Promise<void> => {
-  if (!hasUserDataRowPatchChanges(patch)) return;
+  const safe = sanitizeDangerousBulkDeletes(patch);
+  if (!hasUserDataRowPatchChanges(safe)) return;
   await db.execute(
     'INSERT INTO sync_outbox (patch_json, created_at) VALUES ($1, $2)',
-    [JSON.stringify(patch), Date.now()]
+    [JSON.stringify(safe), Date.now()]
   );
 };
 
@@ -158,8 +160,14 @@ export const drainSyncOutbox = async (
     await clearSyncOutboxIds(db, rows.map((r) => r.id));
     return { ok: true, drained: rows.length };
   }
+  const safe = sanitizeDangerousBulkDeletes(combined);
+  if (!hasUserDataRowPatchChanges(safe)) {
+    logSyncError('sync outbox drain dropped dangerous bulk deletes only', new Error('bulk delete blocked'));
+    await clearSyncOutboxIds(db, rows.map((r) => r.id));
+    return { ok: true, drained: rows.length };
+  }
   try {
-    await pushUserDataPatch(serverUrl, token, combined);
+    await pushUserDataPatch(serverUrl, token, safe);
     await clearSyncOutboxIds(db, rows.map((r) => r.id));
     markSyncPushResult('push-patch', true);
     logSyncInfo('sync outbox drained', { rows: rows.length });
