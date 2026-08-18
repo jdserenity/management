@@ -106,6 +106,8 @@ My data lives outside the app bundle, so replacing the app keeps history.
 
 SQLite file: `~/Library/Application Support/com.diamari.management/local.db`
 
+Window size: `~/Library/Application Support/com.diamari.management/window-size.json` — a JSON file, not a SQLite/`app_kv` row. Rust has to apply the last size when the native window is created, before the usual JS + DB pref path is up; putting it in the DB would open at the default size and then jump. Machine-specific (this screen), so it also stays out of sync.
+
 Backups: `npm run db:backup`
 
 | Command                 | What it does                                    |

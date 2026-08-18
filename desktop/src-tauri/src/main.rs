@@ -37,6 +37,7 @@ mod camera_watch;
 mod flow_lid_pause;
 mod posture_bridge;
 mod sync_http;
+mod window_geometry;
 use posture_bridge::{posture_alert_message, posture_recommendations, PostureDebouncer, PostureIngestPayload};
 
 // --- App State ---
@@ -67,6 +68,8 @@ pub(crate) struct AppState {
     allow_full_exit: Arc<Mutex<bool>>,
     flow_active: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
+    /// After the last saved size is applied, resize events may persist a new size.
+    window_size_ready: Arc<AtomicBool>,
 }
 
 pub(crate) fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>) -> MutexGuard<'a, T> {
@@ -786,8 +789,11 @@ pub fn run() {
                 allow_full_exit: Arc::new(Mutex::new(false)),
                 flow_active: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
+                window_size_ready: Arc::new(AtomicBool::new(false)),
             };
             app.manage(app_state.clone());
+            window_geometry::restore_main_window(app.handle());
+            app_state.window_size_ready.store(true, Ordering::Release);
 
             if let Err(e) = app_presence::install_tray(app.handle(), &app_state) {
                 error!("Failed to install menu bar tray on startup: {e}");
@@ -813,7 +819,11 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| match event {
+            tauri::WindowEvent::Resized(_) => {
+                persist_window_size_from_event(window);
+            }
             tauri::WindowEvent::CloseRequested { api, .. } => {
+                persist_window_size_from_event(window);
                 let state = window.state::<AppState>();
                 // Always keep the menu bar tray: window close never kills the process.
                 if app_presence::handle_window_close_requested(window.app_handle(), &state) {
@@ -867,10 +877,25 @@ pub fn run() {
     app.run(|app_handle, event| {
         if let tauri::RunEvent::ExitRequested { api, .. } = event {
             let state = app_handle.state::<AppState>();
+            if let Some(window) = app_handle.get_webview_window("main") {
+                if let (Ok(physical), Ok(scale)) = (window.inner_size(), window.scale_factor()) {
+                    window_geometry::persist_physical_size(
+                        state.window_size_ready.load(Ordering::Acquire),
+                        physical.width,
+                        physical.height,
+                        scale,
+                    );
+                }
+            }
             // Cmd+Q / Dock quit: stay in the menu bar unless tray “Quit Management” set allow_full_exit.
             if app_presence::handle_exit_requested(app_handle, &state) {
                 api.prevent_exit();
             }
         }
     });
+}
+
+fn persist_window_size_from_event(window: &tauri::Window) {
+    let Some(state) = window.try_state::<AppState>() else { return };
+    window_geometry::persist_from_window(window, state.window_size_ready.load(Ordering::Acquire));
 }

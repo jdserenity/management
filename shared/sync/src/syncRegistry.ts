@@ -217,7 +217,10 @@ export const DESKTOP_ONLY_STORAGE = {
     'mgmt_sync_device_id_v1'
   ],
   tauriStoreFiles: ['.settings.dat'],
-  notes: ['Camera/detection prefs use MGMT_LS keys in mgmtLocalStorage.ts; posture baseline is localStorage.']
+  notes: [
+    'Camera/detection prefs use MGMT_LS keys in mgmtLocalStorage.ts; posture baseline is localStorage.',
+    'Window size is window-size.json in the app support dir (Rust; not synced).'
+  ]
 } as const;
 
 const sharedAppKvSet = new Set<string>(SHARED_APP_KV_KEYS);

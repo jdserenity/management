@@ -80,7 +80,9 @@ Boot: `DesktopBoot.tsx` / `CompanionBoot.tsx` → `SyncBootScreen` until SQLite 
 
 Sync classification: `shared/sync/src/syncRegistry.ts` (`SYNC_TABLE_REGISTRY`, `SHARED_APP_KV_KEYS`, `DESKTOP_ONLY_APP_KV_KEYS`).
 
-Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active flow, vault import flags), `localStorage` camera/detection (`mgmtLocalStorage.ts`), Tauri `.settings.dat` calibration.
+Not synced: `posture_log`, desktop-only `app_kv` keys (presence, tray, active flow, vault import flags), `localStorage` camera/detection (`mgmtLocalStorage.ts`), Tauri `.settings.dat` calibration, `window-size.json` (last desktop window size).
+
+Desktop window default is 800×800 (width = Daily-tab `minWidth`; height unchanged). After first launch, resize is saved to `window-size.json` in the app support dir and restored on the next open so the window does not jump back to the default.
 
 ## Sync
 
@@ -148,4 +150,5 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Sync wiring          | `dataSync.ts`, `dataSyncBootstrap.ts`, `shared/sync/src/`                                                                                      |
 | UserData SQL schema  | `shared/sync/src/userDataSchema.ts`                                                                                                            |
 | Migrations (desktop) | `desktop/src-tauri/src/main.rs`                                                                                                                |
+| Window size          | `desktop/src-tauri/src/window_geometry.rs` + `tauri.conf.json` (`minWidth` 800)                                                                |
 | Shared schema        | `shared/storage/src/migrations.ts`                                                                                                             |
