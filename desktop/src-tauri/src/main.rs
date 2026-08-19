@@ -67,6 +67,9 @@ pub(crate) struct AppState {
     /// When true, allow the process to terminate (only set by tray “Quit Management”).
     allow_full_exit: Arc<Mutex<bool>>,
     flow_active: Arc<Mutex<bool>>,
+    /// JS boot flags; default false so tray omits parked items before the webview loads.
+    work_enabled: Arc<Mutex<bool>>,
+    posture_enabled: Arc<Mutex<bool>>,
     tray: Arc<Mutex<Option<TrayIcon>>>,
     /// After the last saved size is applied, resize events may persist a new size.
     window_size_ready: Arc<AtomicBool>,
@@ -191,6 +194,9 @@ async fn submit_posture_analysis(
 
 #[tauri::command]
 async fn start_monitoring(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    if !*lock_or_recover(&state.posture_enabled) {
+        return Ok(());
+    }
     *lock_or_recover(&state.monitoring_active) = true;
     *lock_or_recover(&state.camera_yield_paused) = false;
     *lock_or_recover(&state.force_capture_now) = true;
@@ -418,6 +424,11 @@ fn focus_main_window(app: AppHandle, state: State<'_, AppState>, dock_bounce: bo
 #[tauri::command]
 fn set_hide_to_menu_bar_on_close(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> Result<(), String> {
     app_presence::apply_hide_to_menu_bar_on_close(&app, &state, enabled)
+}
+
+#[tauri::command]
+fn set_ui_features(app: AppHandle, state: State<'_, AppState>, work: bool, posture: bool) -> Result<(), String> {
+    app_presence::apply_ui_features(&app, &state, work, posture)
 }
 
 #[tauri::command]
@@ -788,6 +799,8 @@ pub fn run() {
                 hidden_to_menu_bar: Arc::new(Mutex::new(false)),
                 allow_full_exit: Arc::new(Mutex::new(false)),
                 flow_active: Arc::new(Mutex::new(false)),
+                work_enabled: Arc::new(Mutex::new(false)),
+                posture_enabled: Arc::new(Mutex::new(false)),
                 tray: Arc::new(Mutex::new(None)),
                 window_size_ready: Arc::new(AtomicBool::new(false)),
             };
@@ -856,6 +869,7 @@ pub fn run() {
             set_app_presence_mode,
             get_app_presence_mode,
             set_hide_to_menu_bar_on_close,
+            set_ui_features,
             focus_main_window,
             set_tray_session_label,
             set_session_tray_timer_enabled,

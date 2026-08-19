@@ -9,6 +9,7 @@ import AppShell from '@/components/AppShell';
 import SessionAlerts from '@/components/SessionAlerts';
 import './App.css';
 import { MGMT_LS } from '@/lib/mgmtLocalStorage';
+import { FEATURE_POSTURE, FEATURE_WORK, shouldRunPostureRuntime } from '@/lib/features';
 import { applyPostureMonitoringFromPref } from '@/lib/postureMonitoringPref';
 import { applyAppPresenceFromPref } from '@/lib/appPresencePref';
 import { applyHideToMenuBarOnCloseFromPref } from '@/lib/hideToMenuBarOnClosePref';
@@ -19,6 +20,7 @@ import SyncWarningBanner from '@/components/SyncWarningBanner';
 function App() {
 
   useEffect(() => {
+    if (!FEATURE_WORK) return;
     const prime = () => primeSessionAudio();
     window.addEventListener('pointerdown', prime, { once: true });
     window.addEventListener('keydown', prime, { once: true });
@@ -31,14 +33,19 @@ function App() {
   useEffect(() => {
     void (async () => {
       try {
+        await invoke('set_ui_features', { work: FEATURE_WORK, posture: FEATURE_POSTURE });
         await applyAppPresenceFromPref((mode) => invoke('set_app_presence_mode', { mode }));
         await applyHideToMenuBarOnCloseFromPref((enabled) => invoke('set_hide_to_menu_bar_on_close', { enabled }));
-        const alerts = await loadSessionAlertsPrefs();
-        await invoke('set_session_tray_timer_enabled', { enabled: alerts.trayTimer });
+        if (FEATURE_WORK) {
+          const alerts = await loadSessionAlertsPrefs();
+          await invoke('set_session_tray_timer_enabled', { enabled: alerts.trayTimer });
+        }
       } catch (e) {
         console.error(e);
       }
     })();
+    if (!shouldRunPostureRuntime()) return;
+
     applyPostureMonitoringFromPref((cmd) => invoke(cmd)).catch(console.error);
 
     const batterySavingMode = localStorage.getItem(MGMT_LS.batterySavingMode) === 'true';
@@ -67,11 +74,15 @@ function App() {
   return (
     <SessionProvider>
       <SyncWarningBanner />
-      <SessionAlerts />
-      <PostureSessionProvider>
-      <PosturePipeline />
-      <AppShell />
-      </PostureSessionProvider>
+      {FEATURE_WORK ? <SessionAlerts /> : null}
+      {FEATURE_POSTURE ? (
+        <PostureSessionProvider>
+        <PosturePipeline />
+        <AppShell />
+        </PostureSessionProvider>
+      ) : (
+        <AppShell />
+      )}
     </SessionProvider>
   );
 }

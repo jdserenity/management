@@ -43,6 +43,7 @@ import {
 } from '@/lib/workoutPlanner';
 import type { BreakVariant, DeskPosture, FlowPhase, LongBreakStage, PersistedFlowState } from '@/lib/flowState';
 import { isResumableFlow } from '@/lib/flowState';
+import { FEATURE_WORK, shouldRestoreActiveFlow, shouldRunFocusFlow } from '@/lib/features';
 import {
   clearActiveFlowState,
   loadSessionStorage,
@@ -325,6 +326,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
 
   const startFlow = useCallback(
     (sessionType: SessionType, options?: StartFlowOptions) => {
+      if (!shouldRunFocusFlow()) return;
       if (options?.background) backgroundFlowStartRef.current = true;
       const { flow: next, phaseEndsAtMs } = startFocusFlow(sessionType, Date.now(), {
         pomodoroPosture: flowRef.current.pomodoroPosture,
@@ -429,7 +431,8 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
         setMovementSnackPrefsState(snapshot.movementSnackPrefs);
         setWorkoutLogs(snapshot.workoutLogs);
         setFocusLogs(snapshot.focusLogs);
-        if (snapshot.activeFlow && isResumableFlow(snapshot.activeFlow)) {
+        const resumable = snapshot.activeFlow != null && isResumableFlow(snapshot.activeFlow);
+        if (shouldRestoreActiveFlow(resumable) && snapshot.activeFlow) {
           applyFlow(snapshot.activeFlow);
           if (snapshot.activeFlow.remainingSeconds === 0) prevRemainingForTimerEndRef.current = -1;
         } else {
@@ -455,6 +458,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     const attach = (client: SyncClient) => {
       syncClientRef.current = client;
       unsub = client.subscribeActiveFlow((doc) => {
+        if (!FEATURE_WORK) return;
         if (!doc) {
           const wasViewer = shouldFollowRemoteFlowClear(syncLeaderDeviceIdRef.current, client.deviceId, flowRef.current.phase);
           syncLeaderDeviceIdRef.current = null;

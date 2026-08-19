@@ -1,14 +1,25 @@
 import { describe, expect, it } from 'vitest';
+import { FEATURE_POSTURE, FEATURE_WORK } from './features';
 import {
   COMPANION_SESSION_ALERT_KEYS,
   DESKTOP_SESSION_ALERT_KEYS,
-  DESKTOP_SETTINGS_TABS,
+  desktopSettingsTabs,
   sessionAlertKeysForSurface
 } from './settingsPageLayout';
 
 describe('settingsPageLayout', () => {
-  it('desktop settings use four tabs', () => {
-    expect(DESKTOP_SETTINGS_TABS).toEqual(['general', 'alerts', 'posture', 'about']);
+  it('desktop settings omit parked Work and Posture tabs', () => {
+    expect(desktopSettingsTabs()).toEqual(['general', 'about']);
+  });
+
+  it('desktop settings tabs follow the feature switches', () => {
+    const expected = [
+      'general',
+      ...(FEATURE_WORK ? (['alerts'] as const) : []),
+      ...(FEATURE_POSTURE ? (['posture'] as const) : []),
+      'about'
+    ];
+    expect(desktopSettingsTabs()).toEqual(expected);
   });
 
   it('companion exposes only sound-related alert prefs', () => {
