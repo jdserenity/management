@@ -97,17 +97,46 @@ pub fn set_tray_session_label(_app: &AppHandle, state: &AppState, label: Option<
   }
 }
 
-fn build_tray_menu(app: &AppHandle, flow_active: bool) -> Result<Menu<tauri::Wry>, String> {
+fn build_tray_menu(app: &AppHandle, state: &AppState) -> Result<Menu<tauri::Wry>, String> {
   let quit = MenuItem::with_id(app, "quit", "Quit Management", true, None::<&str>).map_err(|e| e.to_string())?;
   let show = MenuItem::with_id(app, "show", "Show App", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_flow = MenuItem::with_id(app, "start_focus_flow", "Start focus flow", true, None::<&str>).map_err(|e| e.to_string())?;
   let start_monitoring_item = MenuItem::with_id(app, "start_monitoring", "Start Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
   let stop_monitoring_item = MenuItem::with_id(app, "stop_monitoring", "Stop Monitoring", true, None::<&str>).map_err(|e| e.to_string())?;
   let sep = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
-  if flow_active {
-    return Menu::with_items(app, &[&start_monitoring_item, &stop_monitoring_item, &sep, &show, &quit]).map_err(|e| e.to_string());
+  let sep2 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+  let work_enabled = work_enabled_from_state(state);
+  let posture_enabled = posture_enabled_from_state(state);
+  let flow_active = flow_active_from_state(state);
+  match (work_enabled, posture_enabled, flow_active) {
+    (false, false, _) | (true, false, true) => {
+      Menu::with_items(app, &[&show, &quit]).map_err(|e| e.to_string())
+    }
+    (true, false, false) => {
+      Menu::with_items(app, &[&start_flow, &sep, &show, &quit]).map_err(|e| e.to_string())
+    }
+    (false, true, _) | (true, true, true) => {
+      Menu::with_items(app, &[&start_monitoring_item, &stop_monitoring_item, &sep, &show, &quit]).map_err(|e| e.to_string())
+    }
+    (true, true, false) => {
+      Menu::with_items(app, &[&start_flow, &sep, &start_monitoring_item, &stop_monitoring_item, &sep2, &show, &quit]).map_err(|e| e.to_string())
+    }
   }
-  Menu::with_items(app, &[&start_flow, &sep, &start_monitoring_item, &stop_monitoring_item, &sep, &show, &quit]).map_err(|e| e.to_string())
+}
+
+/// Item ids (no separators) for the current feature + flow state.
+pub(crate) fn tray_menu_ids(flow_active: bool, work_enabled: bool, posture_enabled: bool) -> Vec<&'static str> {
+  let mut ids = Vec::new();
+  if work_enabled && !flow_active {
+    ids.push("start_focus_flow");
+  }
+  if posture_enabled {
+    ids.push("start_monitoring");
+    ids.push("stop_monitoring");
+  }
+  ids.push("show");
+  ids.push("quit");
+  ids
 }
 
 /// Only the tray “Quit Management” item should fully terminate the process.
@@ -127,6 +156,9 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
     "quit" => request_full_exit(app, state.inner()),
     "show" => show_main_window(app, state.inner()),
     "start_focus_flow" => {
+      if !work_enabled_from_state(state.inner()) {
+        return;
+      }
       let _ = app.emit("tray-start-focus-flow", ());
       let app = app.clone();
       let flow_state = state.inner().clone();
@@ -138,6 +170,9 @@ fn handle_tray_menu_event(app: &AppHandle, event_id: &str) {
       });
     }
     "start_monitoring" => {
+      if !posture_enabled_from_state(state.inner()) {
+        return;
+      }
       info!("'Start Monitoring' clicked");
       *lock_or_recover(&state.monitoring_active) = true;
       *lock_or_recover(&state.camera_yield_paused) = false;
@@ -162,6 +197,20 @@ pub fn flow_active_from_state(state: &AppState) -> bool {
   *lock_or_recover(&state.flow_active)
 }
 
+pub fn work_enabled_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.work_enabled)
+}
+
+pub fn posture_enabled_from_state(state: &AppState) -> bool {
+  *lock_or_recover(&state.posture_enabled)
+}
+
+pub fn apply_ui_features(app: &AppHandle, state: &AppState, work: bool, posture: bool) -> Result<(), String> {
+  *lock_or_recover(&state.work_enabled) = work;
+  *lock_or_recover(&state.posture_enabled) = posture;
+  refresh_tray_menu(app, state)
+}
+
 /// Update flow state and refresh tray menu items in place (no remove/rebuild).
 pub fn apply_tray_flow_active(app: &AppHandle, state: &AppState, active: bool) -> Result<(), String> {
   *lock_or_recover(&state.flow_active) = active;
@@ -177,9 +226,8 @@ pub fn install_tray(app: &AppHandle, state: &AppState) -> Result<(), String> {
   if let Some(orphan) = app.remove_tray_by_id(TRAY_ICON_ID) {
     drop(orphan);
   }
-  let flow_active = flow_active_from_state(state);
   let tray_icon = load_resource_icon(app, "tray.png")?;
-  let menu = build_tray_menu(app, flow_active)?;
+  let menu = build_tray_menu(app, state)?;
   let mut builder = TrayIconBuilder::with_id(TRAY_ICON_ID)
     .icon(tray_icon)
     .tooltip("Management")
@@ -200,8 +248,7 @@ pub fn refresh_tray_menu(app: &AppHandle, state: &AppState) -> Result<(), String
   if lock_or_recover(&state.tray).is_none() {
     return install_tray(app, state);
   }
-  let flow_active = flow_active_from_state(state);
-  let menu = build_tray_menu(app, flow_active)?;
+  let menu = build_tray_menu(app, state)?;
   if let Some(tray) = lock_or_recover(&state.tray).as_ref() {
     tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
   }
@@ -300,5 +347,29 @@ mod tests {
     assert_eq!(normalize_app_presence_mode("menu_bar"), MODE_MENU_BAR);
     assert_eq!(normalize_app_presence_mode("Menu-Bar"), MODE_MENU_BAR);
     assert_eq!(normalize_app_presence_mode(" menubar "), MODE_MENU_BAR);
+  }
+
+  #[test]
+  fn tray_menu_parked_is_show_and_quit_only() {
+    assert_eq!(tray_menu_ids(false, false, false), vec!["show", "quit"]);
+    assert_eq!(tray_menu_ids(true, false, false), vec!["show", "quit"]);
+  }
+
+  #[test]
+  fn tray_menu_includes_work_and_posture_when_enabled() {
+    assert_eq!(
+      tray_menu_ids(false, true, true),
+      vec!["start_focus_flow", "start_monitoring", "stop_monitoring", "show", "quit"]
+    );
+    assert_eq!(
+      tray_menu_ids(true, true, true),
+      vec!["start_monitoring", "stop_monitoring", "show", "quit"]
+    );
+  }
+
+  #[test]
+  fn tray_menu_work_only_omits_start_flow_while_active() {
+    assert_eq!(tray_menu_ids(false, true, false), vec!["start_focus_flow", "show", "quit"]);
+    assert_eq!(tray_menu_ids(true, true, false), vec!["show", "quit"]);
   }
 }
