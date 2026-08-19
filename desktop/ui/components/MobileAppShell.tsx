@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import FlowHeaderControl from '@/components/FlowHeaderControl';
 import { cn } from '@/lib/utils';
+import { FEATURE_WORK } from '@/lib/features';
 import { companionNavItems, desktopNavItems, NAV_GO_TO_WORK, type NavItemDef } from '@/lib/navConfig';
 
 type ShellVariant = 'desktop' | 'companion';
@@ -19,9 +20,10 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
   const ActiveComponent = navItems.find((item) => item.id === activeComponentId)?.component ?? navItems[0]!.component;
   const mainRef = useRef<HTMLElement>(null);
 
-  const goToWork = () => setActiveComponentId('work');
+  const goToWork = () => { if (FEATURE_WORK) setActiveComponentId('work'); };
 
   useEffect(() => {
+    if (!FEATURE_WORK) return;
     const onGoToWork = () => setActiveComponentId('work');
     window.addEventListener(NAV_GO_TO_WORK, onGoToWork);
     return () => window.removeEventListener(NAV_GO_TO_WORK, onGoToWork);
@@ -53,7 +55,7 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
               </button>
             ))}
           </nav>
-          <FlowHeaderControl onGoToWork={goToWork} />
+          {FEATURE_WORK ? <FlowHeaderControl onGoToWork={goToWork} /> : null}
         </header>
         <main ref={mainRef} className="plugin-main">
           <ActiveComponent />
@@ -72,7 +74,7 @@ export default function MobileAppShell({ variant = 'desktop', headerEnd: HeaderE
           {navItems.find((item) => item.id === activeComponentId)?.label ?? 'Management'}
         </h1>
         <div className="flex items-center gap-2">
-          {HeaderEnd ? <HeaderEnd /> : <FlowHeaderControl onGoToWork={goToWork} compact />}
+          {HeaderEnd ? <HeaderEnd /> : FEATURE_WORK ? <FlowHeaderControl onGoToWork={goToWork} compact /> : null}
         </div>
       </header>
       <main ref={mainRef} className="plugin-main">

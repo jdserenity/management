@@ -7,6 +7,7 @@ import StatsPage from '@/components/StatsPage';
 import CustomizePage from '@/components/CustomizePage';
 import SettingsPage from '@/components/SettingsPage';
 import CompanionSettingsPage from '@/components/CompanionSettingsPage';
+import { FEATURE_WORK, isNavFeatureEnabled } from '@/lib/features';
 
 export type NavItemDef = {
   id: string;
@@ -24,15 +25,16 @@ const allNavItems: NavItemDef[] = [
   { id: 'settings', label: 'Settings', icon: Settings, component: SettingsPage }
 ];
 
-export const desktopNavItems = (): NavItemDef[] => allNavItems;
+export const desktopNavItems = (): NavItemDef[] => allNavItems.filter((item) => isNavFeatureEnabled(item.id));
 
 export const companionNavItems = (): NavItemDef[] =>
   allNavItems
-    .filter((item) => item.id !== 'posture')
+    .filter((item) => item.id !== 'posture' && isNavFeatureEnabled(item.id))
     .map((item) => (item.id === 'settings' ? { ...item, component: CompanionSettingsPage } : item));
 
 export const NAV_GO_TO_WORK = 'mgmt-nav-go-to-work';
 
 export const requestGoToWorkTab = (): void => {
+  if (!FEATURE_WORK) return;
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(NAV_GO_TO_WORK));
 };

@@ -1,8 +1,22 @@
 import type { SessionAlertsPrefs } from '@/lib/sessionAlertsPref';
+import { FEATURE_POSTURE, FEATURE_WORK } from '@/lib/features';
 
 export type SettingsTabId = 'general' | 'alerts' | 'posture' | 'about';
 
-export const DESKTOP_SETTINGS_TABS: SettingsTabId[] = ['general', 'alerts', 'posture', 'about'];
+export const SETTINGS_TAB_LABELS: Record<SettingsTabId, string> = {
+  general: 'General',
+  alerts: 'Focus & alerts',
+  posture: 'Posture',
+  about: 'About'
+};
+
+export const desktopSettingsTabs = (): SettingsTabId[] => {
+  const tabs: SettingsTabId[] = ['general'];
+  if (FEATURE_WORK) tabs.push('alerts');
+  if (FEATURE_POSTURE) tabs.push('posture');
+  tabs.push('about');
+  return tabs;
+};
 
 export type SessionAlertPrefKey = keyof SessionAlertsPrefs;
 
