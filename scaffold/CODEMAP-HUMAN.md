@@ -37,22 +37,16 @@ flowchart TB
     App["App.tsx / MobileAppShell"]
   end
   subgraph providers["Always on"]
-    SP["SessionProvider — timer state"]
-    PSP["PostureSessionProvider"]
-    PL["PosturePipeline — camera + scoring"]
+    SP["SessionProvider — stretch / movement / logs"]
   end
   subgraph tabs["Active tab"]
     Daily["Daily — stretches, habits, food, water"]
-    Work["Work — focus timer"]
-    Posture["Posture — charts"]
     Stats["Stats — aggregates"]
     Customize["Customize — Tasks / Body / Energy"]
     Settings["Settings"]
   end
   DB --> App
   App --> SP
-  App --> PSP
-  App --> PL
   App --> tabs
 ```
 
@@ -81,9 +75,11 @@ flowchart TD
   nx --> df
 ```
 
-Every second completed Pomodoro in a chain, the short break includes guided exercises. Deep Work always includes exercise in the long break. Toggle **Can't exercise right now** on the Work tab for water/bathroom breaks instead.
+Every second completed Pomodoro in a chain, the short break includes guided exercises. Deep Work always includes exercise in the long break. When Work is on, toggle **Can't exercise right now** on the Work tab for water/bathroom breaks instead.
 
 ## Posture (desktop)
+
+This path is parked in the current build (tab and camera scoring do not run). The pieces still exist:
 
 ```mermaid
 flowchart LR

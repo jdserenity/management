@@ -4,18 +4,20 @@ Personal focus + movement manager: Pomodoro/Deep Work timer, guided break exerci
 
 ## Nav & tabs
 
-Order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Work** → **Posture** (desktop only) → **Stats** → **Customize** → **Settings**. Default tab: `daily`. Companion drops Posture; Settings → `CompanionSettingsPage`.
+Live order (`desktop/ui/lib/navConfig.ts`): **Daily** → **Stats** → **Customize** → **Settings**. Default tab: `daily`. Companion Settings → `CompanionSettingsPage`.
+
+Work and Posture are **parked** (code kept, not mounted): `FEATURE_WORK` / `FEATURE_POSTURE` in `desktop/ui/lib/features.ts` (both `false`). Flip to `true` and rebuild to restore the tab, exclusive settings, header **Start flow**, session alerts, timer resume, posture pipeline/camera boot, and matching tray items. `SessionProvider` stays mounted (Daily / Customize / Stats use it for stretches, movement, logs).
 
 | Tab       | Component                                        | Role                                                                                                                                  |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF via `npm run font:haglos` → `desktop/ui/assets/fonts/`, white; OTF not in git), then stretches, streaks, TDEE, water, movement bursts |
-| Work      | `Dashboard.tsx`                                  | Focus flow timer, today's work/movement totals, can't-exercise toggle                                                                 |
-| Posture   | `PosturePage.tsx`                                | Live score, charts, camera (desktop/Tauri only)                                                                                       |
+| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF via `npm run font:haglos` → `desktop/ui/assets/fonts/`, white; OTF not in git — worktrees start without it and fall back to `cursive`). `tauri build` runs `font:haglos` first. Then stretches, streaks, TDEE, water, movement bursts |
+| Work      | `Dashboard.tsx`                                  | Parked. Focus flow timer, today's work/movement totals, can't-exercise toggle                                                         |
+| Posture   | `PosturePage.tsx`                                | Parked. Live score, charts, camera (desktop/Tauri only)                                                                               |
 | Stats     | `StatsPage.tsx`                                  | All-time / monthly / weekly focus + movement aggregates                                                                               |
 | Customize | `CustomizePage.tsx`                              | Subtabs: **Tasks** (habits/streaks), **Body** (bursts + exercises + stretches), **Energy** (TDEE targets) — that order                          |
-| Settings  | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | General, alerts, posture, sync, theme, app presence                                                                                   |
+| Settings  | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | Live: General + About. **Focus & alerts** and **Posture** return with the matching feature switch. Sync, theme, app presence stay on General |
 
-Header **Start flow** (`FlowHeaderControl.tsx` in `AppShell.tsx`): idle → start pomodoro chain; active → show phase label, click → Work tab.
+Header **Start flow** (`FlowHeaderControl.tsx`) is hidden while `FEATURE_WORK` is false.
 
 ## Session rules
 
@@ -115,15 +117,15 @@ Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`, optional `BACKUP_DIR`, 
 
 ## Posture (desktop)
 
-MediaPipe Tasks in webview (`@mediapipe/tasks-vision`); Rust captures camera frames, receives `submit_posture_analysis` from `PosturePipeline.tsx`. Scoring adapted from BatesPosture. Monitoring toggle: `posture_monitoring_enabled_v1` + tray.
+Parked while `FEATURE_POSTURE` is false: `PosturePipeline` / `PostureSessionProvider` are not mounted; boot does not call `start_monitoring` or camera/detection invokes. Code remains. MediaPipe Tasks in webview (`@mediapipe/tasks-vision`); Rust captures camera frames, receives `submit_posture_analysis` from `PosturePipeline.tsx`. Scoring adapted from BatesPosture. Monitoring toggle: `posture_monitoring_enabled_v1` + tray (tray items omitted while parked).
 
 ## Tauri boundary
 
-Commands (registered `main.rs`): boot settings (`set_app_presence_mode`, `set_hide_to_menu_bar_on_close`, camera/detection), session alerts (`focus_main_window`, tray labels, `notify_session_phase`), posture (`submit_posture_analysis`, `initialize_pose_model`, calibration), `restart_app`.
+Commands (registered `main.rs`): boot settings (`set_app_presence_mode`, `set_hide_to_menu_bar_on_close`, `set_ui_features`, camera/detection), session alerts (`focus_main_window`, tray labels, `notify_session_phase`), posture (`submit_posture_analysis`, `initialize_pose_model`, calibration), `restart_app`.
 
 Events to webview: `camera-preview-frame`, `analysis-update`, `monitoring-state-changed`, `tray-start-focus-flow`, `flow-lid-pause`/`flow-lid-resume`, `camera-yield-changed`.
 
-App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **once** at boot and never torn down until tray **Quit Management**. Window close / Cmd+Q only hide the main window (no tray rebuild, no activation-policy flip in dock mode). Tray icons solid white; not template mode. Flow menu updates use `set_menu` in place.
+App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **once** at boot and never torn down until tray **Quit Management**. Window close / Cmd+Q only hide the main window (no tray rebuild, no activation-policy flip in dock mode). Tray icons solid white; not template mode. Flow menu updates use `set_menu` in place. While Work/Posture are parked, tray is **Show App** + **Quit Management** only (`set_ui_features` from JS).
 
 ## Deploy (facts)
 
@@ -140,6 +142,7 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Concern              | Path                                                                                                                                           |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | Nav                  | `desktop/ui/lib/navConfig.ts`                                                                                                                  |
+| Feature switches     | `desktop/ui/lib/features.ts` (`FEATURE_WORK`, `FEATURE_POSTURE`)                                                                               |
 | Session state        | `desktop/ui/context/SessionContext.tsx` (holds one `PersistedFlowState`); pure transitions in `@mgmt/core` `flowEngine.ts` / `exerciseMode.ts` |
 | Feature DBs          | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/`                                                                    |
 | Workout modules      | `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts`                                                         |
