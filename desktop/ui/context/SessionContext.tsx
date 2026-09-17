@@ -84,10 +84,12 @@ import { MORNING_STRETCH_WORKOUT_ID } from '@/lib/morningStretch/morningStretch'
 import { buildStretchLogEntry, defaultBuiltinMorningStretch, type StretchDefinition } from '@/lib/stretchCreator/stretchCreator';
 import {
   buildMovementSnackLogEntry,
+  buildMovementSnackSetLogEntry,
   countMovementSnacksToday,
   defaultMovementSnackPrefs,
   normalizeMovementSnackPrefs,
-  type MovementSnackPrefs
+  type MovementSnackPrefs,
+  type MovementSnackTask
 } from '@/lib/movementSnack/movementSnack';
 import { saveMovementSnackPrefs } from '@/lib/movementSnack/movementSnackPref';
 import { FLOW_LID_PAUSE_EVENT, FLOW_LID_RESUME_EVENT, phaseEndsAtMsAfterLidResume } from '@/lib/flowLidPause';
@@ -148,6 +150,7 @@ interface SessionContextValue {
   clearMorningStretchCompletionToday: () => void;
   updateMovementSnackPrefs: (patch: Partial<MovementSnackPrefs>) => void;
   logMovementSnackCompletion: (easy: boolean, exercises?: ExerciseDefinition[]) => void;
+  logMovementSnackSet: (task: MovementSnackTask, day: string, exercise: ExerciseDefinition, setNumber: number) => void;
   removeWorkoutLog: (id: string) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
@@ -666,6 +669,13 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     );
   }, [appendWorkoutLog]);
 
+  const logMovementSnackSet = useCallback((task: MovementSnackTask, day: string, exercise: ExerciseDefinition, setNumber: number) => {
+    appendWorkoutLog(
+      buildMovementSnackSetLogEntry(task, day, exercise, setNumber, createPrefixedId('snack'), Date.now()),
+      'Failed to persist movement snack set:'
+    );
+  }, [appendWorkoutLog]);
+
   const removeWorkoutLog = useCallback((id: string) => {
     setWorkoutLogs((current) => current.filter((log) => log.id !== id));
     void deleteWorkoutLogById(id).catch((error) => {
@@ -822,6 +832,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       movementSnackPrefs,
       updateMovementSnackPrefs,
       logMovementSnackCompletion,
+      logMovementSnackSet,
       removeWorkoutLog
     }),
     [
@@ -863,6 +874,7 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
       movementSnackPrefs,
       updateMovementSnackPrefs,
       logMovementSnackCompletion,
+      logMovementSnackSet,
       removeWorkoutLog,
       statsDayWindowStart
     ]

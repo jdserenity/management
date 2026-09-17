@@ -1,279 +1,67 @@
-// src/components/daily/MovementSnackSection.tsx
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
-import { isEasyMovementSnackLog, movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
+import { movementSnackDayKey, movementSnackLogsToday, movementSnackPlanForTimestamp, type MovementSnackTask } from '@/lib/movementSnack/movementSnack';
 import { formatNearestHalfHourLabel } from '@/lib/movementSnack/nearestHalfHour';
-import { formatQuickLogIncrementLabel } from '@/lib/movementSnack/movementSnackQuickLog';
-import {
-  completeTasksLinkedToMovementBurst,
-  uncompleteTasksLinkedToMovementBurst
-} from '@/lib/streak/crossLinks';
-import {
-  buildTrackerChain,
-  TrackerAddPanel,
-  TrackerPlusButton,
-  TrackerSummary
-} from '@/components/daily/TrackerChain';
-import {
-  formatExerciseRunAggLine,
-  listTodayMovementTotals,
-  type ExerciseDefinition,
-  type ExerciseUnit
-} from '@/lib/workoutPlanner';
+import { completeTasksLinkedToMovementBurst } from '@/lib/streak/crossLinks';
+import { TrackerSummary } from '@/components/daily/TrackerChain';
+import { formatExerciseAmount, formatExerciseRunAggLine, listTodayMovementTotals, type ExerciseDefinition } from '@/lib/workoutPlanner';
 import './movement.css';
 
-const cloneExercises = (exercises: ExerciseDefinition[]): ExerciseDefinition[] =>
-  exercises.map((ex) => ({ ...ex }));
-
-type Props = {
-  onLinkedTaskComplete?: () => void;
-};
+type Props = { onLinkedTaskComplete?: () => void };
 
 export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
-  const {
-    movementSnackPrefs,
-    todayMovementSnacks,
-    todayExerciseTotals,
-    todayStretchTotals,
-    workoutLogs,
-    dayRolloverHour,
-    logMovementSnackCompletion,
-    addManualExercise,
-    removeWorkoutLog,
-    sessionStorageReady
-  } = useSession();
-
-  const [addMode, setAddMode] = useState(false);
-  const [hardDraft, setHardDraft] = useState<ExerciseDefinition[]>(() => cloneExercises(movementSnackPrefs.hardExercises));
-  const [easyDraft, setEasyDraft] = useState<ExerciseDefinition[]>(() => cloneExercises(movementSnackPrefs.easyExercises));
-  const [customName, setCustomName] = useState('');
-  const [customAmount, setCustomAmount] = useState(10);
-  const [customUnit, setCustomUnit] = useState<ExerciseUnit>('reps');
-
-  const quickLogExercises = movementSnackPrefs.quickLogExercises;
-
-  useEffect(() => {
-    if (!addMode) return;
-    setHardDraft(cloneExercises(movementSnackPrefs.hardExercises));
-    setEasyDraft(cloneExercises(movementSnackPrefs.easyExercises));
-  }, [addMode, movementSnackPrefs.hardExercises, movementSnackPrefs.easyExercises]);
-
-  const goal = movementSnackPrefs.dailyGoal;
-  const done = todayMovementSnacks;
-  const ratio = goal > 0 ? Math.min(1, done / goal) : 0;
-  const complete = done >= goal;
-
-  const snackLogs = useMemo(
-    () => movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour),
-    [workoutLogs, dayRolloverHour]
-  );
-
-  const movementTotals = useMemo(
-    () => listTodayMovementTotals(todayExerciseTotals, todayStretchTotals),
-    [todayExerciseTotals, todayStretchTotals]
-  );
-
-  const updateDraftAmount = useCallback((kind: 'hard' | 'easy', index: number, amount: number) => {
-    const rounded = Math.max(0, Math.round(amount));
-    if (kind === 'hard') {
-      setHardDraft((rows) => rows.map((ex, i) => (i === index ? { ...ex, amount: rounded } : ex)));
-    } else {
-      setEasyDraft((rows) => rows.map((ex, i) => (i === index ? { ...ex, amount: rounded } : ex)));
-    }
-  }, []);
+  const { movementSnackPrefs, workoutLogs, dayRolloverHour, todayExerciseTotals, todayStretchTotals, logMovementSnackSet, removeWorkoutLog, sessionStorageReady } = useSession();
+  const [overrides, setOverrides] = useState<Record<string, ExerciseDefinition>>({});
+  const tasks = useMemo(() => movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.quickLogExercises), [dayRolloverHour, movementSnackPrefs.quickLogExercises]);
+  const day = movementSnackDayKey(Date.now(), dayRolloverHour);
+  const logs = useMemo(() => movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour), [workoutLogs, dayRolloverHour]);
+  const completedSets = (task: MovementSnackTask) => logs.filter((log) => log.movementSnack?.day === day && log.movementSnack.slotId === task.slotId);
+  const done = tasks.reduce((count, task) => count + (completedSets(task).length >= task.setCount ? 1 : 0), 0);
+  const movementTotals = useMemo(() => listTodayMovementTotals(todayExerciseTotals, todayStretchTotals), [todayExerciseTotals, todayStretchTotals]);
 
   if (!hasAppStorage()) return null;
   if (!sessionStorageReady) return <p className="movement-tracker-empty">Loading movement…</p>;
 
-  const afterBurstLogged = async () => {
-    try {
-      await completeTasksLinkedToMovementBurst();
-    } catch (e) {
-      console.error('Failed to complete tasks linked to movement burst', e);
-    }
+  const logSet = (task: MovementSnackTask, setNumber: number) => {
+    const exercise = overrides[task.slotId] ?? task.exercise;
+    logMovementSnackSet(task, day, exercise, setNumber);
+    void completeTasksLinkedToMovementBurst().catch((error) => console.error('Failed to complete linked movement task:', error));
     onLinkedTaskComplete?.();
   };
-
-  const handleLogHard = () => {
-    logMovementSnackCompletion(false);
-    void afterBurstLogged();
+  const undoSet = (task: MovementSnackTask, setNumber: number) => {
+    const log = completedSets(task).find((entry) => entry.movementSnack?.setNumber === setNumber);
+    if (log) removeWorkoutLog(log.id);
   };
-
-  const handleRemoveSnack = (logId: string) => {
-    const remainingAfter = snackLogs.filter((l) => l.id !== logId).length;
-    removeWorkoutLog(logId);
-    if (remainingAfter === 0) {
-      void uncompleteTasksLinkedToMovementBurst()
-        .catch((e) => console.error('Failed to uncomplete tasks linked to movement burst', e))
-        .finally(() => onLinkedTaskComplete?.());
-    }
-  };
-
-  const handleCustomAdd = () => {
-    const name = customName.trim();
-    if (!name) return;
-    addManualExercise({
-      id: `manual-${Date.now()}`,
-      name,
-      amount: Math.max(0, Math.round(customAmount)),
-      unit: customUnit
-    });
-    setCustomName('');
-    setCustomAmount(10);
-    setCustomUnit('reps');
-    setAddMode(false);
-  };
-
-  const chips = [
-    ...(!addMode
-      ? [
-          <button
-            key="hard"
-            type="button"
-            className="movement-chain-btn"
-            title="Log hard movement burst"
-            onClick={handleLogHard}
-          >
-            <span className="movement-chain-label">Hard burst</span>
-          </button>
-        ]
-      : []),
-    ...snackLogs.map((log) => {
-      const easy = isEasyMovementSnackLog(log);
-      const timeLabel = formatNearestHalfHourLabel(log.completedAt);
-      return (
-        <button
-          key={log.id}
-          type="button"
-          className={`movement-chain-btn movement-chain-done${easy ? ' movement-chain-done-easy' : ''}`}
-          title={`${easy ? 'Easy' : 'Hard'} burst · ${timeLabel} — click to remove`}
-          onClick={() => handleRemoveSnack(log.id)}
-        >
-          <span className="movement-chain-label">{easy ? 'Easy' : 'Hard'} · {timeLabel}</span>
-        </button>
-      );
-    })
-  ];
-  const chainItems = buildTrackerChain({
-    chips,
-    plus: (
-      <TrackerPlusButton
-        key="plus"
-        prefix="movement"
-        addMode={addMode}
-        onOpen={() => setAddMode(true)}
-        titleClosed="Log exercise or modified burst"
-      />
-    )
-  });
-
-  const renderSnackEditor = (kind: 'hard' | 'easy', draft: ExerciseDefinition[], primary: boolean) => (
-    <div className={`movement-snack-editor${primary ? '' : ' movement-snack-editor-fallback'}`}>
-      <p className="movement-snack-editor-title">{kind === 'hard' ? 'Hard burst' : 'Easy burst (fallback)'}</p>
-      <ul className="movement-snack-editor-rows">
-        {draft.map((ex, index) => (
-          <li key={`${kind}-${ex.id}-${index}`} className="movement-snack-editor-row">
-            <span className="movement-snack-editor-name">{ex.name}</span>
-            <label className="movement-snack-editor-amount">
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                className="movement-custom-input"
-                value={ex.amount}
-                onChange={(e) => updateDraftAmount(kind, index, Number(e.target.value))}
-              />
-              <span className="movement-snack-editor-unit">{ex.unit === 'reps' ? 'reps' : ex.unit === 'seconds' ? 'sec' : 'min'}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        className={primary ? 'movement-quick-btn movement-quick-btn-primary' : 'movement-quick-btn'}
-        onClick={() => {
-          logMovementSnackCompletion(kind === 'easy', draft);
-          setAddMode(false);
-          void afterBurstLogged();
-        }}
-      >
-        Log {kind} burst
-      </button>
-    </div>
-  );
 
   return (
-    <section className="movement-tracker-container" aria-label="Movement bursts">
-      <TrackerSummary
-        prefix="movement"
-        today={done}
-        target={<>{goal} movement bursts today</>}
-        remainingText={complete ? 'Goal reached' : `${goal - done} movement burst${goal - done === 1 ? '' : 's'} left`}
-        remainingClass={complete ? ' movement-remaining-done' : ''}
-        progressRatio={ratio}
-        showProgress={goal > 0}
-      />
-      <div className="movement-chain">{chainItems}</div>
-      {addMode ? (
-        <TrackerAddPanel prefix="movement" title="Log movement" onClose={() => setAddMode(false)}>
-          {renderSnackEditor('hard', hardDraft, true)}
-          {renderSnackEditor('easy', easyDraft, false)}
-          <div className="movement-snack-quick">
-            {quickLogExercises.map((ex) => (
-              <button
-                key={ex.id}
-                type="button"
-                className="movement-quick-btn"
-                onClick={() => { addManualExercise(ex); setAddMode(false); }}
-              >
-                {ex.name} {formatQuickLogIncrementLabel(ex.unit, ex.amount)}
-              </button>
-            ))}
-          </div>
-          <div className="movement-custom-row">
-            <input
-              className="movement-custom-input movement-custom-input-wide"
-              placeholder="Exercise name"
-              value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
-            />
-            <input
-              className="movement-custom-input"
-              type="number"
-              min={0}
-              value={customAmount}
-              onChange={(e) => setCustomAmount(Number(e.target.value))}
-            />
-            <select
-              className="movement-custom-input"
-              value={customUnit}
-              onChange={(e) => setCustomUnit(e.target.value as ExerciseUnit)}
-            >
-              <option value="reps">reps</option>
-              <option value="seconds">sec</option>
-              <option value="minutes">min</option>
-            </select>
-            <button type="button" className="movement-log-btn" onClick={handleCustomAdd}>
-              Log
-            </button>
-          </div>
-        </TrackerAddPanel>
-      ) : null}
-
-      {movementTotals.length > 0 ? (
-        <div className="movement-totals">
-          <div className="movement-region">
-            <p className="movement-region-title">Today&apos;s movement</p>
-            {movementTotals.map((agg) => (
-              <div key={agg.id} className="movement-region-row">
-                {formatExerciseRunAggLine(agg)}
+    <section className="movement-tracker-container" aria-label="Movement snacks">
+      <TrackerSummary prefix="movement" today={done} target={<>{tasks.length} movement snacks today</>} remainingText={done >= tasks.length ? 'Workout complete' : `${tasks.length - done} movement snack${tasks.length - done === 1 ? '' : 's'} left`} remainingClass={done >= tasks.length ? ' movement-remaining-done' : ''} progressRatio={tasks.length > 0 ? done / tasks.length : 0} showProgress />
+      <div className="movement-regimen-list">
+        {tasks.map((task) => {
+          const taskLogs = completedSets(task);
+          const loggedExercise = taskLogs[0]?.exercises[0];
+          const exercise = overrides[task.slotId] ?? (loggedExercise && 'unit' in loggedExercise ? loggedExercise : task.exercise);
+          return (
+            <div className="movement-snack-task" key={task.slotId}>
+              <div className="movement-snack-task-heading">
+                <div><strong>{task.kind === 'build' ? 'Build' : 'Move'} · {task.label}</strong><div className="movement-snack-task-exercise">{exercise.name} · {formatExerciseAmount(exercise)}</div></div>
+                {task.kind === 'move' && movementSnackPrefs.quickLogExercises.length > 0 ? <select className="movement-custom-input" aria-label={`Override ${task.label}`} value={exercise.id} onChange={(event) => { const next = movementSnackPrefs.quickLogExercises.find((entry) => entry.id === event.target.value); if (next) setOverrides((current) => ({ ...current, [task.slotId]: next })); }}>
+                  {movementSnackPrefs.quickLogExercises.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+                </select> : null}
               </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+              <div className="movement-snack-task-sets">
+                {Array.from({ length: task.setCount }, (_, index) => {
+                  const setNumber = index + 1;
+                  const log = taskLogs.find((entry) => entry.movementSnack?.setNumber === setNumber);
+                  return <button key={setNumber} type="button" className={`movement-chain-btn${log ? ' movement-chain-done' : ''}`} onClick={() => log ? undoSet(task, setNumber) : logSet(task, setNumber)}>{log ? `Set ${setNumber} · ${formatNearestHalfHourLabel(log.completedAt)}` : `Set ${setNumber}`}</button>;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {movementTotals.length > 0 ? <div className="movement-totals"><div className="movement-region"><p className="movement-region-title">Today&apos;s movement</p>{movementTotals.map((agg) => <div key={agg.id} className="movement-region-row">{formatExerciseRunAggLine(agg)}</div>)}</div></div> : null}
     </section>
   );
 }

@@ -40,7 +40,7 @@ flowchart TB
     SP["SessionProvider — stretch / movement / logs"]
   end
   subgraph tabs["Active tab"]
-    Daily["Daily — stretches, habits, food, water"]
+    Daily["Daily — stretches, habits, food, water, movement regimen"]
     Stats["Stats — aggregates"]
     Customize["Customize — Tasks / Body / Energy"]
     Settings["Settings"]
