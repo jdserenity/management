@@ -18,3 +18,9 @@
   padding: 0;
   line-height: 1;
 }
+
+@media (max-width: 640px) {
+  .daily-brand-wordmark__text {
+    font-size: clamp(3.5rem, 17vw, 8rem);
+  }
+}

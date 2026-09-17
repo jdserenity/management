@@ -15,7 +15,7 @@ describe('brandWordmark', () => {
   it('uses Management in Haglos', () => {
     expect(BRAND_WORDMARK_TEXT).toBe('Management');
     expect(BRAND_WORDMARK_FONT).toBe('"Haglos", cursive');
-    expect(BRAND_WORDMARK_COLOR).toBe('#ffffff');
+    expect(BRAND_WORDMARK_COLOR).toBe('var(--foreground)');
   });
 
   it('declares Haglos @font-face with system local() before bundled OTF', () => {
@@ -24,6 +24,13 @@ describe('brandWordmark', () => {
     expect(css).toContain("local('Haglos')");
     expect(css).toContain('Haglos-Regular.otf');
     expect(css).toContain('font-display: swap');
+  });
+
+  it('uses the theme foreground color and a larger mobile size', () => {
+    const css = fs.readFileSync(cssPath, 'utf8');
+    expect(BRAND_WORDMARK_COLOR).toBe('var(--foreground)');
+    expect(css).toContain('@media (max-width: 640px)');
+    expect(css).toContain('font-size: clamp(3.5rem, 17vw, 8rem)');
   });
 
   it('renders the wordmark as a page title at the top of Daily', () => {
