@@ -164,11 +164,9 @@
 
 .streak-activity-name.streak-activity-name-wrap {
   white-space: normal;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: unset;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
   line-height: 1.35;
   word-break: break-word;
 }
