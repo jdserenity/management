@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { getStatsDayWindow } from '@/lib/dayBoundary';
 import {
   buildMovementSnackLogEntry,
+  buildMovementSnackSetLogEntry,
   countMovementSnacksToday,
   defaultMovementSnackEasyExercises,
   defaultMovementSnackHardExercises,
@@ -9,12 +10,13 @@ import {
   MOVEMENT_SNACK_HARD_WORKOUT_ID,
   MOVEMENT_SNACK_EASY_WORKOUT_ID,
   normalizeMovementSnackPrefs,
+  movementSnackPlanForDate,
 } from './movementSnack';
 
 describe('defaultMovementSnackPrefs', () => {
-  it('has a daily goal of 6 and three moves per version', () => {
+  it('has a daily goal of 4 and three moves per version', () => {
     const prefs = defaultMovementSnackPrefs();
-    expect(prefs.dailyGoal).toBe(6);
+    expect(prefs.dailyGoal).toBe(4);
     expect(prefs.hardExercises.length).toBe(3);
     expect(prefs.easyExercises.length).toBe(3);
     expect(prefs.quickLogExercises.length).toBe(5);
@@ -51,8 +53,8 @@ describe('normalizeMovementSnackPrefs', () => {
   });
 
   it('clamps dailyGoal to a positive integer', () => {
-    expect(normalizeMovementSnackPrefs({ dailyGoal: 0 }).dailyGoal).toBe(6);
-    expect(normalizeMovementSnackPrefs({ dailyGoal: -3 }).dailyGoal).toBe(6);
+    expect(normalizeMovementSnackPrefs({ dailyGoal: 0 }).dailyGoal).toBe(4);
+    expect(normalizeMovementSnackPrefs({ dailyGoal: -3 }).dailyGoal).toBe(4);
     expect(normalizeMovementSnackPrefs({ dailyGoal: 3 }).dailyGoal).toBe(3);
     expect(normalizeMovementSnackPrefs({ dailyGoal: 3.7 }).dailyGoal).toBe(4);
   });
@@ -125,5 +127,31 @@ describe('countMovementSnacksToday', () => {
     const legacyEasy = buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'legacy', insideTs, true);
     legacyEasy.workoutId = MOVEMENT_SNACK_HARD_WORKOUT_ID;
     expect(countMovementSnacksToday([legacyEasy], now, 5)).toBe(1);
+  });
+});
+
+describe('movement snack regimen', () => {
+  it('plans two build tasks and two move tasks Monday through Saturday', () => {
+    const tasks = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises);
+    expect(tasks.map((task) => task.slotId)).toEqual(['build-push', 'build-abs', 'move-1', 'move-2']);
+    expect(tasks.slice(0, 2).every((task) => task.setCount === 3)).toBe(true);
+  });
+
+  it('plans four move tasks Sunday', () => {
+    const tasks = movementSnackPlanForDate(new Date(2026, 8, 13), defaultMovementSnackPrefs().quickLogExercises);
+    expect(tasks.map((task) => task.slotId)).toEqual(['move-1', 'move-2', 'move-3', 'move-4']);
+  });
+
+  it('logs build sets independently', () => {
+    const task = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises)[0];
+    const entry = buildMovementSnackSetLogEntry(task, '2026-09-14', task.exercise, 2, 'set-2');
+    expect(entry.movementSnack).toEqual({ day: '2026-09-14', slotId: 'build-push', kind: 'build', setNumber: 2, setCount: 3 });
+    expect(entry.exercises).toEqual([task.exercise]);
+  });
+
+  it('counts three build set logs as one completed snack', () => {
+    const task = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises)[0];
+    const logs = [1, 2, 3].map((setNumber) => buildMovementSnackSetLogEntry(task, '2026-09-14', task.exercise, setNumber, `set-${setNumber}`, new Date(2026, 8, 14, 12).getTime()));
+    expect(countMovementSnacksToday(logs, new Date(2026, 8, 14, 12).getTime(), 5)).toBe(1);
   });
 });

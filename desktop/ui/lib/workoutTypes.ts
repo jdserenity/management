@@ -31,6 +31,13 @@ export interface WorkoutLogEntry {
   totalReps: number;
   totalTimedSeconds: number;
   completionRatio?: number;
+  movementSnack?: {
+    day: string;
+    slotId: string;
+    kind: 'build' | 'move';
+    setNumber: number;
+    setCount: number;
+  };
 }
 
 export interface FocusLogEntry {
