@@ -50,7 +50,6 @@ export function StreakMonthlyCalendar({ state, month, onMonthChange }: Props) {
           );
         })}
       </div>
-      <p className="streak-calendar-caption">Unbroken chain: X means every task due that day was completed.</p>
     </div>
   );
 }

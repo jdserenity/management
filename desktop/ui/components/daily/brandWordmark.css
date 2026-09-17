@@ -11,12 +11,21 @@
 }
 
 .daily-brand-wordmark__text {
+  display: block;
+  width: 100%;
   font-size: clamp(2.75rem, 10vw, 20rem);
   text-align: center;
   margin: 0;
   margin-bottom: 1rem;
   padding: 0;
   line-height: 1;
+}
+
+.daily-brand-wordmark {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin: 0;
 }
 
 @media (max-width: 640px) {
