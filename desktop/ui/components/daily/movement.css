@@ -27,3 +27,6 @@
 .movement-pool-customize { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
 .movement-build-set { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .movement-build-set-label { min-width: 7rem; font-size: 0.85em; color: var(--muted-foreground); }
+.movement-exercise-pools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.movement-exercise-pool { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+@media (max-width: 720px) { .movement-exercise-pools { grid-template-columns: 1fr; } }

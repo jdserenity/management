@@ -13,7 +13,7 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
   const { movementSnackPrefs, workoutLogs, dayRolloverHour, todayExerciseTotals, todayStretchTotals, logMovementSnackSet, removeWorkoutLog, sessionStorageReady } = useSession();
   const [overrides, setOverrides] = useState<Record<string, ExerciseDefinition>>({});
   const [actuals, setActuals] = useState<Record<string, string>>({});
-  const tasks = useMemo(() => movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.quickLogExercises, movementSnackPrefs.regimen), [dayRolloverHour, movementSnackPrefs.quickLogExercises, movementSnackPrefs.regimen]);
+  const tasks = useMemo(() => movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen), [dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen]);
   const day = movementSnackDayKey(Date.now(), dayRolloverHour);
   const logs = useMemo(() => movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour), [workoutLogs, dayRolloverHour]);
   const completedSets = (task: MovementSnackTask) => logs.filter((log) => log.movementSnack?.day === day && log.movementSnack.slotId === task.slotId);
@@ -55,8 +55,8 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
         return <div className="movement-snack-task" key={task.slotId}>
           <div className="movement-snack-task-heading">
             <div><strong>{task.kind === 'move' ? 'Move' : 'Build'} · {task.label}</strong><div className="movement-snack-task-exercise">Target: {formatExerciseAmount(task.exercise)}{task.kind === 'build' ? ' each set' : ''}</div></div>
-            {task.kind === 'move' && movementSnackPrefs.quickLogExercises.length > 0 ? <select className="movement-custom-input" aria-label={`Override ${task.label}`} value={exercise.id} onChange={(event) => { const next = movementSnackPrefs.quickLogExercises.find((entry) => entry.id === event.target.value); if (next) setOverrides((current) => ({ ...current, [task.slotId]: next })); }}>
-              {movementSnackPrefs.quickLogExercises.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {formatExerciseAmount(entry)}</option>)}
+            {task.kind === 'move' && movementSnackPrefs.movePool.length > 0 ? <select className="movement-custom-input" aria-label={`Override ${task.label}`} value={exercise.id} onChange={(event) => { const next = movementSnackPrefs.movePool.find((entry) => entry.id === event.target.value); if (next) setOverrides((current) => ({ ...current, [task.slotId]: next })); }}>
+              {movementSnackPrefs.movePool.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {formatExerciseAmount(entry)}</option>)}
             </select> : null}
           </div>
           {task.kind === 'move' ? <button type="button" className={`movement-chain-btn${taskLogs.length > 0 ? ' movement-chain-done' : ''}`} onClick={() => taskLogs.length > 0 ? undoMove(task) : logMove(task, exercise)}>{taskLogs.length > 0 ? `✓ ${formatExerciseAmount(taskLogs[0].exercises[0])}` : formatExerciseAmount(exercise)}</button> : <div className="movement-build-sets">

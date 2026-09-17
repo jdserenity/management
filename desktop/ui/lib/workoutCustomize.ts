@@ -9,9 +9,7 @@ const NON_STRETCH_WORKOUT_IDS = [
   'jumping-jacks',
   'push-ups',
   'air-squats',
-  'shadowboxing',
   'arm-rolls',
-  'reverse-lunges',
   'reverse-crunches',
   'plank'
 ] as const;

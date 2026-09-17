@@ -20,7 +20,6 @@ import {
   type StretchGradientId
 } from '@/lib/stretchCreator/stretchCreator';
 import { loadStretchDefinitions, removeStretchDefinition, upsertStretchDefinition } from '@/lib/stretchCreator/stretchCreatorDb';
-import StretchPoolSection from '@/components/customize/StretchPoolSection';
 import { Plus, Trash2 } from 'lucide-react';
 
 const refKey = (ref: MorningStretchRef): string => `${ref.kind}:${ref.id}`;
@@ -29,7 +28,7 @@ const durationOptions = [3, 5, 7, 10, 15, 20, 30].map((m) => ({ value: String(m)
 const hourOptions = Array.from({ length: 24 }, (_, hour) => ({ value: String(hour), label: formatDayRolloverHourLabel(hour) }));
 
 export default function CustomizeStretchesPanel() {
-  const { workoutCustomizePrefs } = useSession();
+  const { workoutCustomizePrefs, movementSnackPrefs } = useSession();
   const load = useCallback(
     () => loadStretchDefinitions(workoutCustomizePrefs),
     [workoutCustomizePrefs]
@@ -43,7 +42,7 @@ export default function CustomizeStretchesPanel() {
   const [draft, setDraft] = useState<StretchDefinition | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const catalog = useMemo(() => listMorningStretchCatalog(workoutCustomizePrefs), [workoutCustomizePrefs]);
+  const catalog = useMemo(() => listMorningStretchCatalog(workoutCustomizePrefs).filter((row) => row.ref.kind !== 'stretchPick' || movementSnackPrefs.mobilityPool.some((exercise) => exercise.id === row.ref.id)), [movementSnackPrefs.mobilityPool, workoutCustomizePrefs]);
   const editing = stretches?.find((s) => s.id === editingId) ?? null;
   const activeDraft = draft ?? editing;
 
@@ -277,7 +276,6 @@ export default function CustomizeStretchesPanel() {
           </div>
         </CustomizePanel>
       )}
-      <StretchPoolSection />
     </div>
   );
 }

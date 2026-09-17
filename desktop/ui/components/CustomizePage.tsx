@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CustomizeStretchesPanel from '@/components/customize/CustomizeStretchesPanel';
-import CustomizeExercisesPanel from '@/components/customize/CustomizeExercisesPanel';
+import CustomizeExercisePoolsPanel from '@/components/customize/CustomizeExercisePoolsPanel';
 import CustomizeMovementSnacksPanel from '@/components/customize/CustomizeMovementSnacksPanel';
 import CustomizeFoodPanel from '@/components/customize/CustomizeFoodPanel';
 import CustomizeHabitsPanel from '@/components/customize/CustomizeHabitsPanel';
@@ -19,8 +19,8 @@ export default function CustomizePage() {
         </TabsContent>
         <TabsContent value="body" className="space-y-3">
           <CustomizeMovementSnacksPanel />
-          <CustomizeExercisesPanel />
           <CustomizeStretchesPanel />
+          <CustomizeExercisePoolsPanel />
         </TabsContent>
         <TabsContent value="energy">
           <CustomizeFoodPanel />

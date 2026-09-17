@@ -6,7 +6,10 @@ import {
   countMovementSnacksToday,
   defaultMovementSnackEasyExercises,
   defaultMovementSnackHardExercises,
+  defaultMovementSnackBuildPool,
+  defaultMovementSnackMobilityPool,
   defaultMovementSnackPrefs,
+  defaultMovementSnackRegimen,
   MOVEMENT_SNACK_HARD_WORKOUT_ID,
   MOVEMENT_SNACK_EASY_WORKOUT_ID,
   normalizeMovementSnackPrefs,
@@ -18,8 +21,22 @@ describe('defaultMovementSnackPrefs', () => {
     const prefs = defaultMovementSnackPrefs();
     expect(prefs.dailyGoal).toBe(4);
     expect(prefs.hardExercises.length).toBe(3);
-    expect(prefs.easyExercises.length).toBe(3);
+    expect(prefs.easyExercises.length).toBe(2);
     expect(prefs.quickLogExercises.length).toBe(5);
+    expect(prefs.movePool.map((exercise) => exercise.name)).toContain('Air squats');
+    expect(prefs.movePool.map((exercise) => exercise.name)).not.toContain('Light shadowboxing');
+    expect(prefs.buildPool.map((exercise) => exercise.name)).not.toContain('Air squats');
+    expect(prefs.mobilityPool.length).toBe(10);
+  });
+});
+
+describe('movement exercise pools', () => {
+  it('starts every weekday regimen in Move, Build, Move, Build order', () => {
+    const regimen = defaultMovementSnackRegimen();
+    expect(regimen.Mon.map((task) => task.kind)).toEqual(['move', 'build', 'move', 'build']);
+    expect(regimen.Sun.map((task) => task.kind)).toEqual(['move', 'move', 'move', 'move']);
+    expect(defaultMovementSnackBuildPool().map((exercise) => exercise.id)).toContain('glute-bridges');
+    expect(defaultMovementSnackMobilityPool()[0].unit).toBe('seconds');
   });
 });
 
@@ -35,13 +52,9 @@ describe('defaultMovementSnackHardExercises', () => {
 });
 
 describe('defaultMovementSnackEasyExercises', () => {
-  it('matches the spec: push-ups, reverse lunges, plank', () => {
+  it('matches the spec: push-ups and plank', () => {
     const easy = defaultMovementSnackEasyExercises();
-    expect(easy.map((e) => `${e.name}: ${e.amount} ${e.unit}`)).toEqual([
-      'Push-ups: 10 reps',
-      'Reverse lunges: 10 reps',
-      'Plank: 25 seconds',
-    ]);
+    expect(easy.map((e) => `${e.name}: ${e.amount} ${e.unit}`)).toEqual(['Push-ups: 10 reps', 'Plank: 25 seconds']);
   });
 });
 
@@ -64,6 +77,24 @@ describe('normalizeMovementSnackPrefs', () => {
     expect(normalizeMovementSnackPrefs({ hardExercises: [] }).hardExercises).toEqual(defaults.hardExercises);
     expect(normalizeMovementSnackPrefs({ easyExercises: [] }).easyExercises).toEqual(defaults.easyExercises);
     expect(normalizeMovementSnackPrefs({ hardExercises: [{} as any] }).hardExercises).toEqual(defaults.hardExercises);
+  });
+
+  it('removes retired exercises from saved pools', () => {
+    const prefs = normalizeMovementSnackPrefs({
+      quickLogExercises: [
+        { id: 'shadow', name: 'Light shadowboxing', amount: 30, unit: 'seconds' },
+        { id: 'reverse-lunges', name: 'Reverse lunges', amount: 10, unit: 'reps' },
+        { id: 'squats', name: 'Air squats', amount: 5, unit: 'reps' }
+      ]
+    });
+    expect(prefs.movePool.map((exercise) => exercise.id)).toEqual(['squats']);
+  });
+
+  it('does not keep air squats in the saved Build regimen', () => {
+    const defaults = defaultMovementSnackPrefs();
+    const legacyRegimen = { ...defaults.regimen, Tue: defaults.regimen.Tue.map((task) => task.slotId === 'build-legs' ? { ...task, exercise: { id: 'squats', name: 'Air squats', amount: 20, unit: 'reps' as const } } : task) };
+    const prefs = normalizeMovementSnackPrefs({ regimen: legacyRegimen });
+    expect(prefs.regimen.Tue.find((task) => task.slotId === 'build-legs')?.exercise.id).toBe('glute-bridges');
   });
 
   it('accepts valid custom exercises', () => {

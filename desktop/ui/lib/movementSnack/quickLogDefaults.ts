@@ -6,7 +6,7 @@ export const DEFAULT_MOVEMENT_QUICK_LOG_EXERCISES: ExerciseDefinition[] = [
   { id: 'jacks', name: 'Jumping jacks', amount: 10, unit: 'reps' },
   { id: 'squats', name: 'Air squats', amount: 5, unit: 'reps' },
   { id: 'march', name: 'Marching in place', amount: 1, unit: 'minutes' },
-  { id: 'shadow', name: 'Light shadowboxing', amount: 30, unit: 'seconds' }
+  { id: 'plank', name: 'Plank', amount: 30, unit: 'seconds' }
 ];
 
 export const cloneQuickLogDefaults = (): ExerciseDefinition[] =>
