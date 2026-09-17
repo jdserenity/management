@@ -1,141 +1,50 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 import { useSession } from '@/context/SessionContext';
-import type { ExerciseDefinition, ExerciseUnit } from '@/lib/workoutPlanner';
-import { createPrefixedId } from '@/lib/exerciseForm';
-import {
-  CustomizePanel,
-  ExerciseEditRow,
-  NewExerciseForm,
-  exerciseDraft
-} from '@/components/customize/CustomizePrimitives';
+import { MOVEMENT_WEEKDAYS, type MovementSnackRegimen, type MovementWeekday } from '@/lib/movementSnack/movementSnack';
+import type { ExerciseUnit } from '@/lib/workoutPlanner';
+import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 
-type VersionKind = 'hard' | 'easy';
+const unitLabel = (unit: ExerciseUnit): string => unit === 'seconds' ? 'sec' : unit === 'minutes' ? 'min' : 'reps';
+const taskPoolKey = (kind: 'build' | 'move'): 'buildPool' | 'movePool' => kind === 'build' ? 'buildPool' : 'movePool';
 
 export default function CustomizeMovementSnacksPanel() {
   const { movementSnackPrefs, updateMovementSnackPrefs } = useSession();
-  const [dailyGoal, setDailyGoal] = useState(movementSnackPrefs.dailyGoal);
-  const [addingTo, setAddingTo] = useState<VersionKind | null>(null);
-  const [addName, setAddName] = useState('');
-  const [addAmount, setAddAmount] = useState(10);
-  const [addUnit, setAddUnit] = useState<ExerciseUnit>('reps');
-
-  const hardExercises = useMemo(() => movementSnackPrefs.hardExercises, [movementSnackPrefs.hardExercises]);
-  const easyExercises = useMemo(() => movementSnackPrefs.easyExercises, [movementSnackPrefs.easyExercises]);
-
-  const commitGoal = useCallback(() => {
-    const goal = Math.max(1, Math.round(dailyGoal));
-    setDailyGoal(goal);
-    updateMovementSnackPrefs({ dailyGoal: goal });
-  }, [dailyGoal, updateMovementSnackPrefs]);
-
-  const updateExercise = useCallback(
-    (kind: VersionKind, index: number, field: 'amount' | 'unit', value: number | ExerciseUnit) => {
-      const list = kind === 'hard' ? [...hardExercises] : [...easyExercises];
-      if (index < 0 || index >= list.length) return;
-      const ex = { ...list[index] };
-      if (field === 'amount') ex.amount = Math.max(0, Math.round(value as number));
-      else ex.unit = value as ExerciseUnit;
-      list[index] = ex;
-      updateMovementSnackPrefs(kind === 'hard' ? { hardExercises: list } : { easyExercises: list });
-    },
-    [hardExercises, easyExercises, updateMovementSnackPrefs]
-  );
-
-  const removeExercise = useCallback(
-    (kind: VersionKind, index: number) => {
-      const list = kind === 'hard' ? [...hardExercises] : [...easyExercises];
-      if (index < 0 || index >= list.length || list.length <= 1) return;
-      list.splice(index, 1);
-      updateMovementSnackPrefs(kind === 'hard' ? { hardExercises: list } : { easyExercises: list });
-    },
-    [hardExercises, easyExercises, updateMovementSnackPrefs]
-  );
-
-  const addExercise = useCallback(() => {
-    if (!addingTo) return;
-    const ex = exerciseDraft(addName, addAmount, addUnit, createPrefixedId('snack'));
-    if (!ex.name) return;
-    const list = addingTo === 'hard' ? [...hardExercises, ex] : [...easyExercises, ex];
-    updateMovementSnackPrefs(addingTo === 'hard' ? { hardExercises: list } : { easyExercises: list });
-    setAddName('');
-    setAddAmount(10);
-    setAddUnit('reps');
-    setAddingTo(null);
-  }, [addName, addAmount, addUnit, addingTo, hardExercises, easyExercises, updateMovementSnackPrefs]);
-
-  const renderList = (kind: VersionKind, exercises: ExerciseDefinition[]) => (
-    <ul className="space-y-0">
-      {exercises.length === 0 ? (
-        <p className="plugin-empty text-xs">No exercises yet.</p>
-      ) : (
-        exercises.map((ex, index) => (
-          <ExerciseEditRow
-            key={ex.id}
-            name={ex.name}
-            amount={ex.amount}
-            unit={ex.unit}
-            onAmount={(n) => updateExercise(kind, index, 'amount', n)}
-            onUnit={(u) => updateExercise(kind, index, 'unit', u)}
-            onRemove={() => removeExercise(kind, index)}
-            removeDisabled={exercises.length <= 1}
-          />
-        ))
-      )}
-    </ul>
-  );
-
-  const versionBlock = (kind: VersionKind, title: string, hint: string, exercises: ExerciseDefinition[]) => (
-    <div className="plugin-panel-flat space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="font-semibold">{title}</p>
-        <span className="plugin-muted text-xs">{hint}</span>
-      </div>
-      {renderList(kind, exercises)}
-      <div className="space-y-2">
-        <button
-          type="button"
-          className="plugin-btn"
-          onClick={() => setAddingTo(addingTo === kind ? null : kind)}
-        >
-          {addingTo === kind ? 'Hide form' : '+ Add exercise'}
-        </button>
-        {addingTo === kind ? (
-          <NewExerciseForm
-            name={addName}
-            amount={addAmount}
-            unit={addUnit}
-            onName={setAddName}
-            onAmount={setAddAmount}
-            onUnit={setAddUnit}
-            onSubmit={addExercise}
-            onCancel={() => setAddingTo(null)}
-          />
-        ) : null}
-      </div>
+  const updateRegimen = useCallback((next: MovementSnackRegimen) => updateMovementSnackPrefs({ regimen: next }), [updateMovementSnackPrefs]);
+  const updateSlot = useCallback((day: MovementWeekday, index: number, exerciseId: string) => {
+    const sourcePool = movementSnackPrefs[taskPoolKey(movementSnackPrefs.regimen[day][index].kind)];
+    const exercise = sourcePool.find((entry) => entry.id === exerciseId);
+    if (!exercise) return;
+    const next = { ...movementSnackPrefs.regimen, [day]: movementSnackPrefs.regimen[day].map((task, i) => i === index ? { ...task, exercise: { ...exercise } } : task) };
+    updateRegimen(next);
+  }, [movementSnackPrefs.regimen, movementSnackPrefs.quickLogExercises, updateRegimen]);
+  const updateAmount = useCallback((day: MovementWeekday, index: number, value: number) => {
+    const next = { ...movementSnackPrefs.regimen, [day]: movementSnackPrefs.regimen[day].map((task, i) => i === index ? { ...task, exercise: { ...task.exercise, amount: Math.max(0, Math.round(value)) } } : task) };
+    updateRegimen(next);
+  }, [movementSnackPrefs.regimen, updateRegimen]);
+  const updateUnit = useCallback((day: MovementWeekday, index: number, value: ExerciseUnit) => {
+    const next = { ...movementSnackPrefs.regimen, [day]: movementSnackPrefs.regimen[day].map((task, i) => i === index ? { ...task, exercise: { ...task.exercise, unit: value } } : task) };
+    updateRegimen(next);
+  }, [movementSnackPrefs.regimen, updateRegimen]);
+  return <CustomizePanel title="Movement regimen" description="Edit the saved weekly order, exercise, and target amount here. Daily Move overrides come from the pool below; Build tasks stay fixed during the day so their progress remains comparable.">
+    <div className="movement-regimen-customize-list">
+      {MOVEMENT_WEEKDAYS.map((day) => <div className="movement-regimen-customize-day" key={day}>
+        <h3 className="font-semibold">{day}</h3>
+        {movementSnackPrefs.regimen[day].map((task, index) => {
+          const sourcePool = movementSnackPrefs[taskPoolKey(task.kind)];
+          const options = [task.exercise, ...sourcePool.filter((entry) => entry.id !== task.exercise.id)];
+          return <div className="movement-regimen-customize-row" key={task.slotId}>
+            <span className="movement-regimen-customize-label">{task.kind === 'move' ? 'Move' : 'Build'} · {task.label}{task.kind === 'build' ? ' · 3 sets' : ''}</span>
+            <select className="plugin-select" value={task.exercise.id} onChange={(event) => updateSlot(day, index, event.target.value)} aria-label={`${day} ${task.label} exercise`}>
+              {options.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </select>
+            <input className="plugin-input w-16 font-semibold tabular-nums" type="number" min={0} value={task.exercise.amount} onChange={(event) => updateAmount(day, index, Number(event.target.value))} aria-label={`${day} ${task.label} target amount`} />
+            <select className="plugin-select text-xs" value={task.exercise.unit} onChange={(event) => updateUnit(day, index, event.target.value as ExerciseUnit)} aria-label={`${day} ${task.label} unit`}>
+              <option value="reps">reps</option><option value="seconds">sec</option><option value="minutes">min</option>
+            </select>
+            <span className="plugin-muted text-xs">{task.exercise.amount} {unitLabel(task.exercise.unit)}</span>
+          </div>;
+        })}
+      </div>)}
     </div>
-  );
-
-  return (
-    <CustomizePanel
-      title="Movement bursts"
-      description="Set your daily movement burst goal and customise the hard and easy exercise lists."
-    >
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs plugin-muted">
-          Daily burst goal
-          <input
-            type="number"
-            min={1}
-            className="plugin-input w-20 font-semibold tabular-nums text-foreground"
-            value={dailyGoal}
-            onChange={(e) => setDailyGoal(Number(e.target.value))}
-            onBlur={commitGoal}
-          />
-        </label>
-        <button type="button" className="plugin-btn" onClick={commitGoal}>Update</button>
-      </div>
-      {versionBlock('hard', '💪 Hard version', 'Ideal burst', hardExercises)}
-      {versionBlock('easy', '🌱 Easy version', 'Fallback burst', easyExercises)}
-    </CustomizePanel>
-  );
+  </CustomizePanel>;
 }

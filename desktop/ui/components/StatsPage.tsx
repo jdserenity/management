@@ -36,7 +36,6 @@ const exerciseEmoji = (id: string): string => {
   if (id === 'jacks') return '🤸';
   if (id === 'squats') return '🦵';
   if (id === 'march') return '🚶‍♂️';
-  if (id === 'shadow') return '🥊';
   return '🏋️';
 };
 

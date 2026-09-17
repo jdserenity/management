@@ -10,11 +10,11 @@ Work and Posture are **parked** (code kept, not mounted): `FEATURE_WORK` / `FEAT
 
 | Tab       | Component                                        | Role                                                                                                                                  |
 | --------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF via `npm run font:haglos` → `desktop/ui/assets/fonts/`, white; OTF not in git — worktrees start without it and fall back to `cursive`). `tauri build` runs `font:haglos` first. Then stretches, streaks, TDEE, water, movement bursts |
+| Daily     | `DailyPage.tsx`                                  | Brand wordmark (`BrandWordmark`: "Management", Haglos OTF via `npm run font:haglos` → `desktop/ui/assets/fonts/`, white; OTF not in git — worktrees start without it and fall back to `cursive`). `tauri build` runs `font:haglos` first. Then stretches, streaks, TDEE, water, and the saved movement regimen |
 | Work      | `Dashboard.tsx`                                  | Parked. Focus flow timer, today's work/movement totals, can't-exercise toggle                                                         |
 | Posture   | `PosturePage.tsx`                                | Parked. Live score, charts, camera (desktop/Tauri only)                                                                               |
 | Stats     | `StatsPage.tsx`                                  | All-time / monthly / weekly focus + movement aggregates                                                                               |
-| Customize | `CustomizePage.tsx`                              | Subtabs: **Tasks** (habits/streaks), **Body** (bursts + exercises + stretches), **Energy** (TDEE targets) — that order                          |
+| Customize | `CustomizePage.tsx`                              | Subtabs: **Tasks** (habits/streaks), **Body** (weekly movement regimen + move pool + exercises + stretches), **Energy** (TDEE targets) — that order                          |
 | Settings  | `SettingsPage.tsx` / `CompanionSettingsPage.tsx` | Live: General + About. **Focus & alerts** and **Posture** return with the matching feature switch. Sync, theme, app presence stay on General |
 
 Header **Start flow** (`FlowHeaderControl.tsx`) is hidden while `FEATURE_WORK` is false.
@@ -33,7 +33,7 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Workout logged when break timer finishes (≥15s) or Complete Workout tapped (≥15s); stopping flow mid-break does not log.
 - Morning stretch: built-in id `morning-stretch`; hides after completion or hide-after hour (default 11 AM); logs to `workout_log`.
 - Stretch creator routine refs (`MorningStretchRef`) may carry optional `amount` (hold seconds) for that routine only; does not change global stretch pool / `stretchHoldSeconds`.
-- Movement bursts (UI name; internal ids still `movement-snack*`): Customize lives under Body tab (top); completed chips show `Hard/Easy ·` nearest half-hour (`formatNearestHalfHourLabel`). `movement_snack_prefs_v1` stores daily goal, hard/easy burst lists, and `quickLogExercises` (Individual tap increments on Daily + panel; edit only in Customize → Body); syncs via `SHARED_APP_KV_KEYS`.
+- Movement snacks: `movement_snack_prefs_v1.regimen` stores the editable weekly plan. Monday–Saturday is ordered Move → Build → Move → Build, with Push/Abs or Pull/Legs build slots; Sunday has four Move slots. Customize → Body renders the regimen first, Stretch Creator second, then standardized Mobility, Build, and Move pools in three columns. The Move pool supplies Daily overrides, the Build pool supplies fixed build-task choices, and the Mobility pool filters Stretch Creator choices. Build tasks have three sets and do not have a daily override; each set stores the actual amount entered by the user. The old hard/easy fields remain only for legacy log/config compatibility.
 - Streak fire emoji only when current streak ≥ 5 days (`currentStreakFireEmojiClass`); under 5 shows the number only.
 - Water: exact goal (0 ml remaining) uses success style `water-remaining-done` (green).
 - TDEE food editor (+ menu) lists staples with portion controls; logging a staple (chip or editor) uses `kind: staple` + `refId` so the day's staple chip is replaced.

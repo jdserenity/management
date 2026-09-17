@@ -40,27 +40,11 @@ export const PREDEFINED_WORKOUTS: WorkoutDefinition[] = [
     ]
   },
   {
-    id: 'shadowboxing',
-    name: '🥊 Light Shadowboxing',
-    estimatedMinutes: 1.5,
-    exercises: [
-      { id: 'shadow', name: 'Light shadowboxing', amount: 60, unit: 'seconds' }
-    ]
-  },
-  {
     id: 'arm-rolls',
     name: '🔄 Arm Rolls',
     estimatedMinutes: 1,
     exercises: [
       { id: 'arm-rolls', name: 'Arm rolls', amount: 30, unit: 'seconds' }
-    ]
-  },
-  {
-    id: 'reverse-lunges',
-    name: '🦵 Reverse Lunges',
-    estimatedMinutes: 1,
-    exercises: [
-      { id: 'reverse-lunges', name: 'Reverse lunges', amount: 10, unit: 'reps' }
     ]
   },
   {
@@ -126,4 +110,3 @@ export const STRETCH_PICK_CATALOG: readonly { key: string; label: string; pick: 
 export const STRETCH_MOBILITY_CATALOG_LINES: readonly string[] = STRETCH_PICK_CATALOG.map((row) => row.label);
 
 export const DEFAULT_ALLOWED_WORKOUT_IDS = PREDEFINED_WORKOUTS.map((workout) => workout.id);
-

@@ -10,17 +10,22 @@ export type { ExerciseUnit };
 export function CustomizePanel({
   title,
   description,
+  actions,
   children
 }: {
   title: ReactNode;
   description?: ReactNode;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="plugin-panel space-y-3">
-      <div>
-        <h2 className="plugin-panel-title mb-1">{title}</h2>
-        {description ? <p className="plugin-muted text-sm leading-snug">{description}</p> : null}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="plugin-panel-title mb-1">{title}</h2>
+          {description ? <p className="plugin-muted text-sm leading-snug">{description}</p> : null}
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
       </div>
       {children}
     </section>
@@ -74,7 +79,8 @@ export function ExerciseEditRow({
   onRemove,
   removeDisabled,
   removeLabel,
-  quickLog
+  quickLog,
+  editable = true
 }: {
   name: string;
   amount: number;
@@ -94,12 +100,13 @@ export function ExerciseEditRow({
     onAmount: (n: number) => void;
     onUnit: (u: ExerciseUnit) => void;
   };
+  editable?: boolean;
 }) {
   return (
     <li className="plugin-row !border-border !py-2 px-0">
       <div className="flex items-center gap-1.5 w-full">
         <span className="text-sm font-medium min-w-0 flex-1">{name}</span>
-        <div className="flex items-center gap-1.5 shrink-0">
+        {editable ? <div className="flex items-center gap-1.5 shrink-0">
           <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} showPreview={preview} />
           {onRemove ? (
             <button
@@ -112,7 +119,7 @@ export function ExerciseEditRow({
               <Trash2 className="h-4 w-4" />
             </button>
           ) : null}
-        </div>
+        </div> : <span className="plugin-muted text-sm shrink-0">{amount} {unit}{preview ? ` (${preview})` : ''}</span>}
       </div>
       {quickLog ? (
         <QuickLogExerciseRow

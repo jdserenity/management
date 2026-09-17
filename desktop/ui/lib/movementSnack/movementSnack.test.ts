@@ -2,22 +2,41 @@ import { describe, expect, it } from 'vitest';
 import { getStatsDayWindow } from '@/lib/dayBoundary';
 import {
   buildMovementSnackLogEntry,
+  buildMovementSnackSetLogEntry,
   countMovementSnacksToday,
   defaultMovementSnackEasyExercises,
   defaultMovementSnackHardExercises,
+  defaultMovementSnackBuildPool,
+  defaultMovementSnackMobilityPool,
   defaultMovementSnackPrefs,
+  defaultMovementSnackRegimen,
   MOVEMENT_SNACK_HARD_WORKOUT_ID,
   MOVEMENT_SNACK_EASY_WORKOUT_ID,
   normalizeMovementSnackPrefs,
+  movementSnackPlanForDate,
 } from './movementSnack';
 
 describe('defaultMovementSnackPrefs', () => {
-  it('has a daily goal of 6 and three moves per version', () => {
+  it('has a daily goal of 4 and three moves per version', () => {
     const prefs = defaultMovementSnackPrefs();
-    expect(prefs.dailyGoal).toBe(6);
+    expect(prefs.dailyGoal).toBe(4);
     expect(prefs.hardExercises.length).toBe(3);
-    expect(prefs.easyExercises.length).toBe(3);
+    expect(prefs.easyExercises.length).toBe(2);
     expect(prefs.quickLogExercises.length).toBe(5);
+    expect(prefs.movePool.map((exercise) => exercise.name)).toContain('Air squats');
+    expect(prefs.movePool.map((exercise) => exercise.name)).not.toContain('Light shadowboxing');
+    expect(prefs.buildPool.map((exercise) => exercise.name)).not.toContain('Air squats');
+    expect(prefs.mobilityPool.length).toBe(10);
+  });
+});
+
+describe('movement exercise pools', () => {
+  it('starts every weekday regimen in Move, Build, Move, Build order', () => {
+    const regimen = defaultMovementSnackRegimen();
+    expect(regimen.Mon.map((task) => task.kind)).toEqual(['move', 'build', 'move', 'build']);
+    expect(regimen.Sun.map((task) => task.kind)).toEqual(['move', 'move', 'move', 'move']);
+    expect(defaultMovementSnackBuildPool().map((exercise) => exercise.id)).toContain('glute-bridges');
+    expect(defaultMovementSnackMobilityPool()[0].unit).toBe('seconds');
   });
 });
 
@@ -33,13 +52,9 @@ describe('defaultMovementSnackHardExercises', () => {
 });
 
 describe('defaultMovementSnackEasyExercises', () => {
-  it('matches the spec: push-ups, reverse lunges, plank', () => {
+  it('matches the spec: push-ups and plank', () => {
     const easy = defaultMovementSnackEasyExercises();
-    expect(easy.map((e) => `${e.name}: ${e.amount} ${e.unit}`)).toEqual([
-      'Push-ups: 10 reps',
-      'Reverse lunges: 10 reps',
-      'Plank: 25 seconds',
-    ]);
+    expect(easy.map((e) => `${e.name}: ${e.amount} ${e.unit}`)).toEqual(['Push-ups: 10 reps', 'Plank: 25 seconds']);
   });
 });
 
@@ -51,8 +66,8 @@ describe('normalizeMovementSnackPrefs', () => {
   });
 
   it('clamps dailyGoal to a positive integer', () => {
-    expect(normalizeMovementSnackPrefs({ dailyGoal: 0 }).dailyGoal).toBe(6);
-    expect(normalizeMovementSnackPrefs({ dailyGoal: -3 }).dailyGoal).toBe(6);
+    expect(normalizeMovementSnackPrefs({ dailyGoal: 0 }).dailyGoal).toBe(4);
+    expect(normalizeMovementSnackPrefs({ dailyGoal: -3 }).dailyGoal).toBe(4);
     expect(normalizeMovementSnackPrefs({ dailyGoal: 3 }).dailyGoal).toBe(3);
     expect(normalizeMovementSnackPrefs({ dailyGoal: 3.7 }).dailyGoal).toBe(4);
   });
@@ -62,6 +77,24 @@ describe('normalizeMovementSnackPrefs', () => {
     expect(normalizeMovementSnackPrefs({ hardExercises: [] }).hardExercises).toEqual(defaults.hardExercises);
     expect(normalizeMovementSnackPrefs({ easyExercises: [] }).easyExercises).toEqual(defaults.easyExercises);
     expect(normalizeMovementSnackPrefs({ hardExercises: [{} as any] }).hardExercises).toEqual(defaults.hardExercises);
+  });
+
+  it('removes retired exercises from saved pools', () => {
+    const prefs = normalizeMovementSnackPrefs({
+      quickLogExercises: [
+        { id: 'shadow', name: 'Light shadowboxing', amount: 30, unit: 'seconds' },
+        { id: 'reverse-lunges', name: 'Reverse lunges', amount: 10, unit: 'reps' },
+        { id: 'squats', name: 'Air squats', amount: 5, unit: 'reps' }
+      ]
+    });
+    expect(prefs.movePool.map((exercise) => exercise.id)).toEqual(['squats']);
+  });
+
+  it('does not keep air squats in the saved Build regimen', () => {
+    const defaults = defaultMovementSnackPrefs();
+    const legacyRegimen = { ...defaults.regimen, Tue: defaults.regimen.Tue.map((task) => task.slotId === 'build-legs' ? { ...task, exercise: { id: 'squats', name: 'Air squats', amount: 20, unit: 'reps' as const } } : task) };
+    const prefs = normalizeMovementSnackPrefs({ regimen: legacyRegimen });
+    expect(prefs.regimen.Tue.find((task) => task.slotId === 'build-legs')?.exercise.id).toBe('glute-bridges');
   });
 
   it('accepts valid custom exercises', () => {
@@ -125,5 +158,38 @@ describe('countMovementSnacksToday', () => {
     const legacyEasy = buildMovementSnackLogEntry(defaultMovementSnackEasyExercises(), 'legacy', insideTs, true);
     legacyEasy.workoutId = MOVEMENT_SNACK_HARD_WORKOUT_ID;
     expect(countMovementSnacksToday([legacyEasy], now, 5)).toBe(1);
+  });
+});
+
+describe('movement snack regimen', () => {
+  it('plans two build tasks and two move tasks Monday through Saturday', () => {
+    const tasks = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises);
+    expect(tasks.map((task) => task.slotId)).toEqual(['move-1', 'build-push', 'move-2', 'build-abs']);
+    expect(tasks.filter((task) => task.kind === 'build').every((task) => task.setCount === 3)).toBe(true);
+  });
+
+  it('plans four move tasks Sunday', () => {
+    const tasks = movementSnackPlanForDate(new Date(2026, 8, 13), defaultMovementSnackPrefs().quickLogExercises);
+    expect(tasks.map((task) => task.slotId)).toEqual(['move-1', 'move-2', 'move-3', 'move-4']);
+  });
+
+  it('keeps a saved regimen exercise and amount', () => {
+    const defaults = defaultMovementSnackPrefs();
+    const regimen = { ...defaults.regimen, Mon: defaults.regimen.Mon.map((task) => task.slotId === 'build-push' ? { ...task, exercise: { ...task.exercise, amount: 17 } } : task) };
+    const tasks = movementSnackPlanForDate(new Date(2026, 8, 14), defaults.quickLogExercises, regimen);
+    expect(tasks[1].exercise.amount).toBe(17);
+  });
+
+  it('logs build sets independently', () => {
+    const task = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises)[1];
+    const entry = buildMovementSnackSetLogEntry(task, '2026-09-14', { ...task.exercise, amount: 12 }, 2, 'set-2');
+    expect(entry.movementSnack).toEqual({ day: '2026-09-14', slotId: 'build-push', kind: 'build', setNumber: 2, setCount: 3 });
+    expect(entry.exercises).toEqual([{ ...task.exercise, amount: 12 }]);
+  });
+
+  it('counts three build set logs as one completed snack', () => {
+    const task = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises)[0];
+    const logs = [1, 2, 3].map((setNumber) => buildMovementSnackSetLogEntry(task, '2026-09-14', task.exercise, setNumber, `set-${setNumber}`, new Date(2026, 8, 14, 12).getTime()));
+    expect(countMovementSnacksToday(logs, new Date(2026, 8, 14, 12).getTime(), 5)).toBe(1);
   });
 });
