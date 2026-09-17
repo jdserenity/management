@@ -19,6 +19,12 @@
 - Prefer Test Driven Development when adding or changing functionality.
 - Favor simple, inspectable technology choices over unnecessary complexity.
 
+# Git history
+
+- In a Git repository, automatically commit and push completed work as implementation progresses. Do not wait for the maintainer to ask.
+- Follow `scaffold/skills/logical-commits/SKILL.md` for commit boundaries, verification, staging, pushing, and failure handling.
+- Never rewrite an existing commit to undo or correct it. Record the change in a new commit.
+
 # Definition of done
 
 A change is done only when:
@@ -30,4 +36,4 @@ How to pick test type (project default):
 5. Integration: behavior that really depends on HTTP + DB, or webhooks / OAuth / Stripe — exercise real boundaries with test keys, stubs, or recorded fixtures as appropriate.
 6. Browser (e2e): only for stable end-to-end flows; avoid writing a dozen e2e tests while screens are still moving daily.
 
-scaffold version: 2.7.0
+scaffold version: 2.8.0
