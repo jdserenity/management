@@ -12,11 +12,11 @@ import {
 import { getISOWeekStart, isDateInWeek } from '@/lib/streak/dates';
 import {
   getDayCompletionCounts,
-  heatmapMonthSpans,
+  getCalendarMonthsWithData,
+  getMonthCalendarDates,
   isDayComplete,
   isDayNecessaryFailed,
-  isPerfectHeatmapCell,
-  weekColumnMonthFromDates
+  isPerfectHeatmapCell
 } from '@/lib/streak/heatmap';
 import { makeDeletionCell, makeLogCell, getLogState } from '@/lib/streak/logs';
 import { mergeLogs, mergeState } from '@/lib/streak/merge';
@@ -184,6 +184,26 @@ describe('activity-catalog', () => {
 });
 
 describe('heatmap', () => {
+  it('builds a Sunday-first six-week month calendar', () => {
+    const dates = getMonthCalendarDates('2026-02');
+    expect(dates).toHaveLength(42);
+    expect(dates.slice(0, 1)).toEqual(['2026-02-01']);
+    expect(dates[28]).toBeNull();
+    expect(dates[41]).toBeNull();
+  });
+
+  it('includes the current month and months represented by history', () => {
+    const data = {
+      logs: { '2026-01-05': {} },
+      activityStartDates: { a: '2025-12-20' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    expect(getCalendarMonthsWithData(data, '2026-02')).toEqual(['2025-12', '2026-01', '2026-02']);
+  });
+
   it('isDateInWeek', () => {
     expect(isDateInWeek('2026-05-18', '2026-05-20')).toBe(true);
     expect(isDateInWeek('2026-05-18', '2026-05-17')).toBe(false);
@@ -256,20 +276,6 @@ describe('heatmap', () => {
       stats: {}
     };
     expect(isDayNecessaryFailed(data, activities, '2026-05-20', '2026-05-20')).toBe(false);
-  });
-});
-
-describe('heatmap layout', () => {
-  it('groups consecutive week columns by month', () => {
-    expect(heatmapMonthSpans([0, 0, 1, 1, 1, 2])).toEqual([
-      { name: 'Jan', weekCount: 2 },
-      { name: 'Feb', weekCount: 3 },
-      { name: 'Mar', weekCount: 1 }
-    ]);
-  });
-
-  it('weekColumnMonthFromDates uses first dated cell', () => {
-    expect(weekColumnMonthFromDates([null, '2026-02-10'])).toBe(1);
   });
 });
 

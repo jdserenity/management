@@ -131,7 +131,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
             <span>
               <span className="font-medium">Necessary</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                If this task is not done, the whole day fails on the heatmap (red square with ×).
+                If this task is not done, the day stays blank on the unbroken-chain calendar.
               </span>
             </span>
           </label>

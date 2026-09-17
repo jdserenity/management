@@ -2,14 +2,13 @@
 
 import { useCallback, useState } from 'react';
 import StreakActivityRow from '@/components/daily/StreakActivityRow';
-import { StreakDailyHeatmap, StreakWeeklyHeatmap } from '@/components/daily/StreakHeatmaps';
+import { StreakMonthlyCalendar } from '@/components/daily/StreakHeatmaps';
 import { useSession } from '@/context/SessionContext';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { fireDayCompleteConfetti } from '@/lib/streak/display';
 import { isDayComplete } from '@/lib/streak/heatmap';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
-import { loadStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import {
   loadStreakState,
@@ -27,26 +26,24 @@ type Props = {
   onCrossLog?: (kind: 'tdee' | 'water' | 'movement') => void;
 };
 
-type StreakBundle = { state: StreakState; heatmapColor: string | null };
+type StreakBundle = { state: StreakState };
 
 export default function StreakSection({ refreshKey, onCrossLog }: Props) {
   const { logMovementSnackCompletion, removeWorkoutLog, workoutLogs, dayRolloverHour } = useSession();
   const loadBundle = useCallback(async (): Promise<StreakBundle> => {
-    const [state, heatmapColor] = await Promise.all([loadStreakState(), loadStreakHeatmapColorPref()]);
-    return { state, heatmapColor };
+    return { state: await loadStreakState() };
   }, []);
   const { data, loadError, setData, storageReady } = useAppDataLoad(loadBundle, 'Failed to load habits', { refreshKey });
   const state = data?.state ?? null;
-  const heatmapColor = data?.heatmapColor ?? null;
   const setState = (next: StreakState | ((prev: StreakState | null) => StreakState | null)) => {
     setData((bundle) => {
       const prev = bundle?.state ?? null;
       const resolved = typeof next === 'function' ? next(prev) : next;
       if (!resolved) return null;
-      return { state: resolved, heatmapColor: bundle?.heatmapColor ?? null };
+      return { state: resolved };
     });
   };
-  const [heatmapYear, setHeatmapYear] = useState(() => new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
 
   const handleLog = async (activityId: string, newState: StreakLogState | null, day?: string) => {
     if (!state) return;
@@ -139,8 +136,7 @@ export default function StreakSection({ refreshKey, onCrossLog }: Props) {
         <p className="streak-tracker-empty mb-4">No habits yet. Add activities in Customize → Habits.</p>
       ) : (
         <>
-          <StreakDailyHeatmap state={state} year={heatmapYear} onYearChange={setHeatmapYear} heatmapColor={heatmapColor} />
-          <StreakWeeklyHeatmap state={state} year={heatmapYear} onYearChange={setHeatmapYear} />
+          <StreakMonthlyCalendar state={state} month={calendarMonth ?? state.currentDay.slice(0, 7)} onMonthChange={setCalendarMonth} />
           <div className="streak-activities">
             {dailyActivities.length > 0 && weeklyActivities.length > 0 ? <div className="streak-section-label">Daily</div> : null}
             {dailyActivities.map((a) => (

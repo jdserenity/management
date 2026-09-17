@@ -1,52 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
-import { loadStreakHeatmapColorPref, saveStreakHeatmapColorPref } from '@/lib/streakHeatmapPref';
-
 export default function HabitsSettingsCard() {
-  const [heatmapColor, setHeatmapColor] = useState('');
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    loadStreakHeatmapColorPref()
-      .then((color) => {
-        setHeatmapColor(color ?? '#22c55e');
-        setLoaded(true);
-      })
-      .catch(console.error);
-  }, []);
-
-  const persistColor = useCallback((hex: string) => {
-    const normalized = hex.trim();
-    setHeatmapColor(normalized);
-    void saveStreakHeatmapColorPref(normalized || null).catch(console.error);
-  }, []);
-
   return (
     <section className="plugin-panel space-y-3">
       <h2 className="plugin-panel-title">Habits</h2>
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <span className="font-medium">Daily heatmap color</span>
-            <p className="text-sm plugin-muted">
-              Custom color for the yearly habits heatmap. Weekly heatmap stays red.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              className="h-10 w-14 cursor-pointer rounded border border-border bg-background p-1"
-              value={loaded ? heatmapColor : '#22c55e'}
-              disabled={!loaded}
-              onChange={(e) => persistColor(e.target.value)}
-            />
-            <input
-              type="text"
-              className="w-28 rounded-md border border-border bg-background px-2 py-1 text-sm"
-              value={heatmapColor}
-              disabled={!loaded}
-              onChange={(e) => setHeatmapColor(e.target.value)}
-              onBlur={() => persistColor(heatmapColor)}
-            />
+            <span className="font-medium">Unbroken chain calendar</span>
+            <p className="text-sm plugin-muted">Each X marks a day when every task due that day was completed. Keep the chain going.</p>
           </div>
         </div>
       </div>

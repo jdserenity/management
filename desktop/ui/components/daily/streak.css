@@ -4,8 +4,8 @@
 
 .streak-tracker-empty { color: var(--muted-foreground); font-style: italic; }
 
-/* Heatmap */
-.streak-heatmap-container { margin-bottom: 20px; --streak-heatmap-cell: 11px; }
+/* Unbroken-chain calendar */
+.streak-calendar-container { margin-bottom: 20px; }
 
 .streak-heatmap-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px; }
 
@@ -18,85 +18,16 @@
 .streak-nav-btn:hover:not(.streak-nav-btn-disabled) { background: var(--accent); color: var(--foreground); }
 .streak-nav-btn-disabled {opacity: .3; cursor: not-allowed; }
 
-.streak-year-label { font-weight: 600; font-size: 1em; color: var(--foreground); min-width: 50px; text-align: center; }
-
-.streak-heatmap-scroll { overflow: visible; max-width: 100%; }
-
-.streak-heatmap-months { display: flex; gap: 0; margin-left: 28px; margin-bottom: 4px; font-size: 0.7em; color: var(--muted-foreground); }
-
-.streak-heatmap-month { flex-shrink: 0; text-align: left; overflow: hidden; box-sizing: border-box; }
-
-.streak-heatmap-wrapper { display: flex; gap: 4px; }
-
-.streak-heatmap-days {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.6em;
-  color: var(--muted-foreground);
-  width: 24px;
-  min-width: 24px;
-  flex-shrink: 0;
-  text-align: right;
-  padding-right: 4px;
-}
-
-.streak-heatmap-day { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
-
-.streak-heatmap-grid { display: flex; flex: 1; gap: 2px; min-width: 0; }
-
-.streak-heatmap-week { display: flex; flex-direction: column; flex: 1; gap: 2px; min-width: 0; }
-
-.streak-heatmap-cell { width: 100%; aspect-ratio: 1; border-radius: 2px; background: var(--border); box-sizing: border-box; }
-.streak-heatmap-cell.streak-heatmap-perfect { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.streak-heatmap-check { font-size: clamp(5px, 58%, 11px); line-height: 1; font-weight: 700; color: #000; pointer-events: none; user-select: none; }
-
-.streak-heatmap-cell.streak-heatmap-necessary-fail { display: flex; align-items: center; justify-content: center; overflow: hidden; background: rgb(239, 68, 68); }
-
-.streak-heatmap-fail-x { font-size: clamp(6px, 70%, 12px); line-height: 1; font-weight: 800; color: #000; pointer-events: none; user-select: none; }
-
-.streak-heatmap-cell:hover:not(.streak-heatmap-empty) { outline: 1px solid var(--muted-foreground); outline-offset: 1px; }
-
-.streak-heatmap-empty { background: transparent; }
-
-/* Heatmap intensity (green daily / red weekly) */
-.streak-heatmap-level-0, .streak-weekly-level-0 { background: var(--border); }
-.streak-heatmap-level-1 { background: rgba(34, 197, 94, 0.2); }
-.streak-heatmap-level-2 { background: rgba(34, 197, 94, 0.4); }
-.streak-heatmap-level-3 { background: rgba(34, 197, 94, 0.6); }
-.streak-heatmap-level-4 { background: rgba(34, 197, 94, 0.8); }
-.streak-heatmap-level-5 { background: rgb(34, 197, 94); }
-.dark .streak-heatmap-level-1 { background: rgba(34, 197, 94, 0.15); }
-.dark .streak-heatmap-level-2 { background: rgba(34, 197, 94, 0.3); }
-.dark .streak-heatmap-level-3 { background: rgba(34, 197, 94, 0.5); }
-.dark .streak-heatmap-level-4 { background: rgba(34, 197, 94, 0.7); }
-.dark .streak-heatmap-level-5 { background: rgb(34, 197, 94); }
-
-/* Weekly heatmap (single row, red theme) */
-.streak-weekly-heatmap-container {margin-bottom: 20px; }
-
-.streak-weekly-months { margin-left: 0; width: 100%; box-sizing: border-box; }
-
-.streak-weekly-heatmap-row { display: flex; gap: 2px; width: 100%; box-sizing: border-box; }
-
-.streak-weekly-cell { flex: 1 1 0; height: 14px; border-radius: 2px; background: var(--border); min-width: 0; box-sizing: border-box; }
-
-.streak-weekly-cell-current {box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.45); }
-.streak-weekly-cell.streak-weekly-perfect { display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.streak-weekly-check { font-size: 9px; line-height: 1; font-weight: 700; color: #000; pointer-events: none; user-select: none; }
-
-.streak-weekly-cell:hover:not(.streak-weekly-level-0) { outline: 1px solid var(--muted-foreground); outline-offset: 1px; }
-
-.streak-weekly-level-1 { background: rgba(239, 68, 68, 0.2); }
-.streak-weekly-level-2 { background: rgba(239, 68, 68, 0.4); }
-.streak-weekly-level-3 { background: rgba(239, 68, 68, 0.6); }
-.streak-weekly-level-4 { background: rgba(239, 68, 68, 0.8); }
-.streak-weekly-level-5 { background: rgb(239, 68, 68); }
-.dark .streak-weekly-level-1 { background: rgba(239, 68, 68, 0.15); }
-.dark .streak-weekly-level-2 { background: rgba(239, 68, 68, 0.3); }
-.dark .streak-weekly-level-3 { background: rgba(239, 68, 68, 0.5); }
-.dark .streak-weekly-level-4 { background: rgba(239, 68, 68, 0.7); }
-.dark .streak-weekly-level-5 {background: rgb(239, 68, 68); }
+.streak-calendar-label { font-weight: 600; font-size: 1em; color: var(--foreground); min-width: 150px; text-align: center; }
+.streak-calendar-weekdays, .streak-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.streak-calendar-weekdays { margin-bottom: 4px; color: var(--muted-foreground); font-size: 0.72em; text-align: center; }
+.streak-calendar-day { position: relative; min-height: 52px; border: 1px solid var(--border); border-radius: 6px; background: var(--secondary); padding: 5px; box-sizing: border-box; }
+.streak-calendar-day-empty { border-color: transparent; background: transparent; }
+.streak-calendar-day-current { border-color: var(--primary); }
+.streak-calendar-day-number { color: var(--muted-foreground); font-size: 0.75em; }
+.streak-calendar-day-complete { background: color-mix(in srgb, var(--primary) 12%, var(--secondary)); }
+.streak-calendar-x { display: block; color: var(--primary); font-size: clamp(1.6rem, 7vw, 2.6rem); font-weight: 800; line-height: 0.9; text-align: center; }
+.streak-calendar-caption { margin: 8px 0 0; color: var(--muted-foreground); font-size: 0.75em; text-align: center; }
 
 /* Section labels between daily and weekly activities */
 .streak-section-label { font-size: 0.72em; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground); padding: 4px 2px 2px; }
@@ -348,13 +279,8 @@
 @media (max-width: 500px) {
   .streak-activity-header { flex-wrap: wrap; }
   .streak-stats { margin-left: 0; width: 100%; margin-top: 6px; padding-left: 60px; }
-  .streak-heatmap-scroll { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
-  .streak-heatmap-wrapper { width: max-content; }
-  .streak-heatmap-days { position: sticky; left: 0; z-index: 1; background: var(--background); }
-  .streak-heatmap-day { flex: none; height: var(--streak-heatmap-cell); }
-  .streak-heatmap-grid { flex: none; width: max-content; }
-  .streak-heatmap-week { flex: none; width: var(--streak-heatmap-cell); }
-  .streak-heatmap-cell { width: var(--streak-heatmap-cell); height: var(--streak-heatmap-cell); aspect-ratio: unset; }
+  .streak-calendar-day { min-height: 44px; padding: 4px; }
+  .streak-calendar-x { font-size: 1.8rem; }
 }
 
 /* ── Secondary mode ─────────────────────────────────────────────────── */

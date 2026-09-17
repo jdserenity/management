@@ -177,7 +177,6 @@ export const SHARED_APP_KV_KEYS = [
   'cant_exercise_mode_v1',
   'pomodoro_break_chain_v1',
   'stats_day_rollover_hour_v1',
-  'streak_heatmap_color_v1',
   'session_alert_sound_v1',
   'session_alert_countdown_sound_v1',
   'session_alert_notify_v1',

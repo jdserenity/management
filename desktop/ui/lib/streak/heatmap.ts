@@ -1,5 +1,6 @@
 import { getLogState } from '@/lib/streak/logs';
 import { isActivityActiveOnDay } from '@/lib/streak/activityCatalog';
+import { formatDate } from '@/lib/streak/dates';
 import type { StreakActivity, StreakData } from '@/lib/streak/types';
 
 export const isPerfectHeatmapCell = (done: number, total: number): boolean => total > 0 && done === total;
@@ -26,8 +27,7 @@ export const isDayComplete = (data: StreakData, activities: StreakActivity[], da
 };
 
 /**
- * A necessary daily task that is active but not success fails the whole day
- * (heatmap shows red with an X instead of any green shade).
+ * A necessary daily task that is active but not success fails the whole day.
  * Only applies to days that have already started (≤ today) — future days are not failures.
  */
 export const isDayNecessaryFailed = (
@@ -47,73 +47,22 @@ export const isDayNecessaryFailed = (
   return false;
 };
 
-export const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-export const monthIndexFromDateStr = (dateStr: string | null | undefined): number => {
-  if (!dateStr) return -1;
-  return parseInt(dateStr.slice(5, 7), 10) - 1;
-};
-
-export const weekColumnMonthFromDates = (dateStrs: (string | null | undefined)[]): number => {
-  for (const d of dateStrs) {
-    const m = monthIndexFromDateStr(d);
-    if (m >= 0) return m;
+/** Calendar cells for a month, Sunday-first, padded to six complete weeks. */
+export const getMonthCalendarDates = (month: string): (string | null)[] => {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const firstDay = new Date(year, monthNumber - 1, 1);
+  const daysInMonth = new Date(year, monthNumber, 0).getDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < 42; i++) {
+    const dayNumber = i - firstDay.getDay() + 1;
+    cells.push(dayNumber >= 1 && dayNumber <= daysInMonth ? formatDate(new Date(year, monthNumber - 1, dayNumber)) : null);
   }
-  return -1;
+  return cells;
 };
 
-export const heatmapMonthSpans = (weekMonths: number[]): { name: string; weekCount: number }[] => {
-  const spans: { name: string; weekCount: number }[] = [];
-  let i = 0;
-  while (i < weekMonths.length) {
-    const m = weekMonths[i];
-    if (m < 0) { i++; continue; }
-    const start = i;
-    while (i < weekMonths.length && weekMonths[i] === m) i++;
-    spans.push({ name: MONTH_NAMES[m], weekCount: i - start });
-  }
-  return spans;
-};
-
-export const getYearsWithData = (data: StreakData): number[] => {
-  const years = new Set<number>();
-  years.add(new Date().getFullYear());
-  for (const dateStr of Object.keys(data.logs)) years.add(parseInt(dateStr.split('-')[0], 10));
-  return [...years].sort((a, b) => b - a);
-};
-
-export const getWeeklyYearsWithData = (data: StreakData, weeklyActivities: StreakActivity[]): number[] => {
-  const years = new Set<number>();
-  years.add(new Date().getFullYear());
-  for (const activity of weeklyActivities) {
-    const startDate = data.activityStartDates[activity.id];
-    if (startDate) years.add(parseInt(startDate.split('-')[0], 10));
-  }
-  for (const dateStr of Object.keys(data.logs)) {
-    const log = data.logs[dateStr];
-    const y = parseInt(dateStr.split('-')[0], 10);
-    for (const activity of weeklyActivities) {
-      if (getLogState(log[activity.id]) != null) { years.add(y); break; }
-    }
-  }
-  return [...years].sort((a, b) => b - a);
-};
-
-export const hexToRgba = (hex: string, alpha: number): string => {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-};
-
-export const heatmapLevel = (successCount: number, historicalCount: number): number => {
-  if (historicalCount <= 0) return 0;
-  const percentage = (successCount / historicalCount) * 100;
-  if (percentage === 100) return 5;
-  if (percentage >= 76) return 4;
-  if (percentage >= 51) return 3;
-  if (percentage >= 26) return 2;
-  if (percentage >= 1) return 1;
-  return 0;
+export const getCalendarMonthsWithData = (data: StreakData, currentMonth: string): string[] => {
+  const months = new Set<string>([currentMonth]);
+  for (const dateStr of Object.keys(data.logs || {})) months.add(dateStr.slice(0, 7));
+  for (const dateStr of Object.values(data.activityStartDates || {})) months.add(dateStr.slice(0, 7));
+  return [...months].sort();
 };
