@@ -133,8 +133,8 @@ describe('countMovementSnacksToday', () => {
 describe('movement snack regimen', () => {
   it('plans two build tasks and two move tasks Monday through Saturday', () => {
     const tasks = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises);
-    expect(tasks.map((task) => task.slotId)).toEqual(['build-push', 'build-abs', 'move-1', 'move-2']);
-    expect(tasks.slice(0, 2).every((task) => task.setCount === 3)).toBe(true);
+    expect(tasks.map((task) => task.slotId)).toEqual(['move-1', 'build-push', 'move-2', 'build-abs']);
+    expect(tasks.filter((task) => task.kind === 'build').every((task) => task.setCount === 3)).toBe(true);
   });
 
   it('plans four move tasks Sunday', () => {
@@ -142,11 +142,18 @@ describe('movement snack regimen', () => {
     expect(tasks.map((task) => task.slotId)).toEqual(['move-1', 'move-2', 'move-3', 'move-4']);
   });
 
+  it('keeps a saved regimen exercise and amount', () => {
+    const defaults = defaultMovementSnackPrefs();
+    const regimen = { ...defaults.regimen, Mon: defaults.regimen.Mon.map((task) => task.slotId === 'build-push' ? { ...task, exercise: { ...task.exercise, amount: 17 } } : task) };
+    const tasks = movementSnackPlanForDate(new Date(2026, 8, 14), defaults.quickLogExercises, regimen);
+    expect(tasks[1].exercise.amount).toBe(17);
+  });
+
   it('logs build sets independently', () => {
-    const task = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises)[0];
-    const entry = buildMovementSnackSetLogEntry(task, '2026-09-14', task.exercise, 2, 'set-2');
+    const task = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises)[1];
+    const entry = buildMovementSnackSetLogEntry(task, '2026-09-14', { ...task.exercise, amount: 12 }, 2, 'set-2');
     expect(entry.movementSnack).toEqual({ day: '2026-09-14', slotId: 'build-push', kind: 'build', setNumber: 2, setCount: 3 });
-    expect(entry.exercises).toEqual([task.exercise]);
+    expect(entry.exercises).toEqual([{ ...task.exercise, amount: 12 }]);
   });
 
   it('counts three build set logs as one completed snack', () => {

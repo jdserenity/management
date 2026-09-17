@@ -16,6 +16,7 @@ export type MovementSnackKind = 'build' | 'move';
 export type BuildSnackSlot = 'build-push' | 'build-abs' | 'build-pull' | 'build-legs';
 export type MoveSnackSlot = 'move-1' | 'move-2' | 'move-3' | 'move-4';
 export type MovementSnackSlot = BuildSnackSlot | MoveSnackSlot;
+export type MovementWeekday = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
 
 export interface MovementSnackTask {
   slotId: MovementSnackSlot;
@@ -25,6 +26,8 @@ export interface MovementSnackTask {
   setCount: number;
 }
 
+export type MovementSnackRegimen = Record<MovementWeekday, MovementSnackTask[]>;
+
 const BUILD_EXERCISES: Record<BuildSnackSlot, ExerciseDefinition> = {
   'build-push': { id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' },
   'build-abs': { id: 'reverse-crunches', name: 'Reverse crunches', amount: 15, unit: 'reps' },
@@ -32,36 +35,43 @@ const BUILD_EXERCISES: Record<BuildSnackSlot, ExerciseDefinition> = {
   'build-legs': { id: 'squats', name: 'Air squats', amount: 20, unit: 'reps' }
 };
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+export const MOVEMENT_WEEKDAYS: readonly MovementWeekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_NAMES: readonly MovementWeekday[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export const movementSnackDayKey = (timestamp: number = Date.now(), rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR): string => {
   const date = new Date(getStatsDayWindow(timestamp, rolloverHour).startTs);
   return `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`;
 };
 
-export const movementSnackPlanForDate = (date: Date, movePool: ExerciseDefinition[]): MovementSnackTask[] => {
-  const day = DAY_NAMES[date.getDay()];
-  const builds: Record<string, BuildSnackSlot[]> = {
-    Mon: ['build-push', 'build-abs'], Tue: ['build-pull', 'build-legs'], Wed: ['build-push', 'build-abs'],
-    Thu: ['build-pull', 'build-legs'], Fri: ['build-push', 'build-abs'], Sat: ['build-pull', 'build-legs'], Sun: []
-  };
-  const tasks: MovementSnackTask[] = builds[day].map((slotId) => ({
-    slotId,
-    kind: 'build' as const,
-    label: slotId === 'build-push' ? 'Push' : slotId === 'build-abs' ? 'Abs' : slotId === 'build-pull' ? 'Pull' : 'Legs',
-    exercise: { ...BUILD_EXERCISES[slotId] },
-    setCount: 3
-  }));
-  const moveCount = day === 'Sun' ? 4 : 2;
-  for (let i = 0; i < moveCount; i++) {
-    const exercise: ExerciseDefinition = movePool[i % movePool.length] ?? { id: 'march', name: 'Marching in place', amount: 1, unit: 'minutes' };
-    tasks.push({ slotId: `move-${i + 1}` as MoveSnackSlot, kind: 'move', label: `Move ${i + 1}`, exercise: { ...exercise }, setCount: 1 });
-  }
-  return tasks;
+const buildSlotsForDay = (day: MovementWeekday): BuildSnackSlot[] => ({
+  Mon: ['build-push', 'build-abs'], Tue: ['build-pull', 'build-legs'], Wed: ['build-push', 'build-abs'],
+  Thu: ['build-pull', 'build-legs'], Fri: ['build-push', 'build-abs'], Sat: ['build-pull', 'build-legs'], Sun: []
+} as Record<MovementWeekday, BuildSnackSlot[]>)[day];
+
+const buildLabel = (slotId: BuildSnackSlot): string =>
+  slotId === 'build-push' ? 'Push' : slotId === 'build-abs' ? 'Abs' : slotId === 'build-pull' ? 'Pull' : 'Legs';
+
+export const defaultMovementSnackRegimen = (movePool: ExerciseDefinition[] = cloneQuickLogDefaults()): MovementSnackRegimen => {
+  const output = {} as MovementSnackRegimen;
+  MOVEMENT_WEEKDAYS.forEach((day) => {
+    const tasks: MovementSnackTask[] = buildSlotsForDay(day).map((slotId) => ({ slotId, kind: 'build', label: buildLabel(slotId), exercise: { ...BUILD_EXERCISES[slotId] }, setCount: 3 }));
+    const moveCount = day === 'Sun' ? 4 : 2;
+    for (let i = 0; i < moveCount; i++) {
+      const exercise = movePool[i % movePool.length] ?? { id: 'march', name: 'Marching in place', amount: 1, unit: 'minutes' as const };
+      tasks.splice(i * 2, 0, { slotId: `move-${i + 1}` as MoveSnackSlot, kind: 'move', label: `Move ${i + 1}`, exercise: { ...exercise }, setCount: 1 });
+    }
+    output[day] = tasks;
+  });
+  return output;
 };
 
-export const movementSnackPlanForTimestamp = (timestamp: number = Date.now(), rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR, movePool: ExerciseDefinition[] = []): MovementSnackTask[] =>
-  movementSnackPlanForDate(new Date(getStatsDayWindow(timestamp, rolloverHour).startTs), movePool);
+export const movementSnackPlanForDate = (date: Date, movePool: ExerciseDefinition[], regimen: MovementSnackRegimen = defaultMovementSnackRegimen(movePool)): MovementSnackTask[] => {
+  const day = DAY_NAMES[date.getDay()];
+  return regimen[day].map((task) => ({ ...task, exercise: { ...task.exercise } }));
+};
+
+export const movementSnackPlanForTimestamp = (timestamp: number = Date.now(), rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR, movePool: ExerciseDefinition[] = [], regimen?: MovementSnackRegimen): MovementSnackTask[] =>
+  movementSnackPlanForDate(new Date(getStatsDayWindow(timestamp, rolloverHour).startTs), movePool, regimen);
 
 export interface MovementSnackPrefs {
   dailyGoal: number;
@@ -69,6 +79,7 @@ export interface MovementSnackPrefs {
   easyExercises: ExerciseDefinition[];
   /** Individual exercises in the Daily movement burst + panel (increment per tap). */
   quickLogExercises: ExerciseDefinition[];
+  regimen: MovementSnackRegimen;
 }
 
 export const defaultMovementSnackHardExercises = (): ExerciseDefinition[] => [
@@ -88,6 +99,7 @@ export const defaultMovementSnackPrefs = (): MovementSnackPrefs => ({
   hardExercises: defaultMovementSnackHardExercises(),
   easyExercises: defaultMovementSnackEasyExercises(),
   quickLogExercises: cloneQuickLogDefaults(),
+  regimen: defaultMovementSnackRegimen(),
 });
 
 export const normalizeMovementSnackPrefs = (
@@ -117,12 +129,26 @@ export const normalizeMovementSnackPrefs = (
   const hardExercises = parseExercises(raw.hardExercises);
   const easyExercises = parseExercises(raw.easyExercises);
   const quickParsed = raw.quickLogExercises === undefined ? null : parseExercises(raw.quickLogExercises);
+  const quickLogExercises = quickParsed === null ? base.quickLogExercises : quickParsed;
+  const rawRegimen = raw.regimen as Partial<MovementSnackRegimen> | undefined;
+  const defaultRegimen = defaultMovementSnackRegimen(quickLogExercises);
+  const regimen = {} as MovementSnackRegimen;
+  MOVEMENT_WEEKDAYS.forEach((day) => {
+    const fallback = defaultRegimen[day];
+    const candidate = Array.isArray(rawRegimen?.[day]) ? rawRegimen[day] : [];
+    regimen[day] = fallback.map((task, index) => {
+      const saved = candidate[index] as Partial<MovementSnackTask> | undefined;
+      const exercise = saved?.exercise && typeof saved.exercise === 'object' ? parseExercises([saved.exercise])[0] : undefined;
+      return exercise ? { ...task, exercise } : task;
+    });
+  });
 
   return {
     dailyGoal: parseGoal(),
     hardExercises: hardExercises.length > 0 ? hardExercises : base.hardExercises,
     easyExercises: easyExercises.length > 0 ? easyExercises : base.easyExercises,
-    quickLogExercises: quickParsed === null ? base.quickLogExercises : quickParsed,
+    quickLogExercises,
+    regimen,
   };
 };
 

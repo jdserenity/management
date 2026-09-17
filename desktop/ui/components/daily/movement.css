@@ -20,3 +20,10 @@
 .movement-snack-task-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .movement-snack-task-exercise { color: var(--muted-foreground); font-size: 0.85em; margin-top: 3px; }
 .movement-snack-task-sets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.movement-regimen-customize-list { display: flex; flex-direction: column; gap: 12px; }
+.movement-regimen-customize-day { border-top: 1px solid var(--border); padding-top: 8px; }
+.movement-regimen-customize-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; }
+.movement-regimen-customize-label { min-width: 9rem; flex: 1; font-size: 0.85em; font-weight: 500; }
+.movement-pool-customize { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.movement-build-set { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.movement-build-set-label { min-width: 7rem; font-size: 0.85em; color: var(--muted-foreground); }
