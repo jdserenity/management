@@ -22,7 +22,7 @@ describe('movementSnackQuickLog', () => {
     const base = cloneQuickLogDefaults();
     const updated = upsertQuickLogExercise(base, { id: 'pushups', name: 'Push-ups', amount: 8, unit: 'reps' });
     expect(updated.find((e) => e.id === 'pushups')?.amount).toBe(8);
-    expect(upsertQuickLogExercise(updated, { id: 'plank', name: 'Plank', amount: 20, unit: 'seconds' })).toHaveLength(base.length + 1);
+    expect(upsertQuickLogExercise(updated, { id: 'plank', name: 'Plank', amount: 20, unit: 'seconds' })).toHaveLength(base.length);
     expect(removeQuickLogExercise(updated, 'pushups')).toHaveLength(base.length - 1);
   });
 

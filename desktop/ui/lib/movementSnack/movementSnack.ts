@@ -2,6 +2,7 @@ import { DEFAULT_DAY_ROLLOVER_HOUR, getStatsDayWindow } from '@/lib/dayBoundary'
 import {
   sumExerciseVolume,
   type ExerciseDefinition,
+  type ExerciseRepRange,
   type WorkoutLogEntry
 } from '@/lib/workoutPlanner';
 import { cloneQuickLogDefaults } from './quickLogDefaults';
@@ -30,10 +31,10 @@ export interface MovementSnackTask {
 export type MovementSnackRegimen = Record<MovementWeekday, MovementSnackTask[]>;
 
 const BUILD_EXERCISES: Record<BuildSnackSlot, ExerciseDefinition> = {
-  'build-push': { id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' },
-  'build-abs': { id: 'reverse-crunches', name: 'Reverse crunches', amount: 15, unit: 'reps' },
-  'build-pull': { id: 'pullups', name: 'Pull-ups', amount: 5, unit: 'reps' },
-  'build-legs': { id: 'glute-bridges', name: 'Glute bridges', amount: 15, unit: 'reps' }
+  'build-push': { id: 'pushups', name: 'Push-ups', amount: 8, unit: 'reps', repRange: { min: 8, max: 20 }, currentProgression: 'Incline' },
+  'build-abs': { id: 'reverse-crunches', name: 'Reverse crunches', amount: 10, unit: 'reps', repRange: { min: 10, max: 20 }, currentProgression: 'Bodyweight' },
+  'build-pull': { id: 'pullups', name: 'Pull-ups', amount: 3, unit: 'reps', repRange: { min: 3, max: 8 }, currentProgression: 'Assisted' },
+  'build-legs': { id: 'single-leg-sit-to-stand', name: 'Single-leg sit-to-stand', amount: 6, unit: 'reps', repRange: { min: 6, max: 15 }, currentProgression: 'Weighted' }
 };
 
 export const MOVEMENT_WEEKDAYS: readonly MovementWeekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -48,6 +49,14 @@ export const defaultMovementSnackBuildPool = (): ExerciseDefinition[] => [
   { ...BUILD_EXERCISES['build-push'] }, { ...BUILD_EXERCISES['build-abs'] },
   { ...BUILD_EXERCISES['build-pull'] }, { ...BUILD_EXERCISES['build-legs'] }
 ];
+
+const normalizeRepRange = (value: unknown, unit: ExerciseDefinition['unit']): ExerciseRepRange | undefined => {
+  if (unit !== 'reps' || !value || typeof value !== 'object') return undefined;
+  const raw = value as Partial<ExerciseRepRange>;
+  const min = Number(raw.min); const max = Number(raw.max);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < min) return undefined;
+  return { min: Math.round(min), max: Math.round(max) };
+};
 
 export const movementSnackDayKey = (timestamp: number = Date.now(), rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR): string => {
   const date = new Date(getStatsDayWindow(timestamp, rolloverHour).startTs);
@@ -136,15 +145,32 @@ export const normalizeMovementSnackPrefs = (
 
   const parseExercises = (arr: unknown): ExerciseDefinition[] => {
     if (!Array.isArray(arr)) return [];
-    return arr.filter((e): e is ExerciseDefinition =>
-      e &&
-      typeof (e as ExerciseDefinition).id === 'string' &&
-      typeof (e as ExerciseDefinition).name === 'string' &&
-      !REMOVED_EXERCISE_IDS.has((e as ExerciseDefinition).id) &&
-      typeof (e as ExerciseDefinition).unit === 'string' &&
-      Number.isFinite((e as ExerciseDefinition).amount) &&
-      ((e as ExerciseDefinition).unit === 'reps' || (e as ExerciseDefinition).unit === 'seconds' || (e as ExerciseDefinition).unit === 'minutes')
-    );
+    return arr.flatMap((entry) => {
+      if (!entry || typeof entry !== 'object') return [];
+      const e = entry as Partial<ExerciseDefinition>;
+      if (typeof e.id !== 'string' || typeof e.name !== 'string' || REMOVED_EXERCISE_IDS.has(e.id) || !Number.isFinite(e.amount)) return [];
+      if (e.unit !== 'reps' && e.unit !== 'seconds' && e.unit !== 'minutes') return [];
+      const amount = e.amount as number;
+      const repRange = normalizeRepRange(e.repRange, e.unit);
+      const currentProgression = typeof e.currentProgression === 'string' ? e.currentProgression.trim() : '';
+      return [{
+        id: e.id,
+        name: e.name,
+        amount: Math.max(0, Math.round(amount)),
+        unit: e.unit,
+        ...(repRange ? { repRange } : {}),
+        ...(currentProgression ? { currentProgression } : {})
+      }];
+    });
+  };
+
+  const normalizeBuildExercise = (exercise: ExerciseDefinition): ExerciseDefinition | null => {
+    if (exercise.unit !== 'reps') return null;
+    return {
+      ...exercise,
+      repRange: exercise.repRange ?? { min: exercise.amount, max: exercise.amount },
+      currentProgression: exercise.currentProgression ?? ''
+    };
   };
 
   const hardExercises = parseExercises(raw.hardExercises);
@@ -153,7 +179,11 @@ export const normalizeMovementSnackPrefs = (
   const moveParsed = raw.movePool === undefined ? quickParsed : parseExercises(raw.movePool);
   const movePool = moveParsed === null || moveParsed.length === 0 ? base.movePool : moveParsed;
   const buildParsed = raw.buildPool === undefined ? null : parseExercises(raw.buildPool);
-  const buildPool = buildParsed === null || buildParsed.length === 0 ? base.buildPool : buildParsed;
+  const normalizedBuildPool = buildParsed?.flatMap((exercise) => {
+    const normalized = normalizeBuildExercise(exercise);
+    return normalized ? [normalized] : [];
+  });
+  const buildPool = normalizedBuildPool === null || normalizedBuildPool === undefined || normalizedBuildPool.length === 0 ? base.buildPool : normalizedBuildPool;
   const mobilityParsed = raw.mobilityPool === undefined ? null : parseExercises(raw.mobilityPool);
   const mobilityPool = mobilityParsed === null || mobilityParsed.length === 0 ? base.mobilityPool : mobilityParsed;
   const quickLogExercises = movePool;
@@ -165,9 +195,10 @@ export const normalizeMovementSnackPrefs = (
     const candidate = Array.isArray(rawRegimen?.[day]) ? rawRegimen[day] : [];
     regimen[day] = fallback.map((task, index) => {
       const saved = candidate[index] as Partial<MovementSnackTask> | undefined;
-      const exercise = saved?.exercise && typeof saved.exercise === 'object' ? parseExercises([saved.exercise])[0] : undefined;
       const pool = task.kind === 'build' ? buildPool : movePool;
-      return exercise && pool.some((entry) => entry.id === exercise.id) ? { ...task, exercise } : task;
+      const savedExercise = saved?.exercise && typeof saved.exercise === 'object' ? parseExercises([saved.exercise])[0] : undefined;
+      const exercise = savedExercise ? pool.find((entry) => entry.id === savedExercise.id) : undefined;
+      return exercise ? { ...task, exercise: { ...exercise } } : task;
     });
   });
 

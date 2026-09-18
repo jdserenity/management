@@ -37,11 +37,13 @@ export default function CustomizeMovementSnacksPanel() {
             <select className="plugin-select" value={task.exercise.id} onChange={(event) => updateSlot(day, index, event.target.value)} aria-label={`${day} ${task.label} exercise`}>
               {options.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
             </select>
-            <input className="plugin-input w-16 font-semibold tabular-nums" type="number" min={0} value={task.exercise.amount} onChange={(event) => updateAmount(day, index, Number(event.target.value))} aria-label={`${day} ${task.label} target amount`} />
-            <select className="plugin-select text-xs" value={task.exercise.unit} onChange={(event) => updateUnit(day, index, event.target.value as ExerciseUnit)} aria-label={`${day} ${task.label} unit`}>
-              <option value="reps">reps</option><option value="seconds">sec</option><option value="minutes">min</option>
-            </select>
-            <span className="plugin-muted text-xs">{task.exercise.amount} {unitLabel(task.exercise.unit)}</span>
+            {task.kind === 'build' && task.exercise.repRange ? <span className="plugin-muted text-xs">{task.exercise.repRange.min}–{task.exercise.repRange.max} reps{task.exercise.currentProgression ? ` · ${task.exercise.currentProgression}` : ''}</span> : <>
+              <input className="plugin-input w-16 font-semibold tabular-nums" type="number" min={0} value={task.exercise.amount} onChange={(event) => updateAmount(day, index, Number(event.target.value))} aria-label={`${day} ${task.label} target amount`} />
+              <select className="plugin-select text-xs" value={task.exercise.unit} onChange={(event) => updateUnit(day, index, event.target.value as ExerciseUnit)} aria-label={`${day} ${task.label} unit`}>
+                <option value="reps">reps</option><option value="seconds">sec</option><option value="minutes">min</option>
+              </select>
+              <span className="plugin-muted text-xs">{task.exercise.amount} {unitLabel(task.exercise.unit)}</span>
+            </>}
           </div>;
         })}
       </div>)}

@@ -35,7 +35,8 @@ describe('movement exercise pools', () => {
     const regimen = defaultMovementSnackRegimen();
     expect(regimen.Mon.map((task) => task.kind)).toEqual(['move', 'build', 'move', 'build']);
     expect(regimen.Sun.map((task) => task.kind)).toEqual(['move', 'move', 'move', 'move']);
-    expect(defaultMovementSnackBuildPool().map((exercise) => exercise.id)).toContain('glute-bridges');
+    expect(defaultMovementSnackBuildPool().map((exercise) => exercise.id)).toEqual(['pushups', 'reverse-crunches', 'pullups', 'single-leg-sit-to-stand']);
+    expect(defaultMovementSnackBuildPool().map((exercise) => `${exercise.repRange?.min}–${exercise.repRange?.max}:${exercise.currentProgression}`)).toEqual(['8–20:Incline', '10–20:Bodyweight', '3–8:Assisted', '6–15:Weighted']);
     expect(defaultMovementSnackMobilityPool()[0].unit).toBe('seconds');
   });
 });
@@ -94,7 +95,14 @@ describe('normalizeMovementSnackPrefs', () => {
     const defaults = defaultMovementSnackPrefs();
     const legacyRegimen = { ...defaults.regimen, Tue: defaults.regimen.Tue.map((task) => task.slotId === 'build-legs' ? { ...task, exercise: { id: 'squats', name: 'Air squats', amount: 20, unit: 'reps' as const } } : task) };
     const prefs = normalizeMovementSnackPrefs({ regimen: legacyRegimen });
-    expect(prefs.regimen.Tue.find((task) => task.slotId === 'build-legs')?.exercise.id).toBe('glute-bridges');
+    expect(prefs.regimen.Tue.find((task) => task.slotId === 'build-legs')?.exercise.id).toBe('single-leg-sit-to-stand');
+  });
+
+  it('adds a rep range and progression to legacy Build exercises', () => {
+    const prefs = normalizeMovementSnackPrefs({
+      buildPool: [{ id: 'custom-build', name: 'Custom build', amount: 7, unit: 'reps' }]
+    });
+    expect(prefs.buildPool[0]).toMatchObject({ amount: 7, repRange: { min: 7, max: 7 }, currentProgression: '' });
   });
 
   it('accepts valid custom exercises', () => {

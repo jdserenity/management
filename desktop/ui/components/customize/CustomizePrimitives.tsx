@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { EXERCISE_UNIT_OPTIONS, type ExerciseUnit } from '@/lib/exerciseForm';
-import type { ExerciseDefinition } from '@/lib/workoutPlanner';
+import type { ExerciseDefinition, ExerciseRepRange } from '@/lib/workoutPlanner';
 
 // re-export unit type for panels that imported from exerciseForm only
 export type { ExerciseUnit };
@@ -73,8 +73,12 @@ export function ExerciseEditRow({
   name,
   amount,
   unit,
+  repRange,
+  currentProgression,
   onAmount,
   onUnit,
+  onRepRange,
+  onCurrentProgression,
   preview,
   onRemove,
   removeDisabled,
@@ -85,8 +89,12 @@ export function ExerciseEditRow({
   name: string;
   amount: number;
   unit: ExerciseUnit;
+  repRange?: ExerciseRepRange;
+  currentProgression?: string;
   onAmount: (n: number) => void;
   onUnit: (u: ExerciseUnit) => void;
+  onRepRange?: (range: ExerciseRepRange) => void;
+  onCurrentProgression?: (value: string) => void;
   preview?: string;
   onRemove?: () => void;
   removeDisabled?: boolean;
@@ -106,8 +114,16 @@ export function ExerciseEditRow({
     <li className="plugin-row !border-border !py-2 px-0">
       <div className="flex items-center gap-1.5 w-full">
         <span className="text-sm font-medium min-w-0 flex-1">{name}</span>
+        {editable && repRange && onRepRange ? <div className="flex items-center gap-1 text-xs plugin-muted shrink-0">
+          <span>Target</span>
+          <input type="number" min={0} className="plugin-input w-14 font-semibold tabular-nums" value={repRange.min} onChange={(e) => onRepRange({ min: Math.max(0, Math.round(Number(e.target.value))), max: Math.max(repRange.max, Math.round(Number(e.target.value))) })} aria-label={`${name} minimum reps`} />
+          <span>–</span>
+          <input type="number" min={repRange.min} className="plugin-input w-14 font-semibold tabular-nums" value={repRange.max} onChange={(e) => onRepRange({ min: repRange.min, max: Math.max(repRange.min, Math.round(Number(e.target.value))) })} aria-label={`${name} maximum reps`} />
+          <span>reps</span>
+        </div> : null}
+        {editable && onCurrentProgression ? <input className="plugin-input w-28 text-xs" value={currentProgression ?? ''} onChange={(e) => onCurrentProgression(e.target.value)} placeholder="Current progression" aria-label={`${name} current progression`} /> : null}
         {editable ? <div className="flex items-center gap-1.5 shrink-0">
-          <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} showPreview={preview} />
+          {repRange && onRepRange ? <span className="plugin-muted text-xs">reps</span> : <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} showPreview={preview} />}
           {onRemove ? (
             <button
               type="button"
@@ -119,7 +135,7 @@ export function ExerciseEditRow({
               <Trash2 className="h-4 w-4" />
             </button>
           ) : null}
-        </div> : <span className="plugin-muted text-sm shrink-0">{amount} {unit}{preview ? ` (${preview})` : ''}</span>}
+        </div> : <span className="plugin-muted text-sm shrink-0">{repRange ? `${repRange.min}–${repRange.max} reps` : `${amount} ${unit}`}{currentProgression ? ` · ${currentProgression}` : ''}{preview ? ` (${preview})` : ''}</span>}
       </div>
       {quickLog ? (
         <QuickLogExerciseRow

@@ -4,11 +4,18 @@ export type { ExerciseRunAgg } from '@mgmt/core';
 export type SessionType = 'pomodoro' | 'deep';
 export type ExerciseUnit = 'reps' | 'seconds' | 'minutes';
 
+export interface ExerciseRepRange {
+  min: number;
+  max: number;
+}
+
 export interface ExerciseDefinition {
   id: string;
   name: string;
   amount: number;
   unit: ExerciseUnit;
+  repRange?: ExerciseRepRange;
+  currentProgression?: string;
 }
 
 /** Older logs used `{ reps }` only */

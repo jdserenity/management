@@ -28,6 +28,7 @@ import {
   exerciseTimedSecondsPart,
   formatClock,
   formatExerciseAmount,
+  formatExerciseTarget,
   formatExerciseRunAggLine,
   formatWallTime,
   mergeWorkoutExercisesIntoTotals,
@@ -270,6 +271,13 @@ describe('formatExerciseAmount', () => {
     expect(formatExerciseAmount({ id: 's', name: 'Box', amount: 90, unit: 'seconds' })).toBe('1 min 30s');
     expect(formatExerciseAmount({ id: 'm', name: 'March', amount: 1, unit: 'minutes' })).toBe('60s');
     expect(formatExerciseAmount({ id: 'm2', name: 'March', amount: 2, unit: 'minutes' })).toBe('2 min');
+  });
+});
+
+describe('formatExerciseTarget', () => {
+  it('formats rep ranges instead of a single rep target', () => {
+    expect(formatExerciseTarget({ id: 'pushups', name: 'Push-ups', amount: 8, unit: 'reps', repRange: { min: 8, max: 20 } })).toBe('8–20 reps');
+    expect(formatExerciseTarget({ id: 'march', name: 'March', amount: 1, unit: 'minutes' })).toBe('60s');
   });
 });
 

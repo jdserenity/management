@@ -284,6 +284,13 @@ export const formatExerciseAmount = (exercise: StoredExercise): string => {
   return '';
 };
 
+export const formatExerciseTarget = (exercise: StoredExercise): string => {
+  if ('unit' in exercise && exercise.unit === 'reps' && exercise.repRange) {
+    return `${exercise.repRange.min}–${exercise.repRange.max} reps`;
+  }
+  return formatExerciseAmount(exercise);
+};
+
 export type { ExerciseRunAgg } from '@mgmt/core';
 
 export const summarizeTodayExerciseTotals = (
