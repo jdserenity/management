@@ -64,7 +64,7 @@ export default function CustomizeExercisePoolsPanel() {
   >
     <div className="movement-exercise-pools">
       {POOLS.map(({ key, title, description }) => <div className="movement-exercise-pool" key={key}>
-        <div><h3 className="font-semibold">{title}</h3><p className="plugin-muted text-xs">{description}</p></div>
+        <div className="flex items-start justify-between gap-2"><div><h3 className="font-semibold">{title}</h3><p className="plugin-muted text-xs">{description}{key === 'buildPool' ? ' Use the button here to edit each rep range and current progression.' : ''}</p></div>{key === 'buildPool' ? <button type="button" className="plugin-btn-ghost text-xs" onClick={toggleEditing}>{editing ? 'Done' : 'Edit targets & progression'}</button> : null}</div>
         <ul className="space-y-0">{pool(key).map((entry, index) => <ExerciseEditRow key={entry.id} name={entry.name} amount={entry.amount} unit={entry.unit} repRange={key === 'buildPool' ? entry.repRange : undefined} currentProgression={key === 'buildPool' ? entry.currentProgression : undefined} onAmount={(value) => updateAmount(key, index, value)} onUnit={(value) => updateUnit(key, index, value)} onRepRange={key === 'buildPool' ? (value) => updateRepRange(index, value) : undefined} onCurrentProgression={key === 'buildPool' ? (value) => updateProgression(index, value) : undefined} onRemove={key === 'buildPool' ? undefined : () => remove(key, index)} removeDisabled={pool(key).length <= 1} editable={editing} />)}</ul>
         {editing && key !== 'buildPool' ? <>
           <button type="button" className="plugin-btn" onClick={() => setAddingTo(addingTo === key ? null : key)}>{addingTo === key ? 'Hide form' : '+ Add exercise'}</button>
