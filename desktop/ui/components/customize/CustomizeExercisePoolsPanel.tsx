@@ -15,7 +15,7 @@ const POOLS: readonly { key: PoolKey; title: string; description: string }[] = [
 
 export default function CustomizeExercisePoolsPanel() {
   const { movementSnackPrefs, updateMovementSnackPrefs } = useSession();
-  const [addingTo, setAddingTo] = useState<PoolKey | null>(null);
+  const [addingTo, setAddingTo] = useState<Exclude<PoolKey, 'buildPool'> | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(''); const [amount, setAmount] = useState(10); const [unit, setUnit] = useState<ExerciseUnit>('reps');
   const pool = (key: PoolKey): ExerciseDefinition[] => movementSnackPrefs[key];
@@ -43,14 +43,9 @@ export default function CustomizeExercisePoolsPanel() {
     if (entries.length <= 1) return;
     savePool(key, entries.filter((_, i) => i !== index));
   }, [movementSnackPrefs, savePool]);
-  const add = (key: PoolKey) => {
+  const add = (key: Exclude<PoolKey, 'buildPool'>) => {
     const entry = exerciseDraft(name, amount, unit, createPrefixedId(`${key.replace('Pool', '').toLowerCase()}-pool`));
     if (!entry.name) return;
-    if (key === 'buildPool') {
-      entry.unit = 'reps';
-      entry.repRange = { min: entry.amount, max: entry.amount };
-      entry.currentProgression = '';
-    }
     savePool(key, [...pool(key), entry]);
     setName(''); setAmount(10); setUnit('reps'); setAddingTo(null);
   };
@@ -70,8 +65,8 @@ export default function CustomizeExercisePoolsPanel() {
     <div className="movement-exercise-pools">
       {POOLS.map(({ key, title, description }) => <div className="movement-exercise-pool" key={key}>
         <div><h3 className="font-semibold">{title}</h3><p className="plugin-muted text-xs">{description}</p></div>
-        <ul className="space-y-0">{pool(key).map((entry, index) => <ExerciseEditRow key={entry.id} name={entry.name} amount={entry.amount} unit={entry.unit} repRange={key === 'buildPool' ? entry.repRange : undefined} currentProgression={key === 'buildPool' ? entry.currentProgression : undefined} onAmount={(value) => updateAmount(key, index, value)} onUnit={(value) => updateUnit(key, index, value)} onRepRange={key === 'buildPool' ? (value) => updateRepRange(index, value) : undefined} onCurrentProgression={key === 'buildPool' ? (value) => updateProgression(index, value) : undefined} onRemove={() => remove(key, index)} removeDisabled={pool(key).length <= 1} editable={editing} />)}</ul>
-        {editing ? <>
+        <ul className="space-y-0">{pool(key).map((entry, index) => <ExerciseEditRow key={entry.id} name={entry.name} amount={entry.amount} unit={entry.unit} repRange={key === 'buildPool' ? entry.repRange : undefined} currentProgression={key === 'buildPool' ? entry.currentProgression : undefined} onAmount={(value) => updateAmount(key, index, value)} onUnit={(value) => updateUnit(key, index, value)} onRepRange={key === 'buildPool' ? (value) => updateRepRange(index, value) : undefined} onCurrentProgression={key === 'buildPool' ? (value) => updateProgression(index, value) : undefined} onRemove={key === 'buildPool' ? undefined : () => remove(key, index)} removeDisabled={pool(key).length <= 1} editable={editing} />)}</ul>
+        {editing && key !== 'buildPool' ? <>
           <button type="button" className="plugin-btn" onClick={() => setAddingTo(addingTo === key ? null : key)}>{addingTo === key ? 'Hide form' : '+ Add exercise'}</button>
           {addingTo === key ? <NewExerciseForm name={name} amount={amount} unit={unit} onName={setName} onAmount={setAmount} onUnit={setUnit} onSubmit={() => add(key)} onCancel={() => setAddingTo(null)} /> : null}
         </> : null}

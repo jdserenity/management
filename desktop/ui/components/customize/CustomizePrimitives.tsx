@@ -116,12 +116,12 @@ export function ExerciseEditRow({
         <span className="text-sm font-medium min-w-0 flex-1">{name}</span>
         {editable && repRange && onRepRange ? <div className="flex items-center gap-1 text-xs plugin-muted shrink-0">
           <span>Target</span>
-          <input type="number" min={0} className="plugin-input w-14 font-semibold tabular-nums" value={repRange.min} onChange={(e) => onRepRange({ min: Math.max(0, Math.round(Number(e.target.value))), max: Math.max(repRange.max, Math.round(Number(e.target.value))) })} aria-label={`${name} minimum reps`} />
+          <input type="number" min={0} className="plugin-input w-14 font-semibold tabular-nums" value={repRange.min} onChange={(e) => { const min = Math.max(0, Math.round(Number(e.target.value))); onRepRange({ min, max: Math.max(repRange.max, min + 1) }); }} aria-label={`${name} minimum reps`} />
           <span>–</span>
-          <input type="number" min={repRange.min} className="plugin-input w-14 font-semibold tabular-nums" value={repRange.max} onChange={(e) => onRepRange({ min: repRange.min, max: Math.max(repRange.min, Math.round(Number(e.target.value))) })} aria-label={`${name} maximum reps`} />
+          <input type="number" min={repRange.min + 1} className="plugin-input w-14 font-semibold tabular-nums" value={repRange.max} onChange={(e) => onRepRange({ min: repRange.min, max: Math.max(repRange.min + 1, Math.round(Number(e.target.value))) })} aria-label={`${name} maximum reps`} />
           <span>reps</span>
         </div> : null}
-        {editable && onCurrentProgression ? <input className="plugin-input w-28 text-xs" value={currentProgression ?? ''} onChange={(e) => onCurrentProgression(e.target.value)} placeholder="Current progression" aria-label={`${name} current progression`} /> : null}
+        {editable && onCurrentProgression ? <label className="flex items-center gap-1 text-xs plugin-muted shrink-0"><span>Progression</span><input className="plugin-input w-28 text-xs" value={currentProgression ?? ''} onChange={(e) => onCurrentProgression(e.target.value)} placeholder="e.g. incline" aria-label={`${name} current progression`} /></label> : null}
         {editable ? <div className="flex items-center gap-1.5 shrink-0">
           {repRange && onRepRange ? <span className="plugin-muted text-xs">reps</span> : <AmountUnitFields amount={amount} unit={unit} onAmount={onAmount} onUnit={onUnit} showPreview={preview} />}
           {onRemove ? (

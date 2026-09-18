@@ -25,7 +25,7 @@ export default function CustomizeMovementSnacksPanel() {
     const next = { ...movementSnackPrefs.regimen, [day]: movementSnackPrefs.regimen[day].map((task, i) => i === index ? { ...task, exercise: { ...task.exercise, unit: value } } : task) };
     updateRegimen(next);
   }, [movementSnackPrefs.regimen, updateRegimen]);
-  return <CustomizePanel title="Movement regimen" description="Edit the saved weekly order, exercise, and target amount here. Daily Move overrides come from the pool below; Build tasks stay fixed during the day so their progress remains comparable.">
+  return <CustomizePanel title="Movement regimen" description="Edit the saved weekly order and Move targets here. Build tasks use the fixed Build pool below: each has three sets, a rep range, and a current progression.">
     <div className="movement-regimen-customize-list">
       {MOVEMENT_WEEKDAYS.map((day) => <div className="movement-regimen-customize-day" key={day}>
         <h3 className="font-semibold">{day}</h3>
