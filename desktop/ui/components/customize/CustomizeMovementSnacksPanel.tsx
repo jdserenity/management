@@ -1,10 +1,9 @@
 import { useCallback } from 'react';
 import { useSession } from '@/context/SessionContext';
-import { MOVEMENT_WEEKDAYS, type MovementSnackRegimen, type MovementWeekday } from '@/lib/movementSnack/movementSnack';
+import { MOVEMENT_WEEKDAYS, updateBuildExerciseSettings, type MovementSnackRegimen, type MovementWeekday } from '@/lib/movementSnack/movementSnack';
 import type { ExerciseUnit } from '@/lib/workoutPlanner';
 import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 
-const unitLabel = (unit: ExerciseUnit): string => unit === 'seconds' ? 'sec' : unit === 'minutes' ? 'min' : 'reps';
 const taskPoolKey = (kind: 'build' | 'move'): 'buildPool' | 'movePool' => kind === 'build' ? 'buildPool' : 'movePool';
 
 export default function CustomizeMovementSnacksPanel() {
@@ -25,7 +24,13 @@ export default function CustomizeMovementSnacksPanel() {
     const next = { ...movementSnackPrefs.regimen, [day]: movementSnackPrefs.regimen[day].map((task, i) => i === index ? { ...task, exercise: { ...task.exercise, unit: value } } : task) };
     updateRegimen(next);
   }, [movementSnackPrefs.regimen, updateRegimen]);
-  return <CustomizePanel title="Movement regimen" description="Edit the saved weekly order and Move targets here. Build tasks use the fixed Build pool below: each has three sets, a rep range, and a current progression.">
+  const updateBuildTarget = useCallback((exerciseId: string, min: number, max: number) => {
+    updateMovementSnackPrefs(updateBuildExerciseSettings(movementSnackPrefs, exerciseId, { repRange: { min, max } }));
+  }, [movementSnackPrefs, updateMovementSnackPrefs]);
+  const updateBuildProgression = useCallback((exerciseId: string, currentProgression: string) => {
+    updateMovementSnackPrefs(updateBuildExerciseSettings(movementSnackPrefs, exerciseId, { currentProgression }));
+  }, [movementSnackPrefs, updateMovementSnackPrefs]);
+  return <CustomizePanel title="Movement regimen" description="Configure every scheduled target here. Build ranges and progressions apply everywhere the same Build exercise appears in the week.">
     <div className="movement-regimen-customize-list">
       {MOVEMENT_WEEKDAYS.map((day) => <div className="movement-regimen-customize-day" key={day}>
         <h3 className="font-semibold">{day}</h3>
@@ -37,12 +42,16 @@ export default function CustomizeMovementSnacksPanel() {
             <select className="plugin-select" value={task.exercise.id} onChange={(event) => updateSlot(day, index, event.target.value)} aria-label={`${day} ${task.label} exercise`}>
               {options.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
             </select>
-            {task.kind === 'build' && task.exercise.repRange ? <span className="plugin-muted text-xs">{task.exercise.repRange.min}–{task.exercise.repRange.max} reps{task.exercise.currentProgression ? ` · ${task.exercise.currentProgression}` : ''}</span> : <>
+            {task.kind === 'build' && task.exercise.repRange ? <div className="movement-build-target-fields">
+              <label>Target <input className="plugin-input w-16 font-semibold tabular-nums" type="number" min={0} value={task.exercise.repRange.min} onChange={(event) => { const min = Math.max(0, Math.round(Number(event.target.value))); updateBuildTarget(task.exercise.id, min, Math.max(task.exercise.repRange!.max, min + 1)); }} aria-label={`${task.exercise.name} minimum reps`} /></label>
+              <span>–</span>
+              <label><input className="plugin-input w-16 font-semibold tabular-nums" type="number" min={task.exercise.repRange.min + 1} value={task.exercise.repRange.max} onChange={(event) => updateBuildTarget(task.exercise.id, task.exercise.repRange!.min, Math.max(task.exercise.repRange!.min + 1, Math.round(Number(event.target.value))))} aria-label={`${task.exercise.name} maximum reps`} /> reps</label>
+              <label>Progression <input className="plugin-input w-36" value={task.exercise.currentProgression ?? ''} onChange={(event) => updateBuildProgression(task.exercise.id, event.target.value)} placeholder="e.g. incline" aria-label={`${task.exercise.name} current progression`} /></label>
+            </div> : <>
               <input className="plugin-input w-16 font-semibold tabular-nums" type="number" min={0} value={task.exercise.amount} onChange={(event) => updateAmount(day, index, Number(event.target.value))} aria-label={`${day} ${task.label} target amount`} />
               <select className="plugin-select text-xs" value={task.exercise.unit} onChange={(event) => updateUnit(day, index, event.target.value as ExerciseUnit)} aria-label={`${day} ${task.label} unit`}>
                 <option value="reps">reps</option><option value="seconds">sec</option><option value="minutes">min</option>
               </select>
-              <span className="plugin-muted text-xs">{task.exercise.amount} {unitLabel(task.exercise.unit)}</span>
             </>}
           </div>;
         })}
