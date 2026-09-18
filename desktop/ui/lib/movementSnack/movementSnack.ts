@@ -109,6 +109,19 @@ export interface MovementSnackPrefs {
   movePool: ExerciseDefinition[];
 }
 
+export const updateBuildExerciseSettings = (
+  prefs: MovementSnackPrefs,
+  exerciseId: string,
+  patch: Pick<ExerciseDefinition, 'repRange' | 'currentProgression'>
+): MovementSnackPrefs => normalizeMovementSnackPrefs({
+  ...prefs,
+  buildPool: prefs.buildPool.map((exercise) => exercise.id === exerciseId ? {
+    ...exercise,
+    ...patch,
+    amount: patch.repRange?.min ?? exercise.amount
+  } : exercise)
+});
+
 export const defaultMovementSnackHardExercises = (): ExerciseDefinition[] => [
   { id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' },
   { id: 'squats', name: 'Air squats', amount: 20, unit: 'reps' },

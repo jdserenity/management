@@ -14,6 +14,7 @@ import {
   MOVEMENT_SNACK_EASY_WORKOUT_ID,
   normalizeMovementSnackPrefs,
   movementSnackPlanForDate,
+  updateBuildExerciseSettings,
 } from './movementSnack';
 
 describe('defaultMovementSnackPrefs', () => {
@@ -111,6 +112,13 @@ describe('normalizeMovementSnackPrefs', () => {
       buildPool: [{ id: 'pushups', name: 'Push-ups', amount: 12, unit: 'reps', repRange: { min: 12, max: 24 }, currentProgression: 'Lower incline' }]
     });
     expect(prefs.buildPool.find((exercise) => exercise.id === 'pushups')).toMatchObject({ repRange: { min: 12, max: 24 }, currentProgression: 'Lower incline' });
+  });
+
+  it('updates every scheduled instance when a Build target changes', () => {
+    const prefs = updateBuildExerciseSettings(defaultMovementSnackPrefs(), 'pushups', { repRange: { min: 12, max: 24 }, currentProgression: 'Lower incline' });
+    const pushTasks = Object.values(prefs.regimen).flat().filter((task) => task.kind === 'build' && task.exercise.id === 'pushups');
+    expect(pushTasks).toHaveLength(3);
+    expect(pushTasks.every((task) => task.exercise.repRange?.min === 12 && task.exercise.repRange?.max === 24 && task.exercise.currentProgression === 'Lower incline')).toBe(true);
   });
 
   it('accepts valid custom exercises', () => {
