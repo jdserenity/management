@@ -98,11 +98,19 @@ describe('normalizeMovementSnackPrefs', () => {
     expect(prefs.regimen.Tue.find((task) => task.slotId === 'build-legs')?.exercise.id).toBe('single-leg-sit-to-stand');
   });
 
-  it('adds a rep range and progression to legacy Build exercises', () => {
+  it('replaces legacy Build exercises with the fixed four-exercise pool', () => {
     const prefs = normalizeMovementSnackPrefs({
-      buildPool: [{ id: 'custom-build', name: 'Custom build', amount: 7, unit: 'reps' }]
+      buildPool: [{ id: 'glute-bridges', name: 'Glute bridges', amount: 15, unit: 'reps' }]
     });
-    expect(prefs.buildPool[0]).toMatchObject({ amount: 7, repRange: { min: 7, max: 7 }, currentProgression: '' });
+    expect(prefs.buildPool.map((exercise) => exercise.id)).toEqual(['pushups', 'reverse-crunches', 'pullups', 'single-leg-sit-to-stand']);
+    expect(prefs.buildPool.every((exercise) => (exercise.repRange?.max ?? 0) > (exercise.repRange?.min ?? 0))).toBe(true);
+  });
+
+  it('keeps edited ranges and progressions for the four Build exercises', () => {
+    const prefs = normalizeMovementSnackPrefs({
+      buildPool: [{ id: 'pushups', name: 'Push-ups', amount: 12, unit: 'reps', repRange: { min: 12, max: 24 }, currentProgression: 'Lower incline' }]
+    });
+    expect(prefs.buildPool.find((exercise) => exercise.id === 'pushups')).toMatchObject({ repRange: { min: 12, max: 24 }, currentProgression: 'Lower incline' });
   });
 
   it('accepts valid custom exercises', () => {

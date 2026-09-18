@@ -54,7 +54,7 @@ const normalizeRepRange = (value: unknown, unit: ExerciseDefinition['unit']): Ex
   if (unit !== 'reps' || !value || typeof value !== 'object') return undefined;
   const raw = value as Partial<ExerciseRepRange>;
   const min = Number(raw.min); const max = Number(raw.max);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < min) return undefined;
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max <= min) return undefined;
   return { min: Math.round(min), max: Math.round(max) };
 };
 
@@ -164,26 +164,22 @@ export const normalizeMovementSnackPrefs = (
     });
   };
 
-  const normalizeBuildExercise = (exercise: ExerciseDefinition): ExerciseDefinition | null => {
-    if (exercise.unit !== 'reps') return null;
-    return {
-      ...exercise,
-      repRange: exercise.repRange ?? { min: exercise.amount, max: exercise.amount },
-      currentProgression: exercise.currentProgression ?? ''
-    };
-  };
-
   const hardExercises = parseExercises(raw.hardExercises);
   const easyExercises = parseExercises(raw.easyExercises);
   const quickParsed = raw.quickLogExercises === undefined ? null : parseExercises(raw.quickLogExercises);
   const moveParsed = raw.movePool === undefined ? quickParsed : parseExercises(raw.movePool);
   const movePool = moveParsed === null || moveParsed.length === 0 ? base.movePool : moveParsed;
   const buildParsed = raw.buildPool === undefined ? null : parseExercises(raw.buildPool);
-  const normalizedBuildPool = buildParsed?.flatMap((exercise) => {
-    const normalized = normalizeBuildExercise(exercise);
-    return normalized ? [normalized] : [];
+  const buildById = new Map(buildParsed?.filter((exercise) => exercise.unit === 'reps').map((exercise) => [exercise.id, exercise]) ?? []);
+  const buildPool = base.buildPool.map((defaultExercise) => {
+    const saved = buildById.get(defaultExercise.id);
+    if (!saved) return defaultExercise;
+    return {
+      ...defaultExercise,
+      repRange: saved.repRange ?? defaultExercise.repRange,
+      currentProgression: saved.currentProgression || defaultExercise.currentProgression
+    };
   });
-  const buildPool = normalizedBuildPool === null || normalizedBuildPool === undefined || normalizedBuildPool.length === 0 ? base.buildPool : normalizedBuildPool;
   const mobilityParsed = raw.mobilityPool === undefined ? null : parseExercises(raw.mobilityPool);
   const mobilityPool = mobilityParsed === null || mobilityParsed.length === 0 ? base.mobilityPool : mobilityParsed;
   const quickLogExercises = movePool;
