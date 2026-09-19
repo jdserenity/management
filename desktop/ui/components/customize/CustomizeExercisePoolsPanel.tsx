@@ -10,7 +10,7 @@ type PoolKey = 'mobilityPool' | 'buildPool' | 'movePool';
 const POOLS: readonly { key: PoolKey; title: string; description: string }[] = [
   { key: 'mobilityPool', title: 'Mobility', description: 'Exercises available to select in the movement regimen.' },
   { key: 'buildPool', title: 'Build', description: 'Fixed exercises used by Build tasks. Configure their targets in Movement regimen.' },
-  { key: 'movePool', title: 'Move', description: 'Exercises available to select in the movement regimen.' }
+  { key: 'movePool', title: 'Move', description: 'Exercises randomly selected for Move blocks.' }
 ];
 
 export default function CustomizeExercisePoolsPanel() {
