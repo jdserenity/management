@@ -197,6 +197,15 @@ describe('movement snack regimen', () => {
     expect(tasks.map((task) => task.slotId)).toEqual(['move-1', 'move-2', 'move-3', 'move-4']);
   });
 
+  it('randomizes Move blocks from the pool while keeping a day stable', () => {
+    const pool = [{ id: 'a', name: 'A', amount: 1, unit: 'reps' as const }, { id: 'b', name: 'B', amount: 2, unit: 'reps' as const }, { id: 'c', name: 'C', amount: 3, unit: 'reps' as const }];
+    const date = new Date(2026, 8, 13);
+    const first = movementSnackPlanForDate(date, pool).filter((task) => task.kind === 'move').map((task) => task.exercise.id);
+    const second = movementSnackPlanForDate(date, pool).filter((task) => task.kind === 'move').map((task) => task.exercise.id);
+    expect(second).toEqual(first);
+    expect(first.slice(0, pool.length).sort()).toEqual(['a', 'b', 'c']);
+  });
+
   it('keeps a saved regimen exercise and amount', () => {
     const defaults = defaultMovementSnackPrefs();
     const regimen = { ...defaults.regimen, Mon: defaults.regimen.Mon.map((task) => task.slotId === 'build-push' ? { ...task, exercise: { ...task.exercise, amount: 17 } } : task) };

@@ -89,9 +89,28 @@ export const defaultMovementSnackRegimen = (movePool: ExerciseDefinition[] = clo
   return output;
 };
 
+const localDateKey = (date: Date): string => `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+const hashText = (value: string): number => Array.from(value).reduce((hash, char) => ((hash * 31) + char.charCodeAt(0)) >>> 0, 0);
+
+const shuffledMovePool = (date: Date, movePool: ExerciseDefinition[]): ExerciseDefinition[] => {
+  const output = [...movePool];
+  let seed = hashText(localDateKey(date));
+  for (let i = output.length - 1; i > 0; i--) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const j = seed % (i + 1);
+    [output[i], output[j]] = [output[j], output[i]];
+  }
+  return output;
+};
+
 export const movementSnackPlanForDate = (date: Date, movePool: ExerciseDefinition[], regimen: MovementSnackRegimen = defaultMovementSnackRegimen(movePool)): MovementSnackTask[] => {
   const day = DAY_NAMES[date.getDay()];
-  return regimen[day].map((task) => ({ ...task, exercise: { ...task.exercise } }));
+  const shuffledMoves = shuffledMovePool(date, movePool);
+  return regimen[day].map((task) => {
+    if (task.kind !== 'move' || shuffledMoves.length === 0) return { ...task, exercise: { ...task.exercise } };
+    const slotIndex = Number(task.slotId.replace('move-', '')) - 1;
+    return { ...task, exercise: { ...shuffledMoves[slotIndex % shuffledMoves.length] } };
+  });
 };
 
 export const movementSnackPlanForTimestamp = (timestamp: number = Date.now(), rolloverHour = DEFAULT_DAY_ROLLOVER_HOUR, movePool: ExerciseDefinition[] = [], regimen?: MovementSnackRegimen): MovementSnackTask[] =>
