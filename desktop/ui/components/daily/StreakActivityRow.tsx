@@ -5,7 +5,6 @@ import { parseScheduledDays } from '@/lib/streak/activityCatalog';
 import { getISOWeekStart, getWeekDays, parseDate } from '@/lib/streak/dates';
 import { getLogState } from '@/lib/streak/logs';
 import { currentStreakFireEmojiClass, streakDisplayTier } from '@/lib/streak/display';
-import { getOverlapBadgeParts } from '@/lib/streak/overlap';
 import { isElementTruncated } from '@/lib/streak/display';
 import type { StreakActivity, StreakActivityStats, StreakLogState, StreakState } from '@/lib/streak/types';
 
@@ -75,7 +74,6 @@ const ActivityName = ({
   const nameRef = useRef<HTMLDivElement>(null);
   const [nameWrap, setNameWrap] = useState(false);
   const hasDescription = !!activity.description;
-  const badgeParts = getOverlapBadgeParts(activity);
 
   const handleClick = () => {
     if (hasDescription) {
@@ -101,21 +99,12 @@ const ActivityName = ({
       title={hasDescription ? 'Click to show description' : 'Click to expand full title'}
     >
       {activity.name || activity.id}
-      {badgeParts.length ? (
+      {activity.necessary ? (
         <span className="streak-overlap-badge">
-          {badgeParts.map((part, i) => (
-            <span key={`${part.kind}-${part.text}-${i}`} className="streak-overlap-part">
-              {i > 0 ? <span className="streak-overlap-sep"> · </span> : null}
-              {part.kind === 'necessary' ? (
-                <span className="streak-necessary-label" title="Necessary — missing this fails the day">
-                  <span className="streak-necessary-dot" aria-hidden />
-                  necessary
-                </span>
-              ) : (
-                part.text
-              )}
-            </span>
-          ))}
+          <span className="streak-necessary-label" title="Necessary — missing this fails the day">
+            <span className="streak-necessary-dot" aria-hidden />
+            necessary
+          </span>
         </span>
       ) : null}
     </div>
@@ -129,6 +118,7 @@ export default function StreakActivityRow({ activity, state, onLog, onEditDescri
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState(activity.description || '');
   const today = state.currentDay;
+  const isAutomatic = !!activity.automaticKind;
 
   if (activity.frequency === 'weekly') {
     const weeklyTarget = activity.weeklyTarget || 1;
@@ -207,9 +197,10 @@ export default function StreakActivityRow({ activity, state, onLog, onEditDescri
         <div className="streak-buttons">
           <button
             type="button"
-            className={`streak-btn streak-btn-success streak-btn-primary${necessary ? ' streak-btn-necessary' : ''}${currentState === 'success' ? ' streak-btn-active' : ''}`}
-            title="Mark as success"
-            onClick={() => onLog(activity.id, currentState === 'success' ? null : 'success')}
+            className={`streak-btn streak-btn-success streak-btn-primary${necessary ? ' streak-btn-necessary' : ''}${currentState === 'success' ? ' streak-btn-active' : ''}${isAutomatic ? ' streak-btn-automatic' : ''}`}
+            title={isAutomatic ? 'Completed automatically when the tracker reaches its goal' : 'Mark as success'}
+            disabled={isAutomatic}
+            onClick={() => !isAutomatic && onLog(activity.id, currentState === 'success' ? null : 'success')}
           >
             ✓
           </button>

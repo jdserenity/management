@@ -24,7 +24,7 @@ export const buildActivityCatalog = (config: StreakConfig, data: StreakData): St
       _logOnly: !!(prev._logOnly || opts?.logOnly) && !prev._fromConfig && !opts?.fromConfig
     });
   };
-  for (const a of config?.activities || []) add(a, { fromConfig: true });
+  for (const a of config?.activities || []) if (a.enabled !== false) add(a, { fromConfig: true });
   for (const a of config?.archivedActivities || []) add(a, { fromConfig: true });
   for (const id of Object.keys(data?.activityStartDates || {})) {
     if (!byId.has(id)) add({ id }, { logOnly: true });

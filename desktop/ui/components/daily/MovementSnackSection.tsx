@@ -2,14 +2,13 @@ import { useMemo, useState } from 'react';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
 import { movementSnackDayKey, movementSnackLogsToday, movementSnackPlanForTimestamp, type MovementSnackTask } from '@/lib/movementSnack/movementSnack';
-import { completeTasksLinkedToMovementBurst } from '@/lib/streak/crossLinks';
 import { TrackerSummary } from '@/components/daily/TrackerChain';
 import { formatExerciseAmount, formatExerciseRunAggLine, formatExerciseTarget, listTodayMovementTotals, type ExerciseDefinition } from '@/lib/workoutPlanner';
 import './movement.css';
 
-type Props = { onLinkedTaskComplete?: () => void };
+type Props = { onAutomaticTaskChange?: () => void };
 
-export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
+export default function MovementSnackSection({ onAutomaticTaskChange }: Props) {
   const { movementSnackPrefs, workoutLogs, dayRolloverHour, todayExerciseTotals, todayStretchTotals, logMovementSnackSet, removeWorkoutLog, sessionStorageReady } = useSession();
   const [overrides, setOverrides] = useState<Record<string, ExerciseDefinition>>({});
   const [actuals, setActuals] = useState<Record<string, string>>({});
@@ -24,8 +23,7 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
   if (!sessionStorageReady) return <p className="movement-tracker-empty">Loading movement…</p>;
 
   const afterMovementLogged = () => {
-    void completeTasksLinkedToMovementBurst().catch((error) => console.error('Failed to complete linked movement task:', error));
-    onLinkedTaskComplete?.();
+    onAutomaticTaskChange?.();
   };
   const logMove = (task: MovementSnackTask, exercise: ExerciseDefinition) => {
     logMovementSnackSet(task, day, exercise, 1);
@@ -33,7 +31,7 @@ export default function MovementSnackSection({ onLinkedTaskComplete }: Props) {
   };
   const undoMove = (task: MovementSnackTask) => {
     const log = completedSets(task)[0];
-    if (log) removeWorkoutLog(log.id);
+    if (log) { removeWorkoutLog(log.id); onAutomaticTaskChange?.(); }
   };
   const saveBuildSet = (task: MovementSnackTask, setNumber: number, value: string) => {
     const amount = Number(value);

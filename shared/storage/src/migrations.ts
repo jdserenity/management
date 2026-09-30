@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v15). */
+/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v16). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -77,6 +77,11 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 15,
     description: 'sync_tombstones_drop_nul_corrupted_keys',
     sql: 'DROP TABLE IF EXISTS sync_tombstones; CREATE TABLE IF NOT EXISTS sync_tombstones (entity TEXT NOT NULL, row_key TEXT NOT NULL, deleted_at TEXT NOT NULL, PRIMARY KEY (entity, row_key));'
+  },
+  {
+    version: 16,
+    description: 'streak_automatic_task_columns',
+    sql: 'ALTER TABLE streak_activities ADD COLUMN automatic_kind TEXT; ALTER TABLE streak_activities ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;'
   }
 ];
 

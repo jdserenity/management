@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreakState } from '@/lib/streak/types';
-import { archiveStreakActivity, reorderStreakActivities, saveStreakLog } from '@/lib/streakDb';
+import { archiveStreakActivity, reconcileAutomaticStreakActivities, reorderStreakActivities, saveStreakLog, setAutomaticStreakTaskEnabled } from '@/lib/streakDb';
 
 const { executeCalls, activityRows, logRows, metaRows } = vi.hoisted(() => ({
   executeCalls: [] as string[],
@@ -39,7 +39,9 @@ vi.mock('@/lib/db', () => ({
           linked_staple_id: params[10],
           linked_water: params[11],
           linked_movement_burst: params[12],
-          updated_at: params[16]
+          automatic_kind: params[16],
+          enabled: params[17],
+          updated_at: params[18]
         });
       }
       if (sql.includes('INSERT INTO streak_log_cells')) {
@@ -107,6 +109,8 @@ describe('streakDb row-level saves', () => {
       extra_calories: null,
       extra_protein: null,
       extra_water_ml: null,
+      automatic_kind: null,
+      enabled: 1,
       updated_at: '2026-07-01T00:00:00.000Z'
     });
   });
@@ -144,6 +148,8 @@ describe('streakDb row-level saves', () => {
       extra_calories: null,
       extra_protein: null,
       extra_water_ml: null,
+      automatic_kind: null,
+      enabled: 1,
       updated_at: '2026-07-01T00:00:00.000Z'
     });
     const state = baseState();
@@ -155,5 +161,22 @@ describe('streakDb row-level saves', () => {
     expect(next.config.activities.map((a) => a.id)).toEqual(['lift', 'run']);
     expect(activityRows.get('lift')?.sort_order).toBe(0);
     expect(activityRows.get('run')?.sort_order).toBe(1);
+  });
+
+  it('reconciles an enabled automatic task from its tracker threshold', async () => {
+    const state = baseState();
+    state.config.activities = [{ id: 'automatic-water', name: 'Water goal', frequency: 'daily', automaticKind: 'water' }];
+    state.data.activityStartDates = { 'automatic-water': '2026-07-07' };
+    const complete = await reconcileAutomaticStreakActivities(state, { water: { totalMl: 2000, targetMl: 2000 } });
+    expect(complete.data.logs['2026-07-07']?.['automatic-water']?.state).toBe('success');
+    const incomplete = await reconcileAutomaticStreakActivities(complete, { water: { totalMl: 1999, targetMl: 2000 } });
+    expect(incomplete.data.logs['2026-07-07']?.['automatic-water']?.state).toBe('none');
+  });
+
+  it('creates an enabled automatic task in the sortable activity list', async () => {
+    const next = await setAutomaticStreakTaskEnabled(baseState(), 'water', true);
+    expect(next.config.activities.map((activity) => activity.id)).toContain('automatic-water');
+    expect(activityRows.get('automatic-water')?.automatic_kind).toBe('water');
+    expect(activityRows.get('automatic-water')?.enabled).toBe(1);
   });
 });

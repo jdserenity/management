@@ -119,6 +119,8 @@ const SCHEMA_SQL = `
     extra_calories INTEGER,
     extra_protein REAL,
     extra_water_ml INTEGER,
+    automatic_kind TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (id, user_id)
   );
@@ -182,6 +184,8 @@ const migrateServerSchema = (db: Database.Database): void => {
     'ALTER TABLE streak_activities ADD COLUMN linked_staple_id TEXT',
     'ALTER TABLE streak_activities ADD COLUMN linked_water INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE streak_activities ADD COLUMN linked_movement_burst INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE streak_activities ADD COLUMN automatic_kind TEXT',
+    'ALTER TABLE streak_activities ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1',
     'ALTER TABLE streak_activity_meta ADD COLUMN updated_at TEXT',
     'ALTER TABLE nutrition_staples ADD COLUMN updated_at TEXT',
     'ALTER TABLE nutrition_regulars ADD COLUMN updated_at TEXT',

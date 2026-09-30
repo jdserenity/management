@@ -5,7 +5,8 @@ import { clearActivityLogs, incrementResetCount } from '@/lib/streak/domain';
 import { dayEndTimeFromRolloverHour, getCurrentDay } from '@/lib/streak/dates';
 import { makeDeletionCell, makeLogCell, normalizeLogs } from '@/lib/streak/logs';
 import { recalculateAllStats } from '@/lib/streak/stats';
-import type { StreakActivity, StreakConfig, StreakData, StreakLogState, StreakState } from '@/lib/streak/types';
+import { automaticTaskChecks, automaticTaskDefinition, type AutomaticTaskProgress } from '@/lib/streak/automaticTasks';
+import type { AutomaticStreakTaskKind, StreakActivity, StreakConfig, StreakData, StreakLogState, StreakState } from '@/lib/streak/types';
 
 type ActivityRow = {
   id: string;
@@ -24,6 +25,8 @@ type ActivityRow = {
   extra_calories: number | null;
   extra_protein: number | null;
   extra_water_ml: number | null;
+  automatic_kind: string | null;
+  enabled: number;
   updated_at: string;
 };
 
@@ -45,8 +48,12 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     canFail: sqlFlag(row.can_fail)
   };
   if (sqlFlag(row.necessary)) a.necessary = true;
-  if (sqlFlag(row.linked_water)) a.linkedWater = true;
-  if (sqlFlag(row.linked_movement_burst)) a.linkedMovementBurst = true;
+  if (row.automatic_kind === 'water' || row.automatic_kind === 'food' || row.automatic_kind === 'workout') a.automaticKind = row.automatic_kind;
+  else if (sqlFlag(row.linked_water)) a.automaticKind = 'water';
+  else if (sqlFlag(row.linked_movement_burst)) a.automaticKind = 'workout';
+  else if (row.linked_staple_id) a.automaticKind = 'food';
+  if (a.automaticKind) a.frequency = 'daily';
+  if (!sqlFlag(row.enabled)) a.enabled = false;
   if (row.description) a.description = row.description;
   if (row.weekly_target != null) a.weeklyTarget = row.weekly_target;
   if (row.scheduled_days_json) {
@@ -56,11 +63,6 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     } catch { /* ignore */ }
   }
   if (row.archived_at) a.archivedAt = row.archived_at;
-  const linkedStaple = typeof row.linked_staple_id === 'string' ? row.linked_staple_id.trim() : '';
-  if (linkedStaple) a.linkedStapleId = linkedStaple;
-  if (row.extra_calories != null && row.extra_calories > 0) a.extraCalories = row.extra_calories;
-  if (row.extra_protein != null && row.extra_protein > 0) a.extraProtein = row.extra_protein;
-  if (row.extra_water_ml != null && row.extra_water_ml > 0) a.extraWaterMl = row.extra_water_ml;
   return a;
 };
 
@@ -77,18 +79,15 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
     a.necessary ? 1 : 0,
     archived ? (a.archivedAt ?? null) : null,
     sortOrder,
-    a.linkedStapleId ?? null,
-    a.linkedWater ? 1 : 0,
-    a.linkedMovementBurst ? 1 : 0,
-    a.extraCalories ?? null,
-    a.extraProtein ?? null,
-    a.extraWaterMl ?? null,
+    null, 0, 0, null, null, null,
+    a.automaticKind ?? null,
+    a.enabled === false ? 0 : 1,
     updatedAt
   ];
 };
 
-const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, automatic_kind, enabled, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 ON CONFLICT(id) DO UPDATE SET
   name=excluded.name,
   description=excluded.description,
@@ -105,6 +104,8 @@ ON CONFLICT(id) DO UPDATE SET
   extra_calories=excluded.extra_calories,
   extra_protein=excluded.extra_protein,
   extra_water_ml=excluded.extra_water_ml,
+  automatic_kind=excluded.automatic_kind,
+  enabled=excluded.enabled,
   updated_at=excluded.updated_at`;
 
 const upsertActivityRow = async (a: StreakActivity, archived: boolean, sortOrder: number, updatedAt = syncNow()): Promise<void> => {
@@ -164,7 +165,7 @@ const buildState = (config: StreakConfig, data: StreakData, currentDay: string, 
 
 const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakData, 'stats'> }> => {
   const activityRows = await dbSelect<ActivityRow[]>(
-    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, updated_at FROM streak_activities ORDER BY sort_order, name'
+    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, automatic_kind, enabled, updated_at FROM streak_activities ORDER BY sort_order, name'
   );
   const activities: StreakActivity[] = [];
   const archivedActivities: StreakActivity[] = [];
@@ -357,19 +358,9 @@ const mergeActivityFields = (prev: StreakActivity, incoming: StreakActivity): St
   const next: StreakActivity = {
     ...prev,
     ...incoming,
-    // Always take the editor's explicit flag values (including false/cleared).
-    necessary: !!incoming.necessary,
-    linkedWater: !!incoming.linkedWater,
-    linkedMovementBurst: !!incoming.linkedMovementBurst
+    necessary: !!incoming.necessary
   };
-  if (!incoming.extraCalories) delete next.extraCalories;
-  if (!incoming.extraProtein) delete next.extraProtein;
-  if (!incoming.extraWaterMl) delete next.extraWaterMl;
-  if (incoming.linkedStapleId) next.linkedStapleId = incoming.linkedStapleId;
-  else delete next.linkedStapleId;
   if (!next.necessary) delete next.necessary;
-  if (!next.linkedWater) delete next.linkedWater;
-  if (!next.linkedMovementBurst) delete next.linkedMovementBurst;
   return next;
 };
 
@@ -388,9 +379,59 @@ export const upsertStreakActivity = async (state: StreakState, activity: StreakA
     const merged = state.config.activities[idx];
     if (merged) await upsertActivityRow(merged, false, idx);
   }
-  // Re-read from SQLite so network-link flags (necessary / staple / water / burst) are whatever
-  // actually landed in the DB — not only the in-memory draft.
   return loadStreakState();
+};
+
+export const setAutomaticStreakTaskEnabled = async (
+  state: StreakState,
+  kind: AutomaticStreakTaskKind,
+  enabled: boolean
+): Promise<StreakState> => {
+  const existing = state.config.activities.find((activity) => activity.automaticKind === kind);
+  if (!existing && !enabled) return state;
+  if (!existing) {
+    const definition = automaticTaskDefinition(kind);
+    const created: StreakActivity = { id: definition.id, name: definition.name, description: definition.description, frequency: 'daily', automaticKind: kind, enabled: true };
+    state.config.activities = [...state.config.activities, created];
+    state.data.activityStartDates = { ...state.data.activityStartDates, [created.id]: state.currentDay };
+    await upsertActivityRow(created, false, state.config.activities.length - 1);
+    await upsertMetaRow(created.id, state.data);
+    return loadStreakState();
+  }
+  const next = { ...existing, enabled };
+  state.config.activities = state.config.activities.map((activity) => activity.id === existing.id ? next : activity);
+  if (enabled) {
+    state.data.activityStartDates = { ...state.data.activityStartDates, [existing.id]: state.currentDay };
+    await upsertMetaRow(existing.id, state.data);
+  } else {
+    const logs = { ...state.data.logs };
+    if (logs[state.currentDay]?.[existing.id]) {
+      logs[state.currentDay] = { ...logs[state.currentDay], [existing.id]: makeDeletionCell() };
+      state.data.logs = logs;
+      await deleteLogCell(state.currentDay, existing.id);
+    }
+  }
+  const index = state.config.activities.findIndex((activity) => activity.id === existing.id);
+  await upsertActivityRow(next, false, index);
+  return loadStreakState();
+};
+
+/** Applies only logger-derived checks; automatic activities never receive a user-originated log. */
+export const reconcileAutomaticStreakActivities = async (
+  state: StreakState,
+  progress: AutomaticTaskProgress
+): Promise<StreakState> => {
+  const checks = automaticTaskChecks(progress);
+  let next = state;
+  for (const activity of next.config.activities) {
+    if (!activity.automaticKind || activity.enabled === false) continue;
+    const complete = checks[activity.automaticKind];
+    if (complete === undefined) continue;
+    const current = next.data.logs[next.currentDay]?.[activity.id]?.state === 'success';
+    if (current === complete) continue;
+    next = await saveStreakLog(next, activity.id, complete ? 'success' : null);
+  }
+  return next;
 };
 
 /** Reorder active activities; sort_order is persisted so Daily and Customize stay aligned. */

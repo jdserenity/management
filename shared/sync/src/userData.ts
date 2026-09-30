@@ -55,6 +55,7 @@ export interface StreakActivity {
   can_fail: number; necessary: number; archived_at: string | null; sort_order: number;
   linked_staple_id: string | null; linked_water: number; linked_movement_burst: number;
   extra_calories: number | null; extra_protein: number | null; extra_water_ml: number | null;
+  automatic_kind: string | null; enabled: number;
   updated_at: string;
 }
 export interface StreakLogCell { log_date: string; activity_id: string; state: string; updated_at: string; }

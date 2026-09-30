@@ -9,17 +9,9 @@ import TdeeSection from '@/components/daily/TdeeSection';
 import WaterSection from '@/components/daily/WaterSection';
 
 export default function DailyPage() {
-  const [tdeeRefreshKey, setTdeeRefreshKey] = useState(0);
-  const [waterRefreshKey, setWaterRefreshKey] = useState(0);
   const [streakRefreshKey, setStreakRefreshKey] = useState(0);
 
-  const handleCrossLog = (kind: 'tdee' | 'water' | 'movement') => {
-    if (kind === 'tdee') setTdeeRefreshKey((k) => k + 1);
-    if (kind === 'water') setWaterRefreshKey((k) => k + 1);
-    // Movement burst list lives in SessionContext — no key needed; streak already updated.
-  };
-
-  const handleLinkedTaskComplete = () => {
+  const handleAutomaticTaskChange = () => {
     setStreakRefreshKey((k) => k + 1);
   };
 
@@ -27,10 +19,10 @@ export default function DailyPage() {
     <div className="plugin-page">
       <BrandWordmark />
       <DailyStretchSections />
-      <StreakSection refreshKey={streakRefreshKey} onCrossLog={handleCrossLog} />
-      <TdeeSection refreshKey={tdeeRefreshKey} onLinkedTaskComplete={handleLinkedTaskComplete} />
-      <WaterSection refreshKey={waterRefreshKey} onLinkedTaskComplete={handleLinkedTaskComplete} />
-      <MovementSnackSection onLinkedTaskComplete={handleLinkedTaskComplete} />
+      <StreakSection refreshKey={streakRefreshKey} />
+      <TdeeSection onAutomaticTaskChange={handleAutomaticTaskChange} />
+      <WaterSection onAutomaticTaskChange={handleAutomaticTaskChange} />
+      <MovementSnackSection onAutomaticTaskChange={handleAutomaticTaskChange} />
     </div>
   );
 }

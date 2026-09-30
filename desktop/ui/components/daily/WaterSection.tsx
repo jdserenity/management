@@ -5,7 +5,6 @@ import { activeEntries } from '@/lib/water/entries';
 import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
 import type { WaterEntry } from '@/lib/water/types';
 import { addWaterEntry, loadWaterFile, removeWaterEntry } from '@/lib/waterDb';
-import { completeTasksLinkedToWater, uncompleteTasksLinkedToWater } from '@/lib/streak/crossLinks';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import {
   buildTrackerChain,
@@ -20,10 +19,10 @@ const P = 'water' as const;
 
 type Props = {
   refreshKey?: number;
-  onLinkedTaskComplete?: () => void;
+  onAutomaticTaskChange?: () => void;
 };
 
-export default function WaterSection({ refreshKey, onLinkedTaskComplete }: Props) {
+export default function WaterSection({ refreshKey, onAutomaticTaskChange }: Props) {
   const { data: file, loadError, setData: setFile, storageReady } = useAppDataLoad(
     loadWaterFile,
     'Failed to load water data',
@@ -51,11 +50,7 @@ export default function WaterSection({ refreshKey, onLinkedTaskComplete }: Props
   const handleRemove = async (id: string) => {
     const next = await removeWaterEntry(file, id);
     setFile(next);
-    if (activeEntries(next.entries).length === 0) {
-      try { await uncompleteTasksLinkedToWater(); }
-      catch (e) { console.error('Failed to uncomplete tasks linked to water', e); }
-      onLinkedTaskComplete?.();
-    }
+    onAutomaticTaskChange?.();
   };
 
   const handleAdd = async (ml: number, label?: string) => {
@@ -63,9 +58,7 @@ export default function WaterSection({ refreshKey, onLinkedTaskComplete }: Props
     setFile(await addWaterEntry(file, label || formatWaterLabel(ml), ml, 1));
     setCustomMl('');
     setAddMode(false);
-    try { await completeTasksLinkedToWater(); }
-    catch (e) { console.error('Failed to complete tasks linked to water', e); }
-    onLinkedTaskComplete?.();
+    onAutomaticTaskChange?.();
   };
 
   const chips = logged.map((entry: WaterEntry) => {

@@ -22,8 +22,8 @@ const tableColumns = (db: Database.Database, table: string): string[] =>
 describe('SCHEMA_MIGRATIONS', () => {
   it('has contiguous versions through the latest schema', () => {
     const versions = SCHEMA_MIGRATIONS.map((m) => m.version);
-    expect(LATEST_SCHEMA_VERSION).toBe(15);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(LATEST_SCHEMA_VERSION).toBe(16);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
   });
 
   it('includes water tracker and streak cross-log migrations', () => {
@@ -63,6 +63,13 @@ describe('SCHEMA_MIGRATIONS', () => {
     await runSchemaMigrations(wrapSqlite(db));
     expect(SCHEMA_MIGRATIONS.find((m) => m.version === 15)?.description).toBe('sync_tombstones_drop_nul_corrupted_keys');
     expect(tableColumns(db, 'sync_tombstones')).toEqual(expect.arrayContaining(['entity', 'row_key', 'deleted_at']));
+    db.close();
+  });
+
+  it('adds automatic task columns in migration v16', async () => {
+    const db = new Database(':memory:');
+    await runSchemaMigrations(wrapSqlite(db));
+    expect(tableColumns(db, 'streak_activities')).toEqual(expect.arrayContaining(['automatic_kind', 'enabled']));
     db.close();
   });
 });

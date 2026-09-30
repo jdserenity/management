@@ -23,7 +23,6 @@ import {
   loadTdeeFile,
   removeTdeeEntry
 } from '@/lib/tdeeDb';
-import { completeTasksLinkedToStaple, uncompleteTasksLinkedToStaple } from '@/lib/streak/crossLinks';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import {
   buildTrackerChain,
@@ -96,10 +95,10 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
 
 type Props = {
   refreshKey?: number;
-  onLinkedTaskComplete?: () => void;
+  onAutomaticTaskChange?: () => void;
 };
 
-export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props) {
+export default function TdeeSection({ refreshKey, onAutomaticTaskChange }: Props) {
   const { data: file, loadError, setData: setFile, storageReady } = useAppDataLoad(
     loadTdeeFile,
     'Failed to load nutrition data',
@@ -131,50 +130,33 @@ export default function TdeeSection({ refreshKey, onLinkedTaskComplete }: Props)
   const pendingStaples = file.staples.filter((s) => !isStapleLogged(file.entries, s.id));
 
   const handleRemove = async (id: string) => {
-    const entry = activeEntries(file.entries).find((e) => e.id === id);
     setFile(await removeTdeeEntry(file, id));
-    // Lockstep: removing a staple unchecks the linked habit task.
-    if (entry?.kind === 'staple' && entry.refId) {
-      try {
-        await uncompleteTasksLinkedToStaple(entry.refId);
-      } catch (e) {
-        console.error('Failed to uncomplete tasks linked to staple', entry.refId, e);
-      }
-      onLinkedTaskComplete?.();
-    }
-  };
-
-  const afterStapleLogged = async (stapleId: string) => {
-    try {
-      await completeTasksLinkedToStaple(stapleId);
-    } catch (e) {
-      console.error('Failed to complete tasks linked to staple', stapleId, e);
-    }
-    // Always re-read habits after a staple log so linked tasks show as checked.
-    onLinkedTaskComplete?.();
+    onAutomaticTaskChange?.();
   };
 
   const handleStaple = async (staple: TdeeMealDef) => {
     setFile(await addStapleEntry(file, staple));
-    await afterStapleLogged(staple.id);
+    onAutomaticTaskChange?.();
   };
 
   const handleStapleFromEditor = async (staple: TdeeMealDef, calories: number, protein: number, count: number) => {
     // Logs as kind staple + refId so the day's staple chip is replaced (pending chip hides).
     setFile(await addStapleEntry(file, staple, calories, protein, count));
     setAddMode(false);
-    await afterStapleLogged(staple.id);
+    onAutomaticTaskChange?.();
   };
 
   const handleRegular = async (regular: TdeeMealDef, calories: number, protein: number, count: number) => {
     setFile(await addRegularEntry(file, regular, calories, protein, count));
     setAddMode(false);
+    onAutomaticTaskChange?.();
   };
 
   const handleCustom = async (calories: number, protein: number, count: number) => {
     setFile(await addCustomEntry(file, customTitle, calories, protein, count));
     setCustomTitle('');
     setAddMode(false);
+    onAutomaticTaskChange?.();
   };
 
   const loggedChips = logged.map((entry) => {

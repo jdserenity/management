@@ -4,8 +4,9 @@ import { CustomizePanel } from '@/components/customize/CustomizePrimitives';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { resetButtonLabel } from '@/lib/streak/display';
 import { findInsertIndex, moveIdToInsertIndex, type RowBox } from '@/lib/streak/reorder';
+import { AUTOMATIC_STREAK_TASKS } from '@/lib/streak/automaticTasks';
 import type { StreakActivity } from '@/lib/streak/types';
-import { archiveStreakActivity, loadStreakState, reorderStreakActivities, resetStreakActivity, setActivityPaused, upsertStreakActivity } from '@/lib/streakDb';
+import { archiveStreakActivity, loadStreakState, reorderStreakActivities, resetStreakActivity, setActivityPaused, setAutomaticStreakTaskEnabled, upsertStreakActivity } from '@/lib/streakDb';
 import { GripVertical } from 'lucide-react';
 
 type DragState = {
@@ -122,8 +123,17 @@ export default function CustomizeHabitsPanel() {
             </button>
           </span>
         }
-        description="Drag the grip to reorder. This order is what you see on the Daily tab."
+        description="Drag the grip to reorder. Automatic tracker tasks are gray on Daily and complete only when their goal is reached."
       >
+        {AUTOMATIC_STREAK_TASKS.filter((task) => !activities.some((activity) => activity.automaticKind === task.kind)).length ? (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {AUTOMATIC_STREAK_TASKS.filter((task) => !activities.some((activity) => activity.automaticKind === task.kind)).map((task) => (
+              <button key={task.kind} type="button" className="plugin-btn" onClick={() => void setAutomaticStreakTaskEnabled(state, task.kind, true).then(setState)}>
+                Add {task.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
         {activities.length === 0 ? (
           <p className="plugin-empty text-sm">No tasks yet. Add an activity to show it on the Daily tab.</p>
         ) : (
@@ -133,9 +143,8 @@ export default function CustomizeHabitsPanel() {
               const isPaused = !!state.data.pausedActivities[activity.id];
               const linkBits: string[] = [];
               if (activity.necessary) linkBits.push('Necessary');
-              if (activity.linkedStapleId) linkBits.push('→ staple');
-              if (activity.linkedWater) linkBits.push('→ water');
-              if (activity.linkedMovementBurst) linkBits.push('→ burst');
+              if (activity.automaticKind) linkBits.push(`Automatic ${activity.automaticKind}`);
+              if (activity.enabled === false) linkBits.push('Off');
               const isDragging = drag?.id === activity.id;
               const otherIndex = others.findIndex((a) => a.id === activity.id);
               const showLineBefore = drag != null && !isDragging && drag.insertIndex === otherIndex;
@@ -173,13 +182,15 @@ export default function CustomizeHabitsPanel() {
                     </div>
                     <div className="flex flex-wrap gap-2 pl-6">
                       <button type="button" className="plugin-btn" onClick={() => { setEditingActivity(activity); setIsNewActivity(false); setEditorOpen(true); }}>Edit</button>
-                      <button type="button" className="plugin-btn-ghost" onClick={() => void setActivityPaused(state, activity.id, !isPaused).then(setState)}>
+                      {activity.automaticKind ? <button type="button" className="plugin-btn-ghost" onClick={() => void setAutomaticStreakTaskEnabled(state, activity.automaticKind!, activity.enabled === false).then(setState)}>
+                        {activity.enabled === false ? 'Turn on' : 'Turn off'}
+                      </button> : <button type="button" className="plugin-btn-ghost" onClick={() => void setActivityPaused(state, activity.id, !isPaused).then(setState)}>
                         {isPaused ? '▶ Resume' : '⏸ Pause'}
-                      </button>
-                      <button type="button" className="plugin-btn-ghost" onClick={() => void resetStreakActivity(state, activity.id).then(setState)}>
+                      </button>}
+                      {!activity.automaticKind ? <button type="button" className="plugin-btn-ghost" onClick={() => void resetStreakActivity(state, activity.id).then(setState)}>
                         {resetButtonLabel(resetCount)}
-                      </button>
-                      <button type="button" className="plugin-btn-ghost" onClick={() => void archiveStreakActivity(state, activity.id).then(setState)}>🗃 Archive</button>
+                      </button> : null}
+                      {!activity.automaticKind ? <button type="button" className="plugin-btn-ghost" onClick={() => void archiveStreakActivity(state, activity.id).then(setState)}>🗃 Archive</button> : null}
                     </div>
                   </div>
                 </li>
