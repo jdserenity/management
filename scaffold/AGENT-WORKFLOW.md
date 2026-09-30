@@ -22,6 +22,8 @@
 # Git history
 
 - In a Git repository, automatically commit and push completed work as implementation progresses. Do not wait for the maintainer to ask.
+- Treat each independent behavior or file-area change as a commit cycle: finish it, verify it, commit it, and push it before starting the next cycle. The end of a turn is never the trigger for the first commit.
+- A final commit may contain only one remaining logical unit. It must never combine units that were completed earlier in the turn.
 - Follow `scaffold/skills/logical-commits/SKILL.md` for commit boundaries, verification, staging, pushing, and failure handling.
 - Never rewrite an existing commit to undo or correct it. Record the change in a new commit.
 
@@ -36,4 +38,4 @@ How to pick test type (project default):
 5. Integration: behavior that really depends on HTTP + DB, or webhooks / OAuth / Stripe — exercise real boundaries with test keys, stubs, or recorded fixtures as appropriate.
 6. Browser (e2e): only for stable end-to-end flows; avoid writing a dozen e2e tests while screens are still moving daily.
 
-scaffold version: 2.8.0
+scaffold version: 2.8.2
