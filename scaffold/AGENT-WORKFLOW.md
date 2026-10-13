@@ -27,15 +27,27 @@
 - Follow `scaffold/skills/logical-commits/SKILL.md` for commit boundaries, verification, staging, pushing, and failure handling.
 - Never rewrite an existing commit to undo or correct it. Record the change in a new commit.
 
+# Local visual preview
+
+When the work is something the maintainer needs to *see* in a browser (HTML/CSS, a website, UI layout, landing page, frontend styling, or similar visual work):
+
+- Start a local preview server yourself early — do not wait for the maintainer to ask or to run it themselves.
+- First check whether a useful server is already running (existing terminals / processes). Reuse it if it is.
+- Prefer the project's normal start command when one exists (`npm run dev`, `vite`, whatever README documents, etc.).
+- If there is no project start command and the files are static HTML/CSS/JS, start a simple static file server from the directory that should be served (for example `python3 -m http.server 5173`).
+- Run the server in the background and tell the maintainer the URL (usually `http://localhost:<port>`).
+- After visual edits, leave the server up so they can refresh and check the change.
+
 # Definition of done
 
 A change is done only when:
 1. It does what we agreed it should do.
 2. Automated tests cover that behavior (new tests for new behavior; changed tests when behavior changes).
 3. If facts changed for the product or system, scaffold/CODEMAP-LLM.md is updated (minimal deltas; no padding). Update scaffold/CODEMAP-HUMAN.md when the file map, flows, or state locations changed (see that file's "what belongs here" list).
+4. For visual / UI work covered by Local visual preview, a local preview server is running (or already was) and the maintainer has the URL.
 How to pick test type (project default):
-4. Unit: small pieces of logic with no real database or network.
-5. Integration: behavior that really depends on HTTP + DB, or webhooks / OAuth / Stripe — exercise real boundaries with test keys, stubs, or recorded fixtures as appropriate.
-6. Browser (e2e): only for stable end-to-end flows; avoid writing a dozen e2e tests while screens are still moving daily.
+5. Unit: small pieces of logic with no real database or network.
+6. Integration: behavior that really depends on HTTP + DB, or webhooks / OAuth / Stripe — exercise real boundaries with test keys, stubs, or recorded fixtures as appropriate.
+7. Browser (e2e): only for stable end-to-end flows; avoid writing a dozen e2e tests while screens are still moving daily.
 
-scaffold version: 2.8.2
+scaffold version: 2.9.0
