@@ -220,6 +220,21 @@ describe('buildUserDataRowPatch', () => {
     ]);
     expect(patch.appKv?.deletes).toEqual([{ key: 'b' }]);
   });
+
+  it('upsertsOnly never deletes rows the other side has and mints no tombstones for them', () => {
+    // Bootstrap case: the server has rows this stale device lacks. Deleting
+    // them would wipe the other device's data (2026-10-20 incident).
+    const before = {
+      appKv: [{ key: 'a', value: '1', updated_at: 1 }, { key: 'b', value: '2', updated_at: 2 }],
+      streakLogCells: [{ log_date: '2026-10-20', activity_id: 'run', state: 'success', updated_at: '2026-10-20T10:00:00Z' }]
+    };
+    const after = { appKv: [{ key: 'a', value: '9', updated_at: 9 }], streakLogCells: [] };
+    const patch = buildUserDataRowPatch(before, after, ['appKv', 'streakLogCells'], { upsertsOnly: true });
+    expect(patch.appKv?.upserts).toEqual([{ key: 'a', value: '9', updated_at: 9 }]);
+    expect(patch.appKv?.deletes ?? []).toEqual([]);
+    expect(patch.streakLogCells).toBeUndefined();
+    expect(patch.syncTombstones).toBeUndefined();
+  });
 });
 
 // ── extractUserData ───────────────────────────────────────────────────────────

@@ -54,7 +54,10 @@ const bootstrapFromServer = async (
     const snapshot = await fetchUserDataWithSeq(serverUrl, serverToken);
     if (totalUserDataRows(local) > 0) {
       try {
-        await pushUserDataDiff(serverUrl, serverToken, snapshot.data, local);
+        // Upserts only: this device may be stale, so rows the server has that
+        // it lacks are other devices' data — never deletions. The snapshot
+        // adoption below then brings this device up to date.
+        await pushUserDataDiff(serverUrl, serverToken, snapshot.data, local, { upsertsOnly: true });
       } catch (err) {
         // Do not adopt the snapshot over local rows the server never received.
         logSyncError('bootstrap upload failed; keeping local data', err);

@@ -75,7 +75,7 @@ describe('runBidirectionalInitialSync (change-log referee)', () => {
       .mockResolvedValueOnce({ data: serverFinal, seq: 1 });
     const result = await runBidirectionalInitialSync(opts);
     expect(result.pullOk).toBe(true);
-    expect(pushUserDataDiff).toHaveBeenCalledWith('https://mgmt.levier.cc', 'tok', empty(), local);
+    expect(pushUserDataDiff).toHaveBeenCalledWith('https://mgmt.levier.cc', 'tok', empty(), local, { upsertsOnly: true });
     expect(hydrateDb).toHaveBeenCalledWith(db, serverFinal);
     expect(setSyncCursor).toHaveBeenCalledWith(db, 1);
   });

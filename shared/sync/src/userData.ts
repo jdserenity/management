@@ -469,9 +469,10 @@ export const pushUserDataDiff = async (
   baseUrl: string,
   token: string,
   before: UserData,
-  after: UserData
+  after: UserData,
+  opts?: { upsertsOnly?: boolean }
 ): Promise<void> => {
-  const rowPatch = buildUserDataRowPatch(before, after, USER_DATA_TABLES);
+  const rowPatch = buildUserDataRowPatch(before, after, USER_DATA_TABLES, opts);
   if (!hasUserDataRowPatchChanges(rowPatch)) return;
   await pushUserDataPatch(baseUrl, token, rowPatch);
 };
@@ -503,7 +504,8 @@ const diffRows = <T>(
 export const buildUserDataRowPatch = (
   before: UserDataPatch,
   after: UserDataPatch,
-  tables: UserDataTable[]
+  tables: UserDataTable[],
+  opts?: { upsertsOnly?: boolean }
 ): UserDataRowPatch => {
   const rowPatch: UserDataRowPatch = {};
   for (const table of tables) {
@@ -584,6 +586,21 @@ export const buildUserDataRowPatch = (
       if (upserts.length || deletes.length) {
         rowPatch.syncTombstones = { upserts, deletes: deletes as SyncTombstoneDeleteKey[] };
       }
+    }
+  }
+  if (opts?.upsertsOnly) {
+    // Bootstrap must never delete: rows the other side has that this device
+    // lacks are the other device's data, not deletions (2026-10-20 wipe).
+    // Strip deletes before tombstone enrichment so no markers are minted either.
+    for (const table of Object.keys(rowPatch) as UserDataTable[]) {
+      const entry = rowPatch[table] as { upserts?: unknown[]; deletes?: unknown[]; set?: unknown } | undefined;
+      if (!entry) continue;
+      if ('set' in entry) {
+        if (entry.set == null) delete rowPatch[table];
+        continue;
+      }
+      delete entry.deletes;
+      if (!entry.upserts?.length) delete rowPatch[table];
     }
   }
   return enrichPatchWithTombstones(rowPatch);
