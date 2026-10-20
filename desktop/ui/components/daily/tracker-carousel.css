@@ -1,4 +1,6 @@
-.tracker-carousel { position: relative; margin: 4px 0 16px; }
+/* Bottom gap matches the calendar's 20px margin-bottom above the carousel,
+   so calendar → widgets and widgets → streak tasks space out identically. */
+.tracker-carousel { position: relative; margin: 4px 0 20px; }
 
 /* pan-y: vertical touches scroll the page; horizontal drags are ours to handle. */
 .tracker-carousel-viewport { overflow: hidden; touch-action: pan-y; }
