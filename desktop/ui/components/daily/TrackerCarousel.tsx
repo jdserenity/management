@@ -4,16 +4,13 @@ import WaterSection from '@/components/daily/WaterSection';
 import { slideIndexForSwipe } from '@/lib/trackerCarousel';
 import './tracker-carousel.css';
 
-const SLIDES = [
-  { id: 'food', label: 'Food' },
-  { id: 'water', label: 'Water' }
-] as const;
+const SLIDE_COUNT = 2;
 
 type Props = {
   onTrackerLinkedTaskChange?: () => void;
 };
 
-/** Food and Water share one slot on Daily; swipe (or tap the labels/dots) to switch between them. Both slides stay mounted so half-typed entries survive switching. */
+/** Food and Water share one slot on Daily. Touch devices swipe between them; desktop gets minimal side arrows. Both slides stay mounted so half-typed entries survive switching. */
 export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -25,31 +22,21 @@ export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
   const handleTouchEnd = (e: TouchEvent) => {
     if (touchStartX.current == null) return;
     const endX = e.changedTouches[0]?.clientX;
-    if (endX != null) setIndex((i) => slideIndexForSwipe(i, touchStartX.current!, endX, SLIDES.length));
+    if (endX != null) setIndex((i) => slideIndexForSwipe(i, touchStartX.current!, endX, SLIDE_COUNT));
     touchStartX.current = null;
   };
 
   return (
     <div className="tracker-carousel" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <div className="tracker-carousel-tabs" role="tablist" aria-label="Food and water">
-        {SLIDES.map((slide, i) => (
-          <button
-            key={slide.id}
-            type="button"
-            role="tab"
-            aria-selected={index === i}
-            className={`tracker-carousel-tab${index === i ? ' tracker-carousel-tab-active' : ''}`}
-            onClick={() => setIndex(i)}
-          >
-            {slide.label}
-          </button>
-        ))}
-        <span className="tracker-carousel-dots" aria-hidden>
-          {SLIDES.map((slide, i) => (
-            <span key={slide.id} className={`tracker-carousel-dot${index === i ? ' tracker-carousel-dot-active' : ''}`} />
-          ))}
-        </span>
-      </div>
+      <button
+        type="button"
+        className="tracker-carousel-arrow tracker-carousel-arrow-prev"
+        aria-label="Previous panel"
+        disabled={index === 0}
+        onClick={() => setIndex((i) => Math.max(0, i - 1))}
+      >
+        ‹
+      </button>
       <div className="tracker-carousel-viewport">
         <div className="tracker-carousel-track" style={{ transform: `translateX(-${index * 100}%)` }}>
           <div className="tracker-carousel-slide" aria-hidden={index !== 0}>
@@ -60,6 +47,15 @@ export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
           </div>
         </div>
       </div>
+      <button
+        type="button"
+        className="tracker-carousel-arrow tracker-carousel-arrow-next"
+        aria-label="Next panel"
+        disabled={index === SLIDE_COUNT - 1}
+        onClick={() => setIndex((i) => Math.min(SLIDE_COUNT - 1, i + 1))}
+      >
+        ›
+      </button>
     </div>
   );
 }
