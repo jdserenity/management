@@ -19,10 +19,10 @@ const P = 'water' as const;
 
 type Props = {
   refreshKey?: number;
-  onAutomaticTaskChange?: () => void;
+  onTrackerLinkedTaskChange?: () => void;
 };
 
-export default function WaterSection({ refreshKey, onAutomaticTaskChange }: Props) {
+export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: Props) {
   const { data: file, loadError, setData: setFile, storageReady } = useAppDataLoad(
     loadWaterFile,
     'Failed to load water data',
@@ -50,7 +50,7 @@ export default function WaterSection({ refreshKey, onAutomaticTaskChange }: Prop
   const handleRemove = async (id: string) => {
     const next = await removeWaterEntry(file, id);
     setFile(next);
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
 
   const handleAdd = async (ml: number, label?: string) => {
@@ -58,7 +58,7 @@ export default function WaterSection({ refreshKey, onAutomaticTaskChange }: Prop
     setFile(await addWaterEntry(file, label || formatWaterLabel(ml), ml, 1));
     setCustomMl('');
     setAddMode(false);
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
 
   const chips = logged.map((entry: WaterEntry) => {

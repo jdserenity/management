@@ -230,7 +230,7 @@ describe('heatmap', () => {
     expect(isDayComplete(data, daily, '2026-05-20')).toBe(true);
   });
 
-  it('becameDayComplete only on the incomplete → complete transition (e.g. an automatic tracker task finishing last)', () => {
+  it('becameDayComplete only on the incomplete → complete transition (e.g. a tracker-linked task finishing last)', () => {
     const daily = [{ id: 'a' }, { id: 'automatic-water' }];
     const base = {
       activityStartDates: { a: '2026-05-01', 'automatic-water': '2026-05-01' },

@@ -118,7 +118,7 @@ const normalizeActivity = (raw: unknown): StreakActivity | null => {
     canFail: !!a.canFail,
     necessary: !!a.necessary,
     archivedAt: typeof a.archivedAt === 'string' ? a.archivedAt : a.archivedAt === null ? null : undefined,
-    automaticKind: a.automaticKind === 'water' || a.automaticKind === 'food' || a.automaticKind === 'workout' ? a.automaticKind : undefined,
+    trackerLinkedKind: a.trackerLinkedKind === 'water' || a.trackerLinkedKind === 'food' || a.trackerLinkedKind === 'workout' ? a.trackerLinkedKind : undefined,
     enabled: a.enabled === false ? false : undefined
   };
 };

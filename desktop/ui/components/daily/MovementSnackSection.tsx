@@ -6,9 +6,9 @@ import { TrackerSummary } from '@/components/daily/TrackerChain';
 import { formatExerciseAmount, formatExerciseRunAggLine, formatExerciseTarget, listTodayMovementTotals, type ExerciseDefinition } from '@/lib/workoutPlanner';
 import './movement.css';
 
-type Props = { onAutomaticTaskChange?: () => void };
+type Props = { onTrackerLinkedTaskChange?: () => void };
 
-export default function MovementSnackSection({ onAutomaticTaskChange }: Props) {
+export default function MovementSnackSection({ onTrackerLinkedTaskChange }: Props) {
   const { movementSnackPrefs, workoutLogs, dayRolloverHour, todayExerciseTotals, todayStretchTotals, logMovementSnackSet, removeWorkoutLog, sessionStorageReady } = useSession();
   const [overrides, setOverrides] = useState<Record<string, ExerciseDefinition>>({});
   const [actuals, setActuals] = useState<Record<string, string>>({});
@@ -23,7 +23,7 @@ export default function MovementSnackSection({ onAutomaticTaskChange }: Props) {
   if (!sessionStorageReady) return <p className="movement-tracker-empty">Loading movement…</p>;
 
   const afterMovementLogged = () => {
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
   const logMove = (task: MovementSnackTask, exercise: ExerciseDefinition) => {
     logMovementSnackSet(task, day, exercise, 1);
@@ -31,7 +31,7 @@ export default function MovementSnackSection({ onAutomaticTaskChange }: Props) {
   };
   const undoMove = (task: MovementSnackTask) => {
     const log = completedSets(task)[0];
-    if (log) { removeWorkoutLog(log.id); onAutomaticTaskChange?.(); }
+    if (log) { removeWorkoutLog(log.id); onTrackerLinkedTaskChange?.(); }
   };
   const saveBuildSet = (task: MovementSnackTask, setNumber: number, value: string) => {
     const amount = Number(value);

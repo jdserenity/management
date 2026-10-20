@@ -95,10 +95,10 @@ function PortionControls({ defaultCalories, defaultProtein, placeholderCalories,
 
 type Props = {
   refreshKey?: number;
-  onAutomaticTaskChange?: () => void;
+  onTrackerLinkedTaskChange?: () => void;
 };
 
-export default function TdeeSection({ refreshKey, onAutomaticTaskChange }: Props) {
+export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: Props) {
   const { data: file, loadError, setData: setFile, storageReady } = useAppDataLoad(
     loadTdeeFile,
     'Failed to load nutrition data',
@@ -131,32 +131,32 @@ export default function TdeeSection({ refreshKey, onAutomaticTaskChange }: Props
 
   const handleRemove = async (id: string) => {
     setFile(await removeTdeeEntry(file, id));
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
 
   const handleStaple = async (staple: TdeeMealDef) => {
     setFile(await addStapleEntry(file, staple));
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
 
   const handleStapleFromEditor = async (staple: TdeeMealDef, calories: number, protein: number, count: number) => {
     // Logs as kind staple + refId so the day's staple chip is replaced (pending chip hides).
     setFile(await addStapleEntry(file, staple, calories, protein, count));
     setAddMode(false);
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
 
   const handleRegular = async (regular: TdeeMealDef, calories: number, protein: number, count: number) => {
     setFile(await addRegularEntry(file, regular, calories, protein, count));
     setAddMode(false);
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
 
   const handleCustom = async (calories: number, protein: number, count: number) => {
     setFile(await addCustomEntry(file, customTitle, calories, protein, count));
     setCustomTitle('');
     setAddMode(false);
-    onAutomaticTaskChange?.();
+    onTrackerLinkedTaskChange?.();
   };
 
   const loggedChips = logged.map((entry) => {

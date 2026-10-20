@@ -13,7 +13,7 @@ import { movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import {
   loadStreakState,
-  reconcileAutomaticStreakActivities,
+  reconcileTrackerLinkedStreakActivities,
   saveStreakLog,
   updateStreakActivityDescription
 } from '@/lib/streakDb';
@@ -45,7 +45,7 @@ export default function StreakSection({ refreshKey }: Props) {
     });
   };
   const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
-  const automaticSignature = state?.config.activities.map((activity) => `${activity.id}:${activity.automaticKind || ''}:${activity.enabled !== false}`).join('|') || '';
+  const trackerLinkedSignature = state?.config.activities.map((activity) => `${activity.id}:${activity.trackerLinkedKind || ''}:${activity.enabled !== false}`).join('|') || '';
   const workoutProgress = useMemo(() => {
     const tasks = movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen);
     const day = state?.currentDay || '';
@@ -58,7 +58,7 @@ export default function StreakSection({ refreshKey }: Props) {
     if (!state) return;
     let cancelled = false;
     void Promise.all([loadTdeeFile(), loadWaterFile()]).then(async ([food, water]) => {
-      const next = await reconcileAutomaticStreakActivities(state, {
+      const next = await reconcileTrackerLinkedStreakActivities(state, {
         food: { calories: totalCalories(food.entries), calorieTarget: food.tdee, protein: totalProtein(food.entries), proteinTarget: food.protein },
         water: { totalMl: totalWater(water.entries), targetMl: water.targetMl },
         workout: workoutProgress
@@ -67,15 +67,15 @@ export default function StreakSection({ refreshKey }: Props) {
       // Tracker-linked tasks can't be tapped, so they bypass handleLog — celebrate here when one of them finishes the day.
       if (becameDayComplete(state.data, buildActivityCatalog(state.config, state.data), next.data, buildActivityCatalog(next.config, next.data), state.currentDay)) fireDayCompleteConfetti();
       setState(next);
-    }).catch((error) => console.error('Failed to refresh automatic tasks:', error));
+    }).catch((error) => console.error('Failed to refresh tracker-linked tasks:', error));
     return () => { cancelled = true; };
-  }, [automaticSignature, refreshKey, state, workoutProgress]);
+  }, [trackerLinkedSignature, refreshKey, state, workoutProgress]);
 
   const handleLog = async (activityId: string, newState: StreakLogState | null, day?: string) => {
     if (!state) return;
     const targetDay = day || state.currentDay;
     const activity = state.config.activities.find((a) => a.id === activityId);
-    if (activity?.automaticKind) return;
+    if (activity?.trackerLinkedKind) return;
     const next = await saveStreakLog(state, activityId, newState, day);
     if (newState === 'success' && becameDayComplete(state.data, buildActivityCatalog(state.config, state.data), next.data, buildActivityCatalog(next.config, next.data), targetDay)) fireDayCompleteConfetti();
 

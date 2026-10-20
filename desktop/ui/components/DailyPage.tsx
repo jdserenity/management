@@ -11,7 +11,7 @@ import WaterSection from '@/components/daily/WaterSection';
 export default function DailyPage() {
   const [streakRefreshKey, setStreakRefreshKey] = useState(0);
 
-  const handleAutomaticTaskChange = () => {
+  const handleTrackerLinkedTaskChange = () => {
     setStreakRefreshKey((k) => k + 1);
   };
 
@@ -20,9 +20,9 @@ export default function DailyPage() {
       <BrandWordmark />
       <DailyStretchSections />
       <StreakSection refreshKey={streakRefreshKey} />
-      <TdeeSection onAutomaticTaskChange={handleAutomaticTaskChange} />
-      <WaterSection onAutomaticTaskChange={handleAutomaticTaskChange} />
-      <MovementSnackSection onAutomaticTaskChange={handleAutomaticTaskChange} />
+      <TdeeSection onTrackerLinkedTaskChange={handleTrackerLinkedTaskChange} />
+      <WaterSection onTrackerLinkedTaskChange={handleTrackerLinkedTaskChange} />
+      <MovementSnackSection onTrackerLinkedTaskChange={handleTrackerLinkedTaskChange} />
     </div>
   );
 }

@@ -24,7 +24,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
   const [weeklyTarget, setWeeklyTarget] = useState('1');
   const [scheduledDays, setScheduledDays] = useState('Sun');
   const [necessary, setNecessary] = useState(false);
-  const isAutomatic = !!activity?.automaticKind;
+  const isTrackerLinked = !!activity?.trackerLinkedKind;
 
   useEffect(() => {
     if (!open) return;
@@ -44,11 +44,11 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
     const parsed: StreakActivity = {
       id: actId,
       name: trimmedName,
-      frequency: isAutomatic ? 'daily' : frequency,
+      frequency: isTrackerLinked ? 'daily' : frequency,
       necessary,
       ...(description.trim() ? { description: description.trim() } : {}),
-      ...(activity?.automaticKind ? { automaticKind: activity.automaticKind, enabled: activity.enabled !== false } : {}),
-      ...(!isAutomatic && frequency === 'weekly' ? {
+      ...(activity?.trackerLinkedKind ? { trackerLinkedKind: activity.trackerLinkedKind, enabled: activity.enabled !== false } : {}),
+      ...(!isTrackerLinked && frequency === 'weekly' ? {
         weeklyTarget: Math.max(1, parseInt(weeklyTarget, 10) || 1),
         scheduledDays: scheduledDays.split(',').map((d) => d.trim()).filter(Boolean)
       } : {})
@@ -78,14 +78,14 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
             <span className="text-muted-foreground">Description</span>
             <textarea className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
-          {!isAutomatic ? <label className="block">
+          {!isTrackerLinked ? <label className="block">
             <span className="text-muted-foreground">Frequency</span>
             <select className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1" value={frequency} onChange={(e) => setFrequency(e.target.value as 'daily' | 'weekly')}>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
             </select>
           </label> : null}
-          {!isAutomatic && frequency === 'weekly' ? (
+          {!isTrackerLinked && frequency === 'weekly' ? (
             <>
               <label className="block">
                 <span className="text-muted-foreground">Sessions per week</span>
@@ -98,7 +98,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
             </>
           ) : null}
 
-          {!isAutomatic ? <label className="flex items-start gap-2 rounded-md border border-border px-3 py-2">
+          {!isTrackerLinked ? <label className="flex items-start gap-2 rounded-md border border-border px-3 py-2">
             <input type="checkbox" className="mt-0.5" checked={necessary} onChange={(e) => setNecessary(e.target.checked)} />
             <span>
               <span className="font-medium">Necessary</span>
@@ -107,7 +107,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
               </span>
             </span>
           </label> : null}
-          {isAutomatic ? <p className="rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">This checkmark is completed automatically when its tracker reaches the daily goal.</p> : null}
+          {isTrackerLinked ? <p className="rounded-md border border-border px-3 py-2 text-xs text-muted-foreground">This checkmark is completed by its tracker when the daily goal is reached.</p> : null}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>

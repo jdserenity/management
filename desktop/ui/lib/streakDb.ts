@@ -5,8 +5,8 @@ import { clearActivityLogs, incrementResetCount } from '@/lib/streak/domain';
 import { dayEndTimeFromRolloverHour, getCurrentDay } from '@/lib/streak/dates';
 import { makeDeletionCell, makeLogCell, normalizeLogs } from '@/lib/streak/logs';
 import { recalculateAllStats } from '@/lib/streak/stats';
-import { automaticTaskChecks, automaticTaskDefinition, type AutomaticTaskProgress } from '@/lib/streak/automaticTasks';
-import type { AutomaticStreakTaskKind, StreakActivity, StreakConfig, StreakData, StreakLogState, StreakState } from '@/lib/streak/types';
+import { trackerLinkedTaskChecks, trackerLinkedTaskDefinition, type TrackerLinkedTaskProgress } from '@/lib/streak/trackerLinkedTasks';
+import type { TrackerLinkedStreakTaskKind, StreakActivity, StreakConfig, StreakData, StreakLogState, StreakState } from '@/lib/streak/types';
 
 type ActivityRow = {
   id: string;
@@ -48,11 +48,11 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     canFail: sqlFlag(row.can_fail)
   };
   if (sqlFlag(row.necessary)) a.necessary = true;
-  if (row.automatic_kind === 'water' || row.automatic_kind === 'food' || row.automatic_kind === 'workout') a.automaticKind = row.automatic_kind;
-  else if (sqlFlag(row.linked_water)) a.automaticKind = 'water';
-  else if (sqlFlag(row.linked_movement_burst)) a.automaticKind = 'workout';
-  else if (row.linked_staple_id) a.automaticKind = 'food';
-  if (a.automaticKind) a.frequency = 'daily';
+  if (row.automatic_kind === 'water' || row.automatic_kind === 'food' || row.automatic_kind === 'workout') a.trackerLinkedKind = row.automatic_kind;
+  else if (sqlFlag(row.linked_water)) a.trackerLinkedKind = 'water';
+  else if (sqlFlag(row.linked_movement_burst)) a.trackerLinkedKind = 'workout';
+  else if (row.linked_staple_id) a.trackerLinkedKind = 'food';
+  if (a.trackerLinkedKind) a.frequency = 'daily';
   if (!sqlFlag(row.enabled)) a.enabled = false;
   if (row.description) a.description = row.description;
   if (row.weekly_target != null) a.weeklyTarget = row.weekly_target;
@@ -80,7 +80,7 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
     archived ? (a.archivedAt ?? null) : null,
     sortOrder,
     null, 0, 0, null, null, null,
-    a.automaticKind ?? null,
+    a.trackerLinkedKind ?? null,
     a.enabled === false ? 0 : 1,
     updatedAt
   ];
@@ -382,16 +382,16 @@ export const upsertStreakActivity = async (state: StreakState, activity: StreakA
   return loadStreakState();
 };
 
-export const setAutomaticStreakTaskEnabled = async (
+export const setTrackerLinkedStreakTaskEnabled = async (
   state: StreakState,
-  kind: AutomaticStreakTaskKind,
+  kind: TrackerLinkedStreakTaskKind,
   enabled: boolean
 ): Promise<StreakState> => {
-  const existing = state.config.activities.find((activity) => activity.automaticKind === kind);
+  const existing = state.config.activities.find((activity) => activity.trackerLinkedKind === kind);
   if (!existing && !enabled) return state;
   if (!existing) {
-    const definition = automaticTaskDefinition(kind);
-    const created: StreakActivity = { id: definition.id, name: definition.name, description: definition.description, frequency: 'daily', automaticKind: kind, enabled: true };
+    const definition = trackerLinkedTaskDefinition(kind);
+    const created: StreakActivity = { id: definition.id, name: definition.name, description: definition.description, frequency: 'daily', trackerLinkedKind: kind, enabled: true };
     state.config.activities = [...state.config.activities, created];
     state.data.activityStartDates = { ...state.data.activityStartDates, [created.id]: state.currentDay };
     await upsertActivityRow(created, false, state.config.activities.length - 1);
@@ -416,16 +416,16 @@ export const setAutomaticStreakTaskEnabled = async (
   return loadStreakState();
 };
 
-/** Applies only logger-derived checks; automatic activities never receive a user-originated log. */
-export const reconcileAutomaticStreakActivities = async (
+/** Applies only tracker-derived checks; tracker-linked activities never receive a user-originated log. */
+export const reconcileTrackerLinkedStreakActivities = async (
   state: StreakState,
-  progress: AutomaticTaskProgress
+  progress: TrackerLinkedTaskProgress
 ): Promise<StreakState> => {
-  const checks = automaticTaskChecks(progress);
+  const checks = trackerLinkedTaskChecks(progress);
   let next = state;
   for (const activity of next.config.activities) {
-    if (!activity.automaticKind || activity.enabled === false) continue;
-    const complete = checks[activity.automaticKind];
+    if (!activity.trackerLinkedKind || activity.enabled === false) continue;
+    const complete = checks[activity.trackerLinkedKind];
     if (complete === undefined) continue;
     const current = next.data.logs[next.currentDay]?.[activity.id]?.state === 'success';
     if (current === complete) continue;
