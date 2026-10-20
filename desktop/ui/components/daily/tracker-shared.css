@@ -145,8 +145,10 @@
 
 .movement-quick-btn-primary:hover {filter: brightness(1.05); }
 
+.water-custom-row,
 .movement-custom-row,
 .tdee-custom-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.water-custom-input,
 .movement-custom-input { width: 100px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); }
 
 .movement-custom-input-wide {min-width: 10rem; flex: 1; }
@@ -161,6 +163,11 @@
 .movement-log-btn:hover,
 .tdee-add-btn:hover { filter: brightness(1.05); }
 
-.tdee-clear-btn { padding: 4px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); color: var(--foreground); cursor: pointer; font-size: 0.85em; }
+.tdee-clear-btn,
+.water-clear-btn { border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); color: var(--foreground); cursor: pointer; font-size: 1em; line-height: 1; }
 
-.tdee-clear-btn:hover { filter: brightness(1.05); }
+.tdee-clear-btn { padding: 4px 9px; }
+.water-clear-btn { padding: 6px 9px; }
+
+.tdee-clear-btn:hover,
+.water-clear-btn:hover { filter: brightness(1.05); }

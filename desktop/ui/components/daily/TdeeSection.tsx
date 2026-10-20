@@ -212,7 +212,7 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
           </button>
           {hasCustomFoodInput({ title: customTitle, calories: customCalories, protein: customProtein, qty: customQty }) || regularSearch !== '' ? (
             <button type="button" className="tdee-clear-btn" aria-label="Clear custom food fields" onClick={handleClearCustom}>
-              Clear
+              ×
             </button>
           ) : null}
         </div>

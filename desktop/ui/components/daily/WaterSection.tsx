@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { activeEntries } from '@/lib/water/entries';
 import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
 import type { WaterEntry } from '@/lib/water/types';
@@ -23,6 +24,8 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
     'Failed to load water data',
     { refreshKey }
   );
+  const [customMl, setCustomMl] = useState('');
+
   if (!storageReady) {
     return (
       <section className="water-tracker-container" aria-label="Water">
@@ -48,6 +51,7 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
   const handleAdd = async (ml: number, label?: string) => {
     if (!ml || ml <= 0) return;
     setFile(await addWaterEntry(file, label || formatWaterLabel(ml), ml, 1));
+    setCustomMl('');
     onTrackerLinkedTaskChange?.();
   };
 
@@ -85,6 +89,26 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
             {formatWaterLabel(ml)}
           </button>
         ))}
+      </div>
+      <div className="water-custom-row">
+        <input
+          className="water-custom-input"
+          type="number"
+          min={1}
+          step={1}
+          placeholder="ml"
+          aria-label="Custom water amount (ml)"
+          value={customMl}
+          onChange={(e) => setCustomMl(e.target.value)}
+        />
+        <button type="button" className="water-log-btn" onClick={() => void handleAdd(Math.round(Number(customMl) || 0))}>
+          Drink
+        </button>
+        {customMl !== '' ? (
+          <button type="button" className="water-clear-btn" aria-label="Clear custom water amount" onClick={() => setCustomMl('')}>
+            ×
+          </button>
+        ) : null}
       </div>
     </section>
   );
