@@ -104,6 +104,11 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
         <button type="button" className="water-log-btn" onClick={() => void handleAdd(Math.round(Number(customMl) || 0))}>
           Drink
         </button>
+        {customMl !== '' ? (
+          <button type="button" className="water-clear-btn" aria-label="Clear custom water amount" onClick={() => setCustomMl('')}>
+            Clear
+          </button>
+        ) : null}
       </div>
     </section>
   );

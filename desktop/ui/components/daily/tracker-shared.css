@@ -161,3 +161,11 @@
 .water-log-btn:hover,
 .movement-log-btn:hover,
 .tdee-add-btn:hover { filter: brightness(1.05); }
+
+.water-clear-btn,
+.tdee-clear-btn { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); color: var(--foreground); cursor: pointer; font-size: 0.85em; }
+
+.tdee-clear-btn { padding: 4px 10px; }
+
+.water-clear-btn:hover,
+.tdee-clear-btn:hover { filter: brightness(1.05); }

@@ -16,7 +16,7 @@ import {
   totalProtein
 } from '@/lib/tdee/totals';
 import type { TdeeMealDef } from '@/lib/tdee/types';
-import { filterRegulars } from '@/lib/tdee/meals';
+import { filterRegulars, hasCustomFoodInput } from '@/lib/tdee/meals';
 import {
   addCustomEntry,
   loadTdeeFile,
@@ -83,6 +83,14 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
     setCustomProtein('');
     setCustomQty('1');
     onTrackerLinkedTaskChange?.();
+  };
+
+  const handleClearCustom = () => {
+    setCustomTitle('');
+    setCustomCalories('');
+    setCustomProtein('');
+    setCustomQty('1');
+    setRegularSearch('');
   };
 
   const handlePickRegular = (regular: TdeeMealDef) => {
@@ -190,6 +198,11 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
           <button type="button" className="tdee-add-btn" onClick={() => void handleEat()}>
             Eat
           </button>
+          {hasCustomFoodInput({ title: customTitle, calories: customCalories, protein: customProtein, qty: customQty }) || regularSearch !== '' ? (
+            <button type="button" className="tdee-clear-btn" aria-label="Clear custom food fields" onClick={handleClearCustom}>
+              Clear
+            </button>
+          ) : null}
         </div>
         <div className="tdee-regular-search-row">
           <input

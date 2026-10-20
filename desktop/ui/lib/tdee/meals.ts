@@ -20,6 +20,10 @@ export const upsertMeal = (meals: TdeeMealDef[], meal: TdeeMealDef, isNew: boole
 
 export const removeMeal = (meals: TdeeMealDef[], id: string): TdeeMealDef[] => meals.filter((m) => m.id !== id);
 
+/** True when the Daily custom-food row holds anything the Clear button should wipe (a picked regular fills all of these). */
+export const hasCustomFoodInput = (f: { title: string; calories: string; protein: string; qty: string }): boolean =>
+  f.title !== '' || f.calories !== '' || f.protein !== '' || f.qty !== '1';
+
 /** Regulars matching a name search; an empty search shows nothing — regulars only appear once searched for. */
 export const filterRegulars = (regulars: TdeeMealDef[], query: string): TdeeMealDef[] => {
   const q = query.trim().toLowerCase();

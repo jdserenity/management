@@ -3,7 +3,7 @@ import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
 import { activeEntries, isStapleLogged, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
 import { formatIngredientsList, mealTotalsFromIngredients } from '@/lib/tdee/ingredients';
-import { filterRegulars, mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
+import { filterRegulars, hasCustomFoodInput, mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import {
   entryCalories,
@@ -183,6 +183,14 @@ describe('tdee meals', () => {
     expect(filterRegulars(meals, '   ')).toEqual([]);
     expect(filterRegulars(meals, '  YOGURT ').map((m) => m.id)).toEqual(['a', 'c']);
     expect(filterRegulars(meals, 'pizza')).toEqual([]);
+  });
+
+  it('hasCustomFoodInput is false for a blank custom row and true once anything is typed or filled', () => {
+    expect(hasCustomFoodInput({ title: '', calories: '', protein: '', qty: '1' })).toBe(false);
+    expect(hasCustomFoodInput({ title: 'Soup', calories: '', protein: '', qty: '1' })).toBe(true);
+    expect(hasCustomFoodInput({ title: '', calories: '300', protein: '', qty: '1' })).toBe(true);
+    expect(hasCustomFoodInput({ title: '', calories: '', protein: '10', qty: '1' })).toBe(true);
+    expect(hasCustomFoodInput({ title: '', calories: '', protein: '', qty: '2' })).toBe(true);
   });
 
   it('removeMeal drops matching id', () => {
