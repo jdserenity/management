@@ -1,11 +1,10 @@
 import type { SqlDatabase } from '@mgmt/storage';
+import { applySyncChanges, fetchSyncChanges, getSyncCursor, setSyncCursor } from './changeSync';
 import { dispatchDataSyncRefresh } from './dataSyncEvents';
 import { logSyncError, logSyncInfo, summarizeUserDataCounts } from './syncLog';
 import { drainSyncOutbox } from './syncOutbox';
-import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff, emptyUserData, type UserData } from './userData';
-import { mergeUserData } from './mergeUserData';
+import { extractUserData, fetchUserDataWithSeq, hydrateDb, pushUserDataDiff } from './userData';
 import { totalUserDataRows } from './userDataSafety';
-import { withDataSyncWriteLock } from './syncWriteLock';
 
 export type BidirectionalSyncResult = {
   pullOk: boolean;
@@ -27,41 +26,6 @@ export type BidirectionalSyncOpts = {
 
 let lastSyncWarning: string | null = null;
 
-const sameUserData = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
-
-/**
- * Merge a pull snapshot with the server, then fold in any local writes that landed while the
- * network fetch was in flight (so hydrate does not wipe a just-saved streak edit).
- */
-const mergePullWithLocalNow = async (
-  db: SqlDatabase,
-  localBefore: UserData,
-  serverData: UserData
-): Promise<{ merged: UserData; localNow: UserData }> => {
-  const localNow = await extractUserData(db);
-  const remoteMerged = mergeUserData(localBefore, serverData);
-  const merged = sameUserData(localBefore, localNow)
-    ? remoteMerged
-    : mergeUserData(remoteMerged, localNow);
-  return { merged, localNow };
-};
-
-const applyPullMerge = async (
-  db: SqlDatabase,
-  serverUrl: string,
-  serverToken: string,
-  localBefore: UserData,
-  serverData: UserData
-): Promise<void> => {
-  // Hold the write lock across final re-read + hydrate so a habit check cannot land mid-merge.
-  const { merged, serverNeedsPush } = await withDataSyncWriteLock(async () => {
-    const { merged, localNow } = await mergePullWithLocalNow(db, localBefore, serverData);
-    if (!sameUserData(localNow, merged)) await hydrateDb(db, merged, { alreadyLocked: true });
-    return { merged, serverNeedsPush: !sameUserData(serverData, merged) };
-  });
-  if (serverNeedsPush) await pushUserDataDiff(serverUrl, serverToken, serverData, merged);
-};
-
 export const getSyncWarning = (): string | null => lastSyncWarning;
 
 export const resetSyncWarningForTests = (): void => { lastSyncWarning = null; };
@@ -70,7 +34,85 @@ const defaultUnreachable = (serverUrl: string): string =>
   `Cannot reach ${serverUrl} from this device. ` +
   'If curl /health works on the VPS but not here, this network’s DNS probably cannot resolve the hostname — try DNS 1.1.1.1 on this device.';
 
-/** Pull server snapshot, merge with local when both have rows, push when needed. */
+const sameUserData = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * One-time convergence onto the server-referee model (new device, upgraded
+ * device with no cursor, or the server restarted its change log):
+ * upload local rows as a patch — the server's patch guards decide what
+ * survives — then adopt the server's final snapshot and cursor verbatim.
+ * This is the ONLY path that rewrites local tables from a snapshot.
+ */
+const bootstrapFromServer = async (
+  db: SqlDatabase,
+  serverUrl: string,
+  serverToken: string
+): Promise<{ pushOk: boolean }> => {
+  let local = await extractUserData(db);
+  let pushOk = true;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const snapshot = await fetchUserDataWithSeq(serverUrl, serverToken);
+    if (totalUserDataRows(local) > 0) {
+      try {
+        await pushUserDataDiff(serverUrl, serverToken, snapshot.data, local);
+      } catch (err) {
+        // Do not adopt the snapshot over local rows the server never received.
+        logSyncError('bootstrap upload failed; keeping local data', err);
+        return { pushOk: false };
+      }
+    }
+    const finalSnapshot = totalUserDataRows(local) > 0
+      ? await fetchUserDataWithSeq(serverUrl, serverToken)
+      : snapshot;
+    const localNow = await extractUserData(db);
+    if (!sameUserData(local, localNow) && attempt === 0) {
+      // A save landed while the snapshot was in flight — loop once to upload it too.
+      local = localNow;
+      continue;
+    }
+    if (!sameUserData(localNow, finalSnapshot.data)) {
+      await hydrateDb(db, finalSnapshot.data);
+    }
+    await setSyncCursor(db, finalSnapshot.seq);
+    return { pushOk };
+  }
+  return { pushOk };
+};
+
+/**
+ * Normal sync: push queued local patches, then apply the server's numbered
+ * changes after this device's cursor. The server is the only referee — this
+ * device never merges two snapshots or compares clocks.
+ */
+const syncViaChangeLog = async (
+  db: SqlDatabase,
+  serverUrl: string,
+  serverToken: string
+): Promise<{ pushOk: boolean; bootstrapped: boolean }> => {
+  await drainSyncOutbox(db, serverUrl, serverToken);
+  const cursor = await getSyncCursor(db);
+  if (cursor === 0) {
+    const { pushOk } = await bootstrapFromServer(db, serverUrl, serverToken);
+    return { pushOk, bootstrapped: true };
+  }
+  const resp = await fetchSyncChanges(serverUrl, serverToken, cursor);
+  const needsBootstrap =
+    resp.snapshotRequired ||
+    resp.currentSeq < cursor ||
+    resp.changes.some((c) => c.op === 'snapshot' || c.entity === '__snapshot__');
+  if (needsBootstrap) {
+    const { pushOk } = await bootstrapFromServer(db, serverUrl, serverToken);
+    return { pushOk, bootstrapped: true };
+  }
+  if (resp.changes.length > 0) {
+    await applySyncChanges(db, resp.changes, resp.currentSeq);
+  } else if (resp.currentSeq !== cursor) {
+    await setSyncCursor(db, resp.currentSeq);
+  }
+  return { pushOk: true, bootstrapped: false };
+};
+
+/** Pull server changes, upload queued local patches, converge on the server's final state. */
 export const runBidirectionalInitialSync = async (opts: BidirectionalSyncOpts): Promise<BidirectionalSyncResult> => {
   const { logLabel, db, serverUrl, serverToken } = opts;
   const unreachable = opts.unreachableMessage ?? defaultUnreachable;
@@ -84,81 +126,39 @@ export const runBidirectionalInitialSync = async (opts: BidirectionalSyncOpts): 
     return { pullOk: false, pushOk: false, skipped: true, reason: 'no-creds', pullError: msg };
   }
   logSyncInfo(`${logLabel} initial sync starting`, { serverUrl });
-  // Push pending local patches (including archive / tombstones) before merge so we don't lose them to LWW races.
-  await drainSyncOutbox(db, serverUrl, serverToken);
-  const localBefore = await extractUserData(db);
-  const localRows = totalUserDataRows(localBefore);
-  let serverData;
+  let outcome: { pushOk: boolean; bootstrapped: boolean };
   try {
-    serverData = await fetchUserData(serverUrl, serverToken);
+    outcome = await syncViaChangeLog(db, serverUrl, serverToken);
   } catch (err) {
     const msg = unreachable(serverUrl);
     lastSyncWarning = msg;
-    logSyncError(`${logLabel} initial sync: pull failed`, err, { serverUrl, localRows });
+    logSyncError(`${logLabel} initial sync: pull failed`, err, { serverUrl });
     return { pullOk: false, pushOk: false, skipped: false, reason: 'pull-failed', pullError: msg };
   }
-  const serverRows = totalUserDataRows(serverData);
-  let pushOk = true;
-  if (localRows === 0 && serverRows === 0) {
-    logSyncInfo(`${logLabel} initial sync: both sides empty`);
-  } else if (localRows === 0 && serverRows > 0) {
-    await hydrateDbFromServer(db, serverData, localBefore);
-    dispatchDataSyncRefresh();
-    logSyncInfo(`${logLabel} initial sync: pulled server data`, { serverRows });
-  } else if (serverRows === 0 && localRows > 0) {
-    logSyncInfo(`${logLabel} initial sync: uploading local data (server was empty)`, { localRows });
-    try {
-      await pushUserDataDiff(serverUrl, serverToken, emptyUserData(), localBefore);
-    } catch (err) {
-      pushOk = false;
-      logSyncError(`${logLabel} initial sync: push failed`, err, { serverUrl });
-    }
-  } else {
-    try {
-      await applyPullMerge(db, serverUrl, serverToken, localBefore, serverData);
-    } catch (err) {
-      pushOk = false;
-      logSyncError(`${logLabel} initial sync: merge push failed`, err, { serverUrl });
-    }
-    dispatchDataSyncRefresh();
-    logSyncInfo(`${logLabel} initial sync: merged and uploaded`, {
-      localRows,
-      serverRows,
-      merged: summarizeUserDataCounts(await extractUserData(db))
-    });
-  }
+  dispatchDataSyncRefresh();
   const counts = summarizeUserDataCounts(await extractUserData(db));
-  if (!pushOk) {
+  if (!outcome.pushOk) {
     const msg = 'Downloaded from server but upload failed. New changes on this device may not sync.';
     lastSyncWarning = msg;
     logSyncError(`${logLabel} initial sync: pull ok, push failed`, new Error(msg), { counts });
     return { pullOk: true, pushOk: false, skipped: false, counts, pushError: msg };
   }
   lastSyncWarning = null;
-  logSyncInfo(`${logLabel} initial sync complete`, { counts, serverRows, localRows });
-  return { pullOk: true, pushOk, skipped: false, counts };
+  logSyncInfo(`${logLabel} initial sync complete`, { counts, bootstrapped: outcome.bootstrapped });
+  return { pullOk: true, pushOk: true, skipped: false, counts };
 };
 
-/** Foreground pull: merge when both sides have data; never push when server is empty. */
+/** Foreground pull (poll / refocus): same change-log path; never merges snapshots. */
 export const pullAndMergeUserData = async (opts: BidirectionalSyncOpts): Promise<boolean> => {
   const { db, serverUrl, serverToken, logLabel } = opts;
   if (!serverUrl || !serverToken) return false;
   try {
-    await drainSyncOutbox(db, serverUrl, serverToken);
-    const localBefore = await extractUserData(db);
-    const serverData = await fetchUserData(serverUrl, serverToken);
-    const localRows = totalUserDataRows(localBefore);
-    const serverRows = totalUserDataRows(serverData);
-    if (localRows === 0 && serverRows === 0) return true;
-    if (localRows === 0 && serverRows > 0) {
-      await hydrateDbFromServer(db, serverData, localBefore);
-    } else if (serverRows === 0 && localRows > 0) {
-      return true;
-    } else {
-      await applyPullMerge(db, serverUrl, serverToken, localBefore, serverData);
-    }
+    const { bootstrapped } = await syncViaChangeLog(db, serverUrl, serverToken);
     dispatchDataSyncRefresh();
-    logSyncInfo(`${logLabel} foreground pull complete`, summarizeUserDataCounts(await extractUserData(db)));
+    logSyncInfo(`${logLabel} foreground pull complete`, {
+      bootstrapped,
+      ...summarizeUserDataCounts(await extractUserData(db))
+    });
     return true;
   } catch (err) {
     logSyncError(`${logLabel} foreground pull failed`, err, { serverUrl });

@@ -5,20 +5,23 @@ vi.mock('./userData', async (importOriginal) => {
   return {
     ...actual,
     extractUserData: vi.fn(),
-    fetchUserData: vi.fn(),
+    fetchUserDataWithSeq: vi.fn(),
     hydrateDb: vi.fn(),
-    hydrateDbFromServer: vi.fn(),
     pushUserDataDiff: vi.fn()
   };
 });
 
+vi.mock('./changeSync', () => ({
+  getSyncCursor: vi.fn(),
+  setSyncCursor: vi.fn(),
+  fetchSyncChanges: vi.fn(),
+  applySyncChanges: vi.fn()
+}));
 vi.mock('./syncOutbox', () => ({ drainSyncOutbox: vi.fn().mockResolvedValue({ ok: true, drained: 0 }) }));
-vi.mock('./mergeUserData', () => ({ mergeUserData: vi.fn() }));
 vi.mock('./dataSyncEvents', () => ({ dispatchDataSyncRefresh: vi.fn() }));
 
-import { dispatchDataSyncRefresh } from './dataSyncEvents';
-import { mergeUserData } from './mergeUserData';
-import { extractUserData, fetchUserData, hydrateDb, hydrateDbFromServer, pushUserDataDiff } from './userData';
+import { applySyncChanges, fetchSyncChanges, getSyncCursor, setSyncCursor } from './changeSync';
+import { extractUserData, fetchUserDataWithSeq, hydrateDb, pushUserDataDiff } from './userData';
 import { pullAndMergeUserData, resetSyncWarningForTests, runBidirectionalInitialSync } from './initialSync';
 
 const empty = () => ({
@@ -29,142 +32,118 @@ const empty = () => ({
 });
 
 const db = { select: vi.fn(), execute: vi.fn() };
+const opts = { logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' };
 
-describe('runBidirectionalInitialSync', () => {
-  beforeEach(() => {
-    resetSyncWarningForTests();
-    vi.mocked(extractUserData).mockResolvedValue(empty());
-    vi.mocked(fetchUserData).mockResolvedValue(empty());
-    vi.mocked(hydrateDbFromServer).mockResolvedValue('hydrated');
-    vi.mocked(hydrateDb).mockResolvedValue(undefined);
-    vi.mocked(pushUserDataDiff).mockResolvedValue(undefined);
-    vi.mocked(mergeUserData).mockReturnValue(empty());
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
+  resetSyncWarningForTests();
+  vi.mocked(extractUserData).mockResolvedValue(empty());
+  vi.mocked(fetchUserDataWithSeq).mockResolvedValue({ data: empty(), seq: 0 });
+  vi.mocked(hydrateDb).mockResolvedValue(undefined);
+  vi.mocked(pushUserDataDiff).mockResolvedValue(undefined);
+  vi.mocked(getSyncCursor).mockResolvedValue(0);
+  vi.mocked(setSyncCursor).mockResolvedValue(undefined);
+  vi.mocked(fetchSyncChanges).mockResolvedValue({ changes: [], currentSeq: 0, snapshotRequired: false });
+  vi.mocked(applySyncChanges).mockResolvedValue(0);
+});
 
+describe('runBidirectionalInitialSync (change-log referee)', () => {
   it('skips when creds missing', async () => {
     const result = await runBidirectionalInitialSync({ logLabel: 'test', db, serverUrl: undefined, serverToken: undefined });
     expect(result.skipped).toBe(true);
     expect(result.reason).toBe('no-creds');
   });
 
-  it('pulls when local empty and server has data', async () => {
+  it('bootstraps an empty device from the snapshot and saves the cursor', async () => {
     const server = { ...empty(), streakLogCells: [{ log_date: '2026-06-28', activity_id: 'a1', state: 'success', updated_at: '2026-06-28T12:00:00.000Z' }] };
-    vi.mocked(fetchUserData).mockResolvedValue(server);
-    const result = await runBidirectionalInitialSync({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
+    vi.mocked(fetchUserDataWithSeq).mockResolvedValue({ data: server, seq: 4 });
+    const result = await runBidirectionalInitialSync(opts);
     expect(result.pullOk).toBe(true);
-    expect(hydrateDbFromServer).toHaveBeenCalled();
+    expect(hydrateDb).toHaveBeenCalledWith(db, server);
+    expect(setSyncCursor).toHaveBeenCalledWith(db, 4);
     expect(pushUserDataDiff).not.toHaveBeenCalled();
-    expect(dispatchDataSyncRefresh).toHaveBeenCalled();
+    expect(fetchSyncChanges).not.toHaveBeenCalled();
   });
 
-  it('merges when both sides have data', async () => {
+  it('converges a device with local data through the server: upload, then adopt final snapshot', async () => {
     const local = { ...empty(), appKv: [{ key: 'k', value: 'v', updated_at: 1 }] };
-    const server = { ...empty(), streakLogCells: [{ log_date: '2026-06-28', activity_id: 'a1', state: 'success', updated_at: '2026-06-28T12:00:00.000Z' }] };
+    // Server kept a different final value (its guard won) — the device must adopt it verbatim.
+    const serverFinal = { ...empty(), appKv: [{ key: 'k', value: 'server-final', updated_at: 5 }] };
     vi.mocked(extractUserData).mockResolvedValue(local);
-    vi.mocked(fetchUserData).mockResolvedValue(server);
-    vi.mocked(mergeUserData).mockReturnValue(server);
-    const result = await runBidirectionalInitialSync({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
+    vi.mocked(fetchUserDataWithSeq)
+      .mockResolvedValueOnce({ data: empty(), seq: 0 })
+      .mockResolvedValueOnce({ data: serverFinal, seq: 1 });
+    const result = await runBidirectionalInitialSync(opts);
     expect(result.pullOk).toBe(true);
-    expect(mergeUserData).toHaveBeenCalledWith(local, server);
-    expect(hydrateDb).toHaveBeenCalled();
-    expect(pushUserDataDiff).not.toHaveBeenCalled();
+    expect(pushUserDataDiff).toHaveBeenCalledWith('https://mgmt.levier.cc', 'tok', empty(), local);
+    expect(hydrateDb).toHaveBeenCalledWith(db, serverFinal);
+    expect(setSyncCursor).toHaveBeenCalledWith(db, 1);
   });
 
-  it('uploads local data as row patch when server is empty', async () => {
-    const local = { ...empty(), appKv: [{ key: 'k', value: 'v', updated_at: 1 }] };
-    vi.mocked(extractUserData).mockResolvedValue(local);
-    vi.mocked(fetchUserData).mockResolvedValue(empty());
-    const result = await runBidirectionalInitialSync({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
-    expect(result.pullOk).toBe(true);
-    expect(pushUserDataDiff).toHaveBeenCalled();
-    expect(vi.mocked(pushUserDataDiff).mock.calls[0]?.[2]).toEqual(empty());
-    expect(vi.mocked(pushUserDataDiff).mock.calls[0]?.[3]).toEqual(local);
+  it('reports pull-failed (and does not hydrate) when the server is unreachable', async () => {
+    vi.mocked(getSyncCursor).mockResolvedValue(9);
+    vi.mocked(fetchSyncChanges).mockRejectedValue(new Error('fetchSyncChanges: network down'));
+    const result = await runBidirectionalInitialSync(opts);
+    expect(result.pullOk).toBe(false);
+    expect(result.reason).toBe('pull-failed');
+    expect(hydrateDb).not.toHaveBeenCalled();
   });
 });
 
-describe('pullAndMergeUserData', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(extractUserData).mockResolvedValue(empty());
-    vi.mocked(fetchUserData).mockResolvedValue(empty());
-    vi.mocked(hydrateDbFromServer).mockResolvedValue('hydrated');
-    vi.mocked(hydrateDb).mockResolvedValue(undefined);
-    vi.mocked(pushUserDataDiff).mockResolvedValue(undefined);
-    vi.mocked(mergeUserData).mockReturnValue(empty());
-  });
-
+describe('pullAndMergeUserData (change-log referee)', () => {
   it('returns false without creds', async () => {
     expect(await pullAndMergeUserData({ logLabel: 'test', db })).toBe(false);
   });
 
-  it('skips hydrate when local edits landed during fetch and already match merge', async () => {
-    const localBefore = {
-      ...empty(),
-      streakActivities: [{
-        id: 'run', name: 'Run', description: null, frequency: 'daily', weekly_target: null,
-        scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
-        linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
-        extra_calories: null, extra_protein: null, extra_water_ml: null,
-        updated_at: '2026-07-01T00:00:00.000Z'
-      }]
+  it('applies numbered changes after the cursor — no snapshot fetch, no merge, no hydrate', async () => {
+    vi.mocked(getSyncCursor).mockResolvedValue(3);
+    const change = {
+      seq: 4, entity: 'streakLogCells' as const, rowKey: '2026-07-26\u001frun', op: 'upsert' as const,
+      row: { log_date: '2026-07-26', activity_id: 'run', state: 'success', updated_at: '2026-07-26T10:00:00.000Z' }
     };
-    const localNow = {
-      ...empty(),
-      streakActivities: [{
-        id: 'run', name: 'Morning run', description: null, frequency: 'daily', weekly_target: null,
-        scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
-        linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
-        extra_calories: null, extra_protein: null, extra_water_ml: null,
-        updated_at: '2026-07-20T12:00:00.000Z'
-      }]
-    };
-    const server = {
-      ...empty(),
-      appKv: [{ key: 'prefs', value: 'x', updated_at: 1 }]
-    };
-    vi.mocked(extractUserData)
-      .mockResolvedValueOnce(localBefore)
-      .mockResolvedValueOnce(localNow)
-      .mockResolvedValue(localNow);
-    vi.mocked(fetchUserData).mockResolvedValue(server);
-    vi.mocked(mergeUserData)
-      .mockReturnValueOnce(server)
-      .mockReturnValueOnce(localNow);
-    const ok = await pullAndMergeUserData({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
+    vi.mocked(fetchSyncChanges).mockResolvedValue({ changes: [change], currentSeq: 4, snapshotRequired: false });
+    const ok = await pullAndMergeUserData(opts);
     expect(ok).toBe(true);
-    expect(mergeUserData).toHaveBeenCalledTimes(2);
+    expect(fetchSyncChanges).toHaveBeenCalledWith('https://mgmt.levier.cc', 'tok', 3);
+    expect(applySyncChanges).toHaveBeenCalledWith(db, [change], 4);
+    expect(fetchUserDataWithSeq).not.toHaveBeenCalled();
     expect(hydrateDb).not.toHaveBeenCalled();
-    expect(pushUserDataDiff).toHaveBeenCalledWith('https://mgmt.levier.cc', 'tok', server, localNow);
   });
 
-  it('hydrates when concurrent local edit is missing a newer server row', async () => {
-    const oldA = {
-      id: 'run', name: 'Run', description: null, frequency: 'daily', weekly_target: null,
-      scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
-      linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
-      extra_calories: null, extra_protein: null, extra_water_ml: null,
-      updated_at: '2026-07-01T00:00:00.000Z'
-    };
-    const oldB = { ...oldA, id: 'water', name: 'Water', sort_order: 1 };
-    const serverA = { ...oldA, name: 'Server run', updated_at: '2026-07-20T10:00:00.000Z' };
-    const localB = { ...oldB, name: 'Local water', updated_at: '2026-07-20T11:00:00.000Z' };
-    const mergedA = serverA;
-    const mergedB = localB;
-    const localBefore = { ...empty(), streakActivities: [oldA, oldB] };
-    const localNow = { ...empty(), streakActivities: [oldA, localB] };
-    const server = { ...empty(), streakActivities: [serverA, oldB], appKv: [{ key: 'prefs', value: 'x', updated_at: 1 }] };
-    const remoteMerged = { ...empty(), streakActivities: [serverA, oldB] };
-    const merged = { ...empty(), streakActivities: [mergedA, mergedB] };
-    vi.mocked(extractUserData)
-      .mockResolvedValueOnce(localBefore)
-      .mockResolvedValueOnce(localNow)
-      .mockResolvedValue(merged);
-    vi.mocked(fetchUserData).mockResolvedValue(server);
-    vi.mocked(mergeUserData)
-      .mockReturnValueOnce(remoteMerged)
-      .mockReturnValueOnce(merged);
-    const ok = await pullAndMergeUserData({ logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', serverToken: 'tok' });
-    expect(ok).toBe(true);
-    expect(hydrateDb).toHaveBeenCalledWith(db, merged, { alreadyLocked: true });
+  it('does nothing when already at the server seq', async () => {
+    vi.mocked(getSyncCursor).mockResolvedValue(4);
+    vi.mocked(fetchSyncChanges).mockResolvedValue({ changes: [], currentSeq: 4, snapshotRequired: false });
+    expect(await pullAndMergeUserData(opts)).toBe(true);
+    expect(applySyncChanges).not.toHaveBeenCalled();
+    expect(setSyncCursor).not.toHaveBeenCalled();
+  });
+
+  it('re-bootstraps when the server restarted its log (snapshot marker)', async () => {
+    vi.mocked(getSyncCursor).mockResolvedValue(3);
+    vi.mocked(fetchSyncChanges).mockResolvedValue({
+      changes: [{ seq: 1, entity: '__snapshot__', rowKey: '', op: 'snapshot', row: null }],
+      currentSeq: 1,
+      snapshotRequired: false
+    });
+    vi.mocked(fetchUserDataWithSeq).mockResolvedValue({ data: empty(), seq: 1 });
+    expect(await pullAndMergeUserData(opts)).toBe(true);
+    expect(fetchUserDataWithSeq).toHaveBeenCalled();
+    expect(setSyncCursor).toHaveBeenCalledWith(db, 1);
+    expect(applySyncChanges).not.toHaveBeenCalled();
+  });
+
+  it('re-bootstraps when the cursor is ahead of a reset server', async () => {
+    vi.mocked(getSyncCursor).mockResolvedValue(50);
+    vi.mocked(fetchSyncChanges).mockResolvedValue({ changes: [], currentSeq: 2, snapshotRequired: false });
+    vi.mocked(fetchUserDataWithSeq).mockResolvedValue({ data: empty(), seq: 2 });
+    expect(await pullAndMergeUserData(opts)).toBe(true);
+    expect(fetchUserDataWithSeq).toHaveBeenCalled();
+  });
+
+  it('returns false when the change fetch fails', async () => {
+    vi.mocked(getSyncCursor).mockResolvedValue(3);
+    vi.mocked(fetchSyncChanges).mockRejectedValue(new Error('fetchSyncChanges: HTTP 500'));
+    expect(await pullAndMergeUserData(opts)).toBe(false);
+    expect(hydrateDb).not.toHaveBeenCalled();
   });
 });

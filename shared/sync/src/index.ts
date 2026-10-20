@@ -11,7 +11,7 @@ export * from './createSyncClient';
 export * from './userData';
 export * from './userDataSchema';
 export * from './userDataSafety';
-export * from './mergeUserData';
+export * from './changeSync';
 export * from './dataSyncEvents';
 export * from './syncCreds';
 export * from './initialSync';

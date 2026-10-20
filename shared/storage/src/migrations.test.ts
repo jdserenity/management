@@ -22,8 +22,8 @@ const tableColumns = (db: Database.Database, table: string): string[] =>
 describe('SCHEMA_MIGRATIONS', () => {
   it('has contiguous versions through the latest schema', () => {
     const versions = SCHEMA_MIGRATIONS.map((m) => m.version);
-    expect(LATEST_SCHEMA_VERSION).toBe(16);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+    expect(LATEST_SCHEMA_VERSION).toBe(17);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
   });
 
   it('includes water tracker and streak cross-log migrations', () => {
@@ -70,6 +70,13 @@ describe('SCHEMA_MIGRATIONS', () => {
     const db = new Database(':memory:');
     await runSchemaMigrations(wrapSqlite(db));
     expect(tableColumns(db, 'streak_activities')).toEqual(expect.arrayContaining(['automatic_kind', 'enabled']));
+    db.close();
+  });
+
+  it('creates sync_state for the change-log cursor in migration v17', async () => {
+    const db = new Database(':memory:');
+    await runSchemaMigrations(wrapSqlite(db));
+    expect(tableColumns(db, 'sync_state')).toEqual(expect.arrayContaining(['key', 'value']));
     db.close();
   });
 });

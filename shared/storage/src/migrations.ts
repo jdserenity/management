@@ -82,6 +82,11 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 16,
     description: 'streak_automatic_task_columns',
     sql: 'ALTER TABLE streak_activities ADD COLUMN automatic_kind TEXT; ALTER TABLE streak_activities ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;'
+  },
+  {
+    version: 17,
+    description: 'sync_state_change_log_cursor',
+    sql: 'CREATE TABLE IF NOT EXISTS sync_state (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);'
   }
 ];
 

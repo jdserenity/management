@@ -300,6 +300,36 @@ export const fetchUserData = async (baseUrl: string, token: string): Promise<Use
   return data;
 };
 
+/** Snapshot plus the server's current change-log seq (bootstrap sets the device cursor to it). */
+export const fetchUserDataWithSeq = async (
+  baseUrl: string,
+  token: string
+): Promise<{ data: UserData; seq: number }> => {
+  const root = normalizeApiUrl(baseUrl);
+  if (!root) throw new Error('fetchUserDataWithSeq: missing server URL');
+  const url = `${root}/v1/data`;
+  let res: Response;
+  try {
+    res = await syncFetch(url, { headers: authHeaders(token) });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    markSyncPullResult(false, detail);
+    throw new Error(`fetchUserDataWithSeq: ${detail}`);
+  }
+  if (!res.ok) {
+    await logSyncHttpFailure('GET', url, res);
+    markSyncPullResult(false, `HTTP ${res.status}`);
+    throw new Error(`fetchUserDataWithSeq: HTTP ${res.status}`);
+  }
+  const body = (await res.json()) as { data: UserData; seq?: number };
+  const data: UserData = {
+    ...body.data,
+    syncTombstones: normalizeSyncTombstones(body.data?.syncTombstones)
+  };
+  markSyncPullResult(true);
+  return { data, seq: Number(body.seq ?? 0) };
+};
+
 export const pushUserData = async (
   baseUrl: string,
   token: string,
