@@ -173,13 +173,14 @@ describe('tdee meals', () => {
     expect(updated[0]).toEqual({ id: 'a', name: 'A2', calories: 150, protein: 8 });
   });
 
-  it('filterRegulars matches by name, case-insensitively, and returns all for an empty search', () => {
+  it('filterRegulars matches by name case-insensitively, and returns nothing until a search is typed', () => {
     const meals = [
       { id: 'a', name: 'Greek Yogurt', calories: 100, protein: 5 },
       { id: 'b', name: 'Chicken Bowl', calories: 200, protein: 10 },
       { id: 'c', name: 'yogurt parfait', calories: 300, protein: 15 }
     ];
-    expect(filterRegulars(meals, '').map((m) => m.id)).toEqual(['a', 'b', 'c']);
+    expect(filterRegulars(meals, '')).toEqual([]);
+    expect(filterRegulars(meals, '   ')).toEqual([]);
     expect(filterRegulars(meals, '  YOGURT ').map((m) => m.id)).toEqual(['a', 'c']);
     expect(filterRegulars(meals, 'pizza')).toEqual([]);
   });

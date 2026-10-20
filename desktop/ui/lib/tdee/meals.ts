@@ -20,9 +20,9 @@ export const upsertMeal = (meals: TdeeMealDef[], meal: TdeeMealDef, isNew: boole
 
 export const removeMeal = (meals: TdeeMealDef[], id: string): TdeeMealDef[] => meals.filter((m) => m.id !== id);
 
-/** Regulars matching a name search; an empty search shows every regular. */
+/** Regulars matching a name search; an empty search shows nothing — regulars only appear once searched for. */
 export const filterRegulars = (regulars: TdeeMealDef[], query: string): TdeeMealDef[] => {
   const q = query.trim().toLowerCase();
-  if (!q) return regulars;
+  if (!q) return [];
   return regulars.filter((m) => m.name.toLowerCase().includes(q));
 };

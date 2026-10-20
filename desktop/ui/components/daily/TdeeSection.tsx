@@ -203,7 +203,7 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
         </div>
         {file.regulars.length === 0 ? (
           <p className="tdee-tracker-empty">No regulars yet. Add them in Customize → Food.</p>
-        ) : visibleRegulars.length === 0 ? (
+        ) : regularSearch.trim() === '' ? null : visibleRegulars.length === 0 ? (
           <p className="tdee-tracker-empty">No regulars match “{regularSearch}”.</p>
         ) : (
           <div className="tdee-regular-results">
