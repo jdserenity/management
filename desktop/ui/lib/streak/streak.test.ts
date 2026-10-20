@@ -11,6 +11,7 @@ import {
 } from '@/lib/streak/domain';
 import { getISOWeekStart, isDateInWeek } from '@/lib/streak/dates';
 import {
+  becameDayComplete,
   getDayCompletionCounts,
   getCalendarMonthsWithData,
   getMonthCalendarDates,
@@ -227,6 +228,23 @@ describe('heatmap', () => {
     };
     expect(getDayCompletionCounts(data, daily, '2026-05-20').historicalCount).toBe(1);
     expect(isDayComplete(data, daily, '2026-05-20')).toBe(true);
+  });
+
+  it('becameDayComplete only on the incomplete → complete transition (e.g. an automatic tracker task finishing last)', () => {
+    const daily = [{ id: 'a' }, { id: 'automatic-water' }];
+    const base = {
+      activityStartDates: { a: '2026-05-01', 'automatic-water': '2026-05-01' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    const incomplete = { ...base, logs: { '2026-05-20': { a: { state: 'success' as const, updatedAt: 'x' } } } };
+    const complete = { ...base, logs: { '2026-05-20': { a: { state: 'success' as const, updatedAt: 'x' }, 'automatic-water': { state: 'success' as const, updatedAt: 'x' } } } };
+    expect(becameDayComplete(incomplete, daily, complete, daily, '2026-05-20')).toBe(true);
+    expect(becameDayComplete(complete, daily, complete, daily, '2026-05-20')).toBe(false);
+    expect(becameDayComplete(incomplete, daily, incomplete, daily, '2026-05-20')).toBe(false);
+    expect(becameDayComplete(complete, daily, incomplete, daily, '2026-05-20')).toBe(false);
   });
 
   it('isDayNecessaryFailed when a necessary task is incomplete', () => {

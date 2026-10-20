@@ -6,7 +6,7 @@ import { StreakMonthlyCalendar } from '@/components/daily/StreakHeatmaps';
 import { useSession } from '@/context/SessionContext';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { fireDayCompleteConfetti } from '@/lib/streak/display';
-import { isDayComplete } from '@/lib/streak/heatmap';
+import { becameDayComplete } from '@/lib/streak/heatmap';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
 import { movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack';
@@ -63,7 +63,10 @@ export default function StreakSection({ refreshKey }: Props) {
         water: { totalMl: totalWater(water.entries), targetMl: water.targetMl },
         workout: workoutProgress
       });
-      if (!cancelled && next !== state) setState(next);
+      if (cancelled || next === state) return;
+      // Tracker-linked tasks can't be tapped, so they bypass handleLog — celebrate here when one of them finishes the day.
+      if (becameDayComplete(state.data, buildActivityCatalog(state.config, state.data), next.data, buildActivityCatalog(next.config, next.data), state.currentDay)) fireDayCompleteConfetti();
+      setState(next);
     }).catch((error) => console.error('Failed to refresh automatic tasks:', error));
     return () => { cancelled = true; };
   }, [automaticSignature, refreshKey, state, workoutProgress]);
@@ -71,13 +74,10 @@ export default function StreakSection({ refreshKey }: Props) {
   const handleLog = async (activityId: string, newState: StreakLogState | null, day?: string) => {
     if (!state) return;
     const targetDay = day || state.currentDay;
-    const catalog = buildActivityCatalog(state.config, state.data);
-    const wasComplete = isDayComplete(state.data, catalog, targetDay);
     const activity = state.config.activities.find((a) => a.id === activityId);
     if (activity?.automaticKind) return;
     const next = await saveStreakLog(state, activityId, newState, day);
-    const nowComplete = isDayComplete(next.data, buildActivityCatalog(next.config, next.data), targetDay);
-    if (!wasComplete && nowComplete && newState === 'success') fireDayCompleteConfetti();
+    if (newState === 'success' && becameDayComplete(state.data, buildActivityCatalog(state.config, state.data), next.data, buildActivityCatalog(next.config, next.data), targetDay)) fireDayCompleteConfetti();
 
     setState(next);
   };

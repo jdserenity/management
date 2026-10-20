@@ -26,6 +26,13 @@ export const isDayComplete = (data: StreakData, activities: StreakActivity[], da
   return isPerfectHeatmapCell(successCount, historicalCount);
 };
 
+/** True only when a change flips the day from incomplete to complete — the moment to celebrate. */
+export const becameDayComplete = (
+  prevData: StreakData, prevActivities: StreakActivity[],
+  nextData: StreakData, nextActivities: StreakActivity[],
+  dayStr: string
+): boolean => !isDayComplete(prevData, prevActivities, dayStr) && isDayComplete(nextData, nextActivities, dayStr);
+
 /**
  * A necessary daily task that is active but not success fails the whole day.
  * Only applies to days that have already started (≤ today) — future days are not failures.
