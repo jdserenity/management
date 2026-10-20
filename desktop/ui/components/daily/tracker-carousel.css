@@ -1,6 +1,21 @@
 .tracker-carousel { position: relative; margin: 4px 0 16px; }
 
-.tracker-carousel-viewport { overflow: hidden; }
+/* pan-y: vertical touches scroll the page; horizontal drags are ours to handle. */
+.tracker-carousel-viewport { overflow: hidden; touch-action: pan-y; }
+
+.tracker-carousel-dots { display: flex; justify-content: center; gap: 6px; margin-top: 6px; }
+
+.tracker-carousel-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+}
+
+.tracker-carousel-dot-active { background: var(--foreground); }
 
 .tracker-carousel-track { display: flex; transition: transform 0.28s ease; }
 

@@ -8,3 +8,14 @@ export const slideIndexForSwipe = (current: number, startX: number, endX: number
   const next = delta > 0 ? current + 1 : current - 1;
   return Math.min(Math.max(next, 0), slideCount - 1);
 };
+
+/**
+ * How far the track visually follows the finger during a drag, in pixels.
+ * One-to-one mid-carousel; dragging past the first/last slide is damped
+ * (rubber-banded) so the panel resists instead of sliding into empty space.
+ */
+export const carouselDragOffsetPx = (current: number, deltaX: number, slideCount: number): number => {
+  const pastFirst = current === 0 && deltaX > 0;
+  const pastLast = current === slideCount - 1 && deltaX < 0;
+  return pastFirst || pastLast ? Math.round(deltaX * 0.35) : deltaX;
+};

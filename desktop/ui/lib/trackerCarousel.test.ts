@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { slideIndexForSwipe } from '@/lib/trackerCarousel';
+import { carouselDragOffsetPx, slideIndexForSwipe } from '@/lib/trackerCarousel';
 
 describe('slideIndexForSwipe', () => {
   it('swiping left advances to the next slide and swiping right goes back', () => {
@@ -15,5 +15,17 @@ describe('slideIndexForSwipe', () => {
   it('clamps at the first and last slide instead of wrapping around', () => {
     expect(slideIndexForSwipe(0, 100, 200, 2)).toBe(0);
     expect(slideIndexForSwipe(1, 200, 100, 2)).toBe(1);
+  });
+});
+
+describe('carouselDragOffsetPx', () => {
+  it('follows the finger one-to-one in the middle of the carousel', () => {
+    expect(carouselDragOffsetPx(0, -60, 2)).toBe(-60);
+    expect(carouselDragOffsetPx(1, 60, 2)).toBe(60);
+  });
+
+  it('rubber-bands past the first and last slide so the panel resists instead of flying away', () => {
+    expect(carouselDragOffsetPx(0, 100, 2)).toBe(35);
+    expect(carouselDragOffsetPx(1, -100, 2)).toBe(-35);
   });
 });
