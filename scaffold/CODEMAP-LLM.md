@@ -79,6 +79,7 @@ Boot: `DesktopBoot.tsx` / `CompanionBoot.tsx` → `SyncBootScreen` until SQLite 
 | `streak_*`        | Activities, log cells, pause/reset meta           | shared                 |
 | `sync_tombstones` | Hard-delete markers (entity, row_key, deleted_at) | shared                 |
 | `sync_outbox`     | Pending row patches                               | local only             |
+| `sync_state`      | Change-log cursor (`user_data_seq`)               | local only             |
 
 Sync classification: `shared/sync/src/syncRegistry.ts` (`SYNC_TABLE_REGISTRY`, `SHARED_APP_KV_KEYS`, `DESKTOP_ONLY_APP_KV_KEYS`).
 
@@ -90,11 +91,11 @@ Desktop window default is 800×800 (width = Daily-tab `minWidth`; height unchang
 
 **Creds:** `VITE_SERVER_URL` + `VITE_SERVER_TOKEN` baked at build time (`@mgmt/sync` `getBuildTimeSyncCreds`). Local dev: root `.env`. Companion prod: Cloudflare Pages env vars.
 
-**Flow:** `runBidirectionalInitialSync` on boot (empty local → full `GET /v1/data`; else registry merge). Foreground poll `GET /v1/data` every 5s (`startUserDataPolling`). Local writes enqueue `sync_outbox` → `POST /v1/data/patch`. Full `POST /v1/data` bootstrap-only; empty snapshot rejected (409).
+**Flow (server-referee change log):** The server is the only referee. Every accepted `POST /v1/data/patch` records the FINAL row it holds in `sync_changes` under a server-issued `seq` (`backend/src/dataStore.ts`); a stale patch that loses still records the server's final row so the loser is corrected. Devices keep a cursor in local `sync_state` (migration v17, key `user_data_seq`) and pull `GET /v1/changes?since=<cursor>` (poll every 5s via `startUserDataPolling`), applying changes verbatim in one transaction (`changeSync.ts` `applySyncChanges`) — no device-side merge, clock comparison, or wipe-and-refill on pull. Full `GET /v1/data` (returns `{data, seq}`) + `hydrateDb` happen only at bootstrap: no cursor, a `snapshot` change marker, a cursor ahead of a reset server, or `snapshotRequired`. Bootstrap uploads local rows as a diff patch (server guards decide), then adopts the server's final snapshot + seq. Local writes enqueue `sync_outbox` → `POST /v1/data/patch` (response carries `seq`). Full `POST /v1/data` bootstrap-only; empty snapshot rejected (409); it also restarts the change log with a `snapshot` marker.
 
-**Merge:** `mergeUserData.ts` — registry-driven LWW on `updated_at`; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). Server patch apply uses timestamp guards. **Streak archive is sticky** (`archived_at` kept via COALESCE on server + merge) so a later active-only upsert (reorder/edit race) cannot un-archive. **Hard deletes** write `sync_tombstones` rows (entity + row_key + deleted_at); pull-merge drops local ghost rows covered by a newer tombstone. Composite `row_key` parts join with U+001F (`TOMBSTONE_KEY_SEP` in `userData.ts`) — never `\0` (sql.js truncates at NUL → UNIQUE crash on companion).
+**Conflict rules (server-only):** patch apply uses `updated_at` timestamp guards; `focus_log`/`workout_log` append-only (`ON CONFLICT DO NOTHING`). **Streak archive is sticky** (`archived_at` kept via COALESCE on server patch apply) so a later active-only upsert (reorder/edit race) cannot un-archive, and the change log carries that final archived row. **Hard deletes** write `sync_tombstones` rows (entity + row_key + deleted_at); server versioned deletes only remove a row when `updated_at <=` the matching tombstone `deleted_at`, then a `delete` change drops the row on other devices. Composite `row_key` parts join with U+001F (`TOMBSTONE_KEY_SEP` in `userData.ts`) — never `\0` (sql.js truncates at NUL → UNIQUE crash on companion). Client-side snapshot merging (`mergeUserData.ts`) is deleted; two-device convergence is covered by `backend/src/syncConvergence.test.ts`.
 
-**Debounced push vs hydrate:** `wrapWithDataSync` must not diff a pre-write snapshot against a mid-`hydrateDb` table (wipe-then-refill). Debounce waits while `runWithoutDataSync` is active and discards the before-snapshot if a hydrate generation bumped — otherwise torn extracts mint bulk false `streakLogCells` deletes + tombstones (2026-07-25 wipe). **Write lock** (`withDataSyncWriteLock`) serializes user mutations vs hydrate; hydrate uses the raw DB + BEGIN/COMMIT. **Bulk streakLogCells deletes** spanning many habits+days are refused client-side (`sanitizeDangerousBulkDeletes`) and ignored server-side. **Versioned deletes** on the server only remove a row when `updated_at <=` the matching tombstone `deleted_at`. `saveLogs` is upsert-only (no delete-missing).
+**Debounced push vs hydrate:** `wrapWithDataSync` must not diff a pre-write snapshot against a mid-`hydrateDb` table (wipe-then-refill, bootstrap only now). Debounce waits while `runWithoutDataSync` is active and discards the before-snapshot if a hydrate generation bumped — otherwise torn extracts mint bulk false `streakLogCells` deletes + tombstones (2026-07-25 wipe). **Write lock** (`withDataSyncWriteLock`) serializes user mutations vs hydrate/change-apply; both use the raw DB + BEGIN/COMMIT. **Bulk streakLogCells deletes** spanning many habits+days are refused client-side (`sanitizeDangerousBulkDeletes`) and ignored server-side. `saveLogs` is upsert-only (no delete-missing). Habit check-offs are optimistic in `StreakSection` (`applyStreakLogLocally` preview, rollback + visible error on save failure).
 
 **Table SQL truth:** `shared/sync/src/userDataSchema.ts` — column lists, bind order, client select/insert, server select/insert/patch/delete. `backend/src/dataStore.ts` and client `extractUserData`/`hydrateDb` loop the schema (no per-table SQL copies).
 
@@ -108,12 +109,13 @@ Desktop window default is 800×800 (width = Daily-tab `minWidth`; height unchang
 
 Hono on default port 8787. Auth: `Authorization: Bearer $SERVER_TOKEN`.
 
-| Endpoint              | Use                              |
-| --------------------- | -------------------------------- |
-| `GET /health`         | No auth                          |
-| `GET /v1/data`        | Full user snapshot               |
-| `POST /v1/data`       | Bootstrap replace (empty device) |
-| `POST /v1/data/patch` | Row-level upsert/delete          |
+| Endpoint              | Use                                            |
+| --------------------- | ---------------------------------------------- |
+| `GET /health`         | No auth                                        |
+| `GET /v1/data`        | Full user snapshot + current seq (bootstrap)   |
+| `GET /v1/changes`     | Numbered server changes after `?since=` cursor |
+| `POST /v1/data`       | Bootstrap replace (empty device)               |
+| `POST /v1/data/patch` | Row-level upsert/delete (returns new seq)      |
 
 Env: `SERVER_TOKEN`, `PORT`, `DB_PATH`, `OWNER_USER_ID`, optional `BACKUP_DIR`, optional R2 offsite (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, optional `R2_PREFIX`). Prod: systemd (`backend/mgmt-server.service.example`, `server.env.example`). **Daily backups** run in-process inside `mgmt-server` (`backend/src/dbBackup.ts` + `r2Offsite.ts`): snapshot `$DB_PATH` at 03:00 local + boot catch-up if none today; default dir `<DB_PATH dirname>/backups`; keep 14 days; if R2 env is set, upload the snapshot to the bucket and prune there to the same retention. Local backup still succeeds if R2 upload fails.
 

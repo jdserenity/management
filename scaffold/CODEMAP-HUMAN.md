@@ -18,11 +18,13 @@ flowchart TB
   end
   desk --> sqlite
   phone --> sqlite
-  desk <-->|"sync every 5s\nrow patches"| api
-  phone <-->|"sync every 5s\nrow patches"| api
+  desk <-->|"push row patches;\npull numbered changes every 5s"| api
+  phone <-->|"push row patches;\npull numbered changes every 5s"| api
 ```
 
 Posture data stays on the desktop — it never uploads.
+
+The server is the referee for sync: every change it accepts gets a number (`seq`) in its change log, along with the final version of the row. Each device remembers the last number it applied (`sync_state` in its local DB) and just asks “what changed since my number?” — devices never merge two full copies of the data themselves. The full copy is only downloaded when a device first joins (or the server’s log restarts).
 
 When I **archive** a habit on one device, the other devices should hide it too. Sync keeps archive status sticky (so a simultaneous edit on the other phone can’t accidentally “un-archive” it), and hard deletes leave a small marker (`sync_tombstones`) so deleted rows don’t reappear after the next pull.
 
