@@ -31,9 +31,8 @@ export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
       <button
         type="button"
         className="tracker-carousel-arrow tracker-carousel-arrow-prev"
-        aria-label="Previous panel"
-        disabled={index === 0}
-        onClick={() => setIndex((i) => Math.max(0, i - 1))}
+        aria-label="Switch panel"
+        onClick={() => setIndex((i) => (i + 1) % SLIDE_COUNT)}
       >
         ‹
       </button>
@@ -50,9 +49,8 @@ export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
       <button
         type="button"
         className="tracker-carousel-arrow tracker-carousel-arrow-next"
-        aria-label="Next panel"
-        disabled={index === SLIDE_COUNT - 1}
-        onClick={() => setIndex((i) => Math.min(SLIDE_COUNT - 1, i + 1))}
+        aria-label="Switch panel"
+        onClick={() => setIndex((i) => (i + 1) % SLIDE_COUNT)}
       >
         ›
       </button>

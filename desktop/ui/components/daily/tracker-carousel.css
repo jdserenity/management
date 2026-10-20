@@ -26,8 +26,6 @@
   opacity: 0.85;
 }
 
-.tracker-carousel-arrow:disabled { opacity: 0.3; cursor: default; }
-
 .tracker-carousel-arrow-prev { left: 2px; }
 
 .tracker-carousel-arrow-next { right: 2px; }
