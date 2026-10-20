@@ -226,8 +226,11 @@ export class SqliteDataStore {
               const deletedAt = tombByKey.get(tombstoneMapKey(s.field, rowKey));
               // Stale delete without a tombstone clock, or older than the row, must not win.
               if (!deletedAt) { record(s, normalizedKey); continue; }
+              // serverDeleteSql's WHERE matches bindDeleteKey (e.g. entries delete
+              // by id only, not the full (id, log_day) row key) — building the
+              // WHERE from rowKey instead under-binds and throws.
               this.db.prepare(
-                `DELETE FROM ${s.sqlTable} WHERE user_id=? AND ${s.rowKey.map((c) => `${c}=?`).join(' AND ')} AND ${clock} <= ?`
+                `${serverDeleteSql(s)} AND ${clock} <= ?`
               ).run(userId, ...binds, deletedAt);
             } else {
               this.db.prepare(serverDeleteSql(s)).run(userId, ...binds);

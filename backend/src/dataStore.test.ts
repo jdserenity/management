@@ -186,4 +186,48 @@ describe('SqliteDataStore.putData', () => {
     expect(store.getData('owner').streakLogCells).toHaveLength(1);
     db.close();
   });
+
+  it('applies tombstone + delete for nutrition and water entries in one patch', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', {
+      ...emptyData(),
+      nutritionEntries: [{ id: 'n1', log_day: '2026-07-08', kind: 'custom', ref_id: null, label: 'Soup', calories: 300, protein: 10, count: 1, updated_at: '2026-07-08T10:00:00Z', deleted: 0 }],
+      waterEntries: [{ id: 'w1', log_day: '2026-07-08', label: 'Bottle', ml: 500, count: 1, updated_at: '2026-07-08T10:00:00Z', deleted: 0 }]
+    });
+    // Regression: these tables key rows by (id, log_day) but clients send delete
+    // keys with id only; combined with the tombstone upserts the client always
+    // attaches, this used to throw "Too few parameter values" → HTTP 500.
+    store.putDataPatch('owner', {
+      nutritionEntries: { deletes: [{ id: 'n1' }] },
+      waterEntries: { deletes: [{ id: 'w1' }] },
+      syncTombstones: {
+        upserts: [
+          { entity: 'nutritionEntries', row_key: 'n1', deleted_at: '2026-07-08T12:00:00Z' },
+          { entity: 'waterEntries', row_key: 'w1', deleted_at: '2026-07-08T12:00:00Z' }
+        ]
+      }
+    });
+    const data = store.getData('owner');
+    expect(data.nutritionEntries).toHaveLength(0);
+    expect(data.waterEntries).toHaveLength(0);
+    db.close();
+  });
+
+  it('keeps a nutrition entry when its delete tombstone is older than the row', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', {
+      ...emptyData(),
+      nutritionEntries: [{ id: 'n1', log_day: '2026-07-08', kind: 'custom', ref_id: null, label: 'Soup', calories: 300, protein: 10, count: 1, updated_at: '2026-07-08T13:00:00Z', deleted: 0 }]
+    });
+    store.putDataPatch('owner', {
+      nutritionEntries: { deletes: [{ id: 'n1' }] },
+      syncTombstones: { upserts: [{ entity: 'nutritionEntries', row_key: 'n1', deleted_at: '2026-07-08T12:00:00Z' }] }
+    });
+    expect(store.getData('owner').nutritionEntries).toHaveLength(1);
+    db.close();
+  });
 });
