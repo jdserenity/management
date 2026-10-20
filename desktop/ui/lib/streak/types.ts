@@ -1,5 +1,5 @@
 export type StreakLogState = 'success' | 'failed' | 'none';
-export type AutomaticStreakTaskKind = 'water' | 'food' | 'workout';
+export type TrackerLinkedStreakTaskKind = 'water' | 'food' | 'workout';
 
 export type StreakLogCell = { state: StreakLogState; updatedAt: string };
 
@@ -12,8 +12,8 @@ export type StreakActivity = {
   scheduledDays?: string[];
   canFail?: boolean;
   /** A task driven by one of the app's daily goal trackers, not by the user pressing its checkmark. */
-  automaticKind?: AutomaticStreakTaskKind;
-  /** Automatic tasks stay configurable while hidden from the Daily task list. */
+  trackerLinkedKind?: TrackerLinkedStreakTaskKind;
+  /** Tracker-linked tasks stay configurable while hidden from the Daily task list. */
   enabled?: boolean;
   /** If true, missing success on this activity fails the whole day on the heatmap (red X). */
   necessary?: boolean;

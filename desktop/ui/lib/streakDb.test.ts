@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreakState } from '@/lib/streak/types';
-import { applyStreakLogLocally, archiveStreakActivity, reconcileAutomaticStreakActivities, reorderStreakActivities, saveStreakLog, setAutomaticStreakTaskEnabled } from '@/lib/streakDb';
+import { applyStreakLogLocally, archiveStreakActivity, reconcileTrackerLinkedStreakActivities, reorderStreakActivities, saveStreakLog, setTrackerLinkedStreakTaskEnabled } from '@/lib/streakDb';
 
 const { executeCalls, activityRows, logRows, metaRows } = vi.hoisted(() => ({
   executeCalls: [] as string[],
@@ -181,18 +181,18 @@ describe('streakDb row-level saves', () => {
     expect(activityRows.get('run')?.sort_order).toBe(1);
   });
 
-  it('reconciles an enabled automatic task from its tracker threshold', async () => {
+  it('reconciles an enabled tracker-linked task from its tracker threshold', async () => {
     const state = baseState();
-    state.config.activities = [{ id: 'automatic-water', name: 'Water goal', frequency: 'daily', automaticKind: 'water' }];
+    state.config.activities = [{ id: 'automatic-water', name: 'Water goal', frequency: 'daily', trackerLinkedKind: 'water' }];
     state.data.activityStartDates = { 'automatic-water': '2026-07-07' };
-    const complete = await reconcileAutomaticStreakActivities(state, { water: { totalMl: 2000, targetMl: 2000 } });
+    const complete = await reconcileTrackerLinkedStreakActivities(state, { water: { totalMl: 2000, targetMl: 2000 } });
     expect(complete.data.logs['2026-07-07']?.['automatic-water']?.state).toBe('success');
-    const incomplete = await reconcileAutomaticStreakActivities(complete, { water: { totalMl: 1999, targetMl: 2000 } });
+    const incomplete = await reconcileTrackerLinkedStreakActivities(complete, { water: { totalMl: 1999, targetMl: 2000 } });
     expect(incomplete.data.logs['2026-07-07']?.['automatic-water']?.state).toBe('none');
   });
 
-  it('creates an enabled automatic task in the sortable activity list', async () => {
-    const next = await setAutomaticStreakTaskEnabled(baseState(), 'water', true);
+  it('creates an enabled tracker-linked task in the sortable activity list', async () => {
+    const next = await setTrackerLinkedStreakTaskEnabled(baseState(), 'water', true);
     expect(next.config.activities.map((activity) => activity.id)).toContain('automatic-water');
     expect(activityRows.get('automatic-water')?.automatic_kind).toBe('water');
     expect(activityRows.get('automatic-water')?.enabled).toBe(1);

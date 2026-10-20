@@ -42,7 +42,7 @@ flowchart TB
     SP["SessionProvider — stretch / movement / logs"]
   end
   subgraph tabs["Active tab"]
-    Daily["Daily — stretches, habits, food, water, movement regimen\nAutomatic Water/Food/Workout tasks follow their logger goals"]
+    Daily["Daily — stretches, calendar, Food/Water carousel, habits\nTracker-linked Water/Food/Workout tasks follow their tracker goals"]
     Stats["Stats — aggregates"]
     Customize["Customize — Tasks / Body / Energy"]
     Settings["Settings"]

@@ -1,2 +1,4 @@
 @import './tracker-shared.css';
-/* Water-only rules live in shared accents; file kept for import stability. */
+
+.water-quick-add { margin-top: 12px; margin-bottom: 8px; }
+.water-chain { margin-bottom: 0; }

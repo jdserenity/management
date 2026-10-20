@@ -1,12 +1,12 @@
 // src/components/daily/StreakSection.tsx
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import StreakActivityRow from '@/components/daily/StreakActivityRow';
 import { StreakMonthlyCalendar } from '@/components/daily/StreakHeatmaps';
 import { useSession } from '@/context/SessionContext';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { fireDayCompleteConfetti } from '@/lib/streak/display';
-import { isDayComplete } from '@/lib/streak/heatmap';
+import { becameDayComplete } from '@/lib/streak/heatmap';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
 import { movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack';
@@ -15,7 +15,7 @@ import { dayEndTimeFromRolloverHour } from '@/lib/streak/dates';
 import {
   applyStreakLogLocally,
   loadStreakState,
-  reconcileAutomaticStreakActivities,
+  reconcileTrackerLinkedStreakActivities,
   saveStreakLog,
   updateStreakActivityDescription
 } from '@/lib/streakDb';
@@ -27,11 +27,13 @@ import './streak.css';
 
 type Props = {
   refreshKey?: number;
+  /** Rendered between the calendar and the task list (the Food/Water carousel on Daily). */
+  trackerWidget?: ReactNode;
 };
 
 type StreakBundle = { state: StreakState };
 
-export default function StreakSection({ refreshKey }: Props) {
+export default function StreakSection({ refreshKey, trackerWidget }: Props) {
   const { movementSnackPrefs, workoutLogs, dayRolloverHour } = useSession();
   const loadBundle = useCallback(async (): Promise<StreakBundle> => {
     return { state: await loadStreakState() };
@@ -47,7 +49,7 @@ export default function StreakSection({ refreshKey }: Props) {
     });
   };
   const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
-  const automaticSignature = state?.config.activities.map((activity) => `${activity.id}:${activity.automaticKind || ''}:${activity.enabled !== false}`).join('|') || '';
+  const trackerLinkedSignature = state?.config.activities.map((activity) => `${activity.id}:${activity.trackerLinkedKind || ''}:${activity.enabled !== false}`).join('|') || '';
   const workoutProgress = useMemo(() => {
     const tasks = movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen);
     const day = state?.currentDay || '';
@@ -60,33 +62,33 @@ export default function StreakSection({ refreshKey }: Props) {
     if (!state) return;
     let cancelled = false;
     void Promise.all([loadTdeeFile(), loadWaterFile()]).then(async ([food, water]) => {
-      const next = await reconcileAutomaticStreakActivities(state, {
+      const next = await reconcileTrackerLinkedStreakActivities(state, {
         food: { calories: totalCalories(food.entries), calorieTarget: food.tdee, protein: totalProtein(food.entries), proteinTarget: food.protein },
         water: { totalMl: totalWater(water.entries), targetMl: water.targetMl },
         workout: workoutProgress
       });
-      if (!cancelled && next !== state) setState(next);
-    }).catch((error) => console.error('Failed to refresh automatic tasks:', error));
+      if (cancelled || next === state) return;
+      // Tracker-linked tasks can't be tapped, so they bypass handleLog — celebrate here when one of them finishes the day.
+      if (becameDayComplete(state.data, buildActivityCatalog(state.config, state.data), next.data, buildActivityCatalog(next.config, next.data), state.currentDay)) fireDayCompleteConfetti();
+      setState(next);
+    }).catch((error) => console.error('Failed to refresh tracker-linked tasks:', error));
     return () => { cancelled = true; };
-  }, [automaticSignature, refreshKey, state, workoutProgress]);
+  }, [trackerLinkedSignature, refreshKey, state, workoutProgress]);
 
   const [actionError, setActionError] = useState<string | null>(null);
 
   const handleLog = async (activityId: string, newState: StreakLogState | null, day?: string) => {
     if (!state) return;
     const targetDay = day || state.currentDay;
-    const catalog = buildActivityCatalog(state.config, state.data);
-    const wasComplete = isDayComplete(state.data, catalog, targetDay);
     const activity = state.config.activities.find((a) => a.id === activityId);
-    if (activity?.automaticKind) return;
+    if (activity?.trackerLinkedKind) return;
     // Show the check right away; roll it back with a visible error if the save fails.
     const optimistic = applyStreakLogLocally(state, activityId, newState, day, dayEndTimeFromRolloverHour(dayRolloverHour));
     setState(optimistic);
     setActionError(null);
     try {
       const next = await saveStreakLog(state, activityId, newState, day);
-      const nowComplete = isDayComplete(next.data, buildActivityCatalog(next.config, next.data), targetDay);
-      if (!wasComplete && nowComplete && newState === 'success') fireDayCompleteConfetti();
+      if (newState === 'success' && becameDayComplete(state.data, buildActivityCatalog(state.config, state.data), next.data, buildActivityCatalog(next.config, next.data), targetDay)) fireDayCompleteConfetti();
       setState(next);
     } catch (error) {
       console.error('Failed to save habit check:', error);
@@ -112,11 +114,12 @@ export default function StreakSection({ refreshKey }: Props) {
   return (
     <section className="streak-tracker-container" aria-label="Habits">
       {actionError ? <p className="text-sm text-destructive" role="alert">{actionError}</p> : null}
+      <StreakMonthlyCalendar state={state} month={calendarMonth ?? state.currentDay.slice(0, 7)} onMonthChange={setCalendarMonth} />
+      {trackerWidget}
       {dailyActivities.length === 0 && weeklyActivities.length === 0 ? (
         <p className="streak-tracker-empty mb-4">No habits yet. Add activities in Customize → Habits.</p>
       ) : (
         <>
-          <StreakMonthlyCalendar state={state} month={calendarMonth ?? state.currentDay.slice(0, 7)} onMonthChange={setCalendarMonth} />
           <div className="streak-activities">
             {dailyActivities.length > 0 && weeklyActivities.length > 0 ? <div className="streak-section-label">Daily</div> : null}
             {dailyActivities.map((a) => (

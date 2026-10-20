@@ -3,7 +3,7 @@ import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
 import { activeEntries, isStapleLogged, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
 import { formatIngredientsList, mealTotalsFromIngredients } from '@/lib/tdee/ingredients';
-import { mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
+import { filterRegulars, mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import {
   entryCalories,
@@ -171,6 +171,17 @@ describe('tdee meals', () => {
     expect(added.map((m) => m.id)).toEqual(['a', 'b']);
     const updated = upsertMeal(added, { id: 'a', name: 'A2', calories: 150, protein: 8 }, false);
     expect(updated[0]).toEqual({ id: 'a', name: 'A2', calories: 150, protein: 8 });
+  });
+
+  it('filterRegulars matches by name, case-insensitively, and returns all for an empty search', () => {
+    const meals = [
+      { id: 'a', name: 'Greek Yogurt', calories: 100, protein: 5 },
+      { id: 'b', name: 'Chicken Bowl', calories: 200, protein: 10 },
+      { id: 'c', name: 'yogurt parfait', calories: 300, protein: 15 }
+    ];
+    expect(filterRegulars(meals, '').map((m) => m.id)).toEqual(['a', 'b', 'c']);
+    expect(filterRegulars(meals, '  YOGURT ').map((m) => m.id)).toEqual(['a', 'c']);
+    expect(filterRegulars(meals, 'pizza')).toEqual([]);
   });
 
   it('removeMeal drops matching id', () => {

@@ -118,7 +118,7 @@ export default function StreakActivityRow({ activity, state, onLog, onEditDescri
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState(activity.description || '');
   const today = state.currentDay;
-  const isAutomatic = !!activity.automaticKind;
+  const isTrackerLinked = !!activity.trackerLinkedKind;
 
   if (activity.frequency === 'weekly') {
     const weeklyTarget = activity.weeklyTarget || 1;
@@ -197,10 +197,10 @@ export default function StreakActivityRow({ activity, state, onLog, onEditDescri
         <div className="streak-buttons">
           <button
             type="button"
-            className={`streak-btn streak-btn-success streak-btn-primary${necessary ? ' streak-btn-necessary' : ''}${currentState === 'success' ? ' streak-btn-active' : ''}${isAutomatic ? ' streak-btn-automatic' : ''}`}
-            title={isAutomatic ? 'Completed automatically when the tracker reaches its goal' : 'Mark as success'}
-            disabled={isAutomatic}
-            onClick={() => !isAutomatic && onLog(activity.id, currentState === 'success' ? null : 'success')}
+            className={`streak-btn streak-btn-success streak-btn-primary${necessary ? ' streak-btn-necessary' : ''}${currentState === 'success' ? ' streak-btn-active' : ''}${isTrackerLinked ? ' streak-btn-tracker-linked' : ''}`}
+            title={isTrackerLinked ? 'Completed by its tracker when the goal is reached' : 'Mark as success'}
+            disabled={isTrackerLinked}
+            onClick={() => !isTrackerLinked && onLog(activity.id, currentState === 'success' ? null : 'success')}
           >
             ✓
           </button>
