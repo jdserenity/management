@@ -1,0 +1,28 @@
+.tracker-carousel { margin: 4px 0 16px; }
+
+.tracker-carousel-tabs { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+.tracker-carousel-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.tracker-carousel-tab-active { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+
+.tracker-carousel-dots { display: inline-flex; gap: 5px; margin-left: 2px; }
+
+.tracker-carousel-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--border); }
+
+.tracker-carousel-dot-active { background: var(--primary); }
+
+.tracker-carousel-viewport { overflow: hidden; }
+
+.tracker-carousel-track { display: flex; transition: transform 0.28s ease; }
+
+.tracker-carousel-slide { flex: 0 0 100%; min-width: 0; }

@@ -1,6 +1,6 @@
 // src/components/daily/StreakSection.tsx
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import StreakActivityRow from '@/components/daily/StreakActivityRow';
 import { StreakMonthlyCalendar } from '@/components/daily/StreakHeatmaps';
 import { useSession } from '@/context/SessionContext';
@@ -25,11 +25,13 @@ import './streak.css';
 
 type Props = {
   refreshKey?: number;
+  /** Rendered between the calendar and the task list (the Food/Water carousel on Daily). */
+  trackerWidget?: ReactNode;
 };
 
 type StreakBundle = { state: StreakState };
 
-export default function StreakSection({ refreshKey }: Props) {
+export default function StreakSection({ refreshKey, trackerWidget }: Props) {
   const { movementSnackPrefs, workoutLogs, dayRolloverHour } = useSession();
   const loadBundle = useCallback(async (): Promise<StreakBundle> => {
     return { state: await loadStreakState() };
@@ -98,11 +100,12 @@ export default function StreakSection({ refreshKey }: Props) {
 
   return (
     <section className="streak-tracker-container" aria-label="Habits">
+      <StreakMonthlyCalendar state={state} month={calendarMonth ?? state.currentDay.slice(0, 7)} onMonthChange={setCalendarMonth} />
+      {trackerWidget}
       {dailyActivities.length === 0 && weeklyActivities.length === 0 ? (
         <p className="streak-tracker-empty mb-4">No habits yet. Add activities in Customize → Habits.</p>
       ) : (
         <>
-          <StreakMonthlyCalendar state={state} month={calendarMonth ?? state.currentDay.slice(0, 7)} onMonthChange={setCalendarMonth} />
           <div className="streak-activities">
             {dailyActivities.length > 0 && weeklyActivities.length > 0 ? <div className="streak-section-label">Daily</div> : null}
             {dailyActivities.map((a) => (
