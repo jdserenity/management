@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreakState } from '@/lib/streak/types';
-import { archiveStreakActivity, reconcileAutomaticStreakActivities, reorderStreakActivities, saveStreakLog, setAutomaticStreakTaskEnabled } from '@/lib/streakDb';
+import { applyStreakLogLocally, archiveStreakActivity, reconcileAutomaticStreakActivities, reorderStreakActivities, saveStreakLog, setAutomaticStreakTaskEnabled } from '@/lib/streakDb';
 
 const { executeCalls, activityRows, logRows, metaRows } = vi.hoisted(() => ({
   executeCalls: [] as string[],
@@ -128,6 +128,24 @@ describe('streakDb row-level saves', () => {
     expect(executeCalls.some((sql) => sql === 'DELETE FROM streak_log_cells')).toBe(false);
     expect(executeCalls.filter((sql) => sql.startsWith('INSERT INTO streak_log_cells'))).toHaveLength(1);
     expect(logRows.get('2026-07-07:run')?.state).toBe('success');
+  });
+
+  it('applyStreakLogLocally shows the check in memory without touching the DB or the old state', () => {
+    const state = baseState();
+    const next = applyStreakLogLocally(state, 'run', 'success', undefined, '04:00');
+    expect(next.data.logs['2026-07-07']?.run?.state).toBe('success');
+    expect(state.data.logs['2026-07-07']?.run).toBeUndefined();
+    expect(executeCalls).toHaveLength(0);
+    const cleared = applyStreakLogLocally(next, 'run', null, undefined, '04:00');
+    expect(cleared.data.logs['2026-07-07']?.run?.state).toBe('none');
+  });
+
+  it('saveStreakLog and the optimistic preview agree on the saved cell', async () => {
+    const state = baseState();
+    const optimistic = applyStreakLogLocally(state, 'run', 'success', undefined, '04:00');
+    const saved = await saveStreakLog(state, 'run', 'success');
+    expect(saved.data.logs['2026-07-07']?.run?.state).toBe(optimistic.data.logs['2026-07-07']?.run?.state);
+    expect(state.data.logs['2026-07-07']?.run).toBeUndefined();
   });
 
   it('reorderStreakActivities writes sort_order for each active row', async () => {

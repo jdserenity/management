@@ -11,7 +11,9 @@ import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
 import { movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
+import { dayEndTimeFromRolloverHour } from '@/lib/streak/dates';
 import {
+  applyStreakLogLocally,
   loadStreakState,
   reconcileAutomaticStreakActivities,
   saveStreakLog,
@@ -68,6 +70,8 @@ export default function StreakSection({ refreshKey }: Props) {
     return () => { cancelled = true; };
   }, [automaticSignature, refreshKey, state, workoutProgress]);
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const handleLog = async (activityId: string, newState: StreakLogState | null, day?: string) => {
     if (!state) return;
     const targetDay = day || state.currentDay;
@@ -75,11 +79,20 @@ export default function StreakSection({ refreshKey }: Props) {
     const wasComplete = isDayComplete(state.data, catalog, targetDay);
     const activity = state.config.activities.find((a) => a.id === activityId);
     if (activity?.automaticKind) return;
-    const next = await saveStreakLog(state, activityId, newState, day);
-    const nowComplete = isDayComplete(next.data, buildActivityCatalog(next.config, next.data), targetDay);
-    if (!wasComplete && nowComplete && newState === 'success') fireDayCompleteConfetti();
-
-    setState(next);
+    // Show the check right away; roll it back with a visible error if the save fails.
+    const optimistic = applyStreakLogLocally(state, activityId, newState, day, dayEndTimeFromRolloverHour(dayRolloverHour));
+    setState(optimistic);
+    setActionError(null);
+    try {
+      const next = await saveStreakLog(state, activityId, newState, day);
+      const nowComplete = isDayComplete(next.data, buildActivityCatalog(next.config, next.data), targetDay);
+      if (!wasComplete && nowComplete && newState === 'success') fireDayCompleteConfetti();
+      setState(next);
+    } catch (error) {
+      console.error('Failed to save habit check:', error);
+      setState(state);
+      setActionError(`Could not save that check — your habits were not changed. ${error instanceof Error ? error.message : ''}`.trim());
+    }
   };
 
   if (!storageReady) {
@@ -98,6 +111,7 @@ export default function StreakSection({ refreshKey }: Props) {
 
   return (
     <section className="streak-tracker-container" aria-label="Habits">
+      {actionError ? <p className="text-sm text-destructive" role="alert">{actionError}</p> : null}
       {dailyActivities.length === 0 && weeklyActivities.length === 0 ? (
         <p className="streak-tracker-empty mb-4">No habits yet. Add activities in Customize → Habits.</p>
       ) : (

@@ -273,6 +273,38 @@ export const isStreakEmpty = (state: StreakState): boolean =>
   state.config.archivedActivities.length === 0 &&
   Object.keys(state.data.logs).length === 0;
 
+const logCellFor = (newState: StreakLogState | null) =>
+  newState == null || newState === 'none' ? makeDeletionCell() : makeLogCell(newState)!;
+
+const withLogApplied = (
+  state: StreakState,
+  activityId: string,
+  day: string,
+  cell: ReturnType<typeof logCellFor>
+): StreakState['data'] => ({
+  ...state.data,
+  logs: { ...state.data.logs, [day]: { ...state.data.logs[day], [activityId]: cell } },
+  activityStartDates: state.data.activityStartDates[activityId]
+    ? state.data.activityStartDates
+    : { ...state.data.activityStartDates, [activityId]: day }
+});
+
+/**
+ * The result of a check-off, computed in memory only (no DB writes).
+ * Lets the UI show the check immediately and roll back if the save fails,
+ * instead of waiting on SQLite before anything visibly happens.
+ */
+export const applyStreakLogLocally = (
+  state: StreakState,
+  activityId: string,
+  newState: StreakLogState | null,
+  logDay: string | undefined,
+  dayEndTime: string
+): StreakState => {
+  const day = logDay || state.currentDay;
+  return buildState(state.config, withLogApplied(state, activityId, day, logCellFor(newState)), state.currentDay, dayEndTime);
+};
+
 export const saveStreakLog = async (
   state: StreakState,
   activityId: string,
@@ -280,26 +312,19 @@ export const saveStreakLog = async (
   logDay?: string
 ): Promise<StreakState> => {
   const day = logDay || state.currentDay;
-  const logs = { ...state.data.logs };
-  if (!logs[day]) logs[day] = {};
-  const dayLog = { ...logs[day] };
+  const cell = logCellFor(newState);
   if (newState == null || newState === 'none') {
-    dayLog[activityId] = makeDeletionCell();
     await deleteLogCell(day, activityId);
   } else {
-    const cell = makeLogCell(newState)!;
-    dayLog[activityId] = cell;
     await upsertLogCell(day, activityId, cell.state, cell.updatedAt);
   }
-  logs[day] = dayLog;
-  state.data.logs = logs;
+  const data = withLogApplied(state, activityId, day, cell);
   if (!state.data.activityStartDates[activityId]) {
-    state.data.activityStartDates = { ...state.data.activityStartDates, [activityId]: day };
-    await upsertMetaRow(activityId, state.data);
+    await upsertMetaRow(activityId, data);
   }
   const rolloverHour = await loadDayRolloverHourPref();
   const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
-  return buildState(state.config, state.data, state.currentDay, dayEndTime);
+  return buildState(state.config, data, state.currentDay, dayEndTime);
 };
 
 export const setActivityPaused = async (state: StreakState, activityId: string, paused: boolean): Promise<StreakState> => {
