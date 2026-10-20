@@ -172,6 +172,21 @@ const SCHEMA_SQL = `
     deleted_at TEXT NOT NULL,
     PRIMARY KEY (entity, row_key, user_id)
   );
+
+  -- Server-referee change log: every accepted patch records the FINAL row the
+  -- server holds, under a server-issued seq. Devices pull changes after their cursor and
+  -- apply changes verbatim instead of merging snapshots by device clocks.
+  CREATE TABLE IF NOT EXISTS sync_changes (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    entity TEXT NOT NULL,
+    row_key TEXT NOT NULL,
+    op TEXT NOT NULL,
+    row_json TEXT,
+    key_json TEXT,
+    changed_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_sync_changes_user_seq ON sync_changes (user_id, seq);
 `;
 
 const migrateServerSchema = (db: Database.Database): void => {

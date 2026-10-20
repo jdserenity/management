@@ -117,4 +117,31 @@ describe('server', () => {
     expect(data.waterEntries).toHaveLength(1);
     db.close();
   });
+
+  it('serves numbered changes after a cursor and rejects a bad cursor', async () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const dataStore = new SqliteDataStore(db);
+    const app = createSyncApp(new MemoryActiveFlowStore(), dataStore, 'test-token');
+    const patch = await app.request('/v1/data/patch', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rowPatch: { appKv: { upserts: [{ key: 'k', value: 'v', updated_at: 1 }] } } })
+    });
+    expect(patch.status).toBe(200);
+    expect(await patch.json()).toMatchObject({ ok: true, seq: 1 });
+
+    const unauthorized = await app.request('/v1/changes?since=0');
+    expect(unauthorized.status).toBe(401);
+
+    const res = await app.request('/v1/changes?since=0', { headers: { Authorization: 'Bearer test-token' } });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { changes: Array<{ seq: number; entity: string }>; currentSeq: number };
+    expect(body.currentSeq).toBe(1);
+    expect(body.changes).toMatchObject([{ seq: 1, entity: 'appKv' }]);
+
+    const bad = await app.request('/v1/changes?since=-1', { headers: { Authorization: 'Bearer test-token' } });
+    expect(bad.status).toBe(400);
+    db.close();
+  });
 });

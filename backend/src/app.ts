@@ -59,11 +59,19 @@ export const createSyncApp = (store: ActiveFlowStore, dataStore: SqliteDataStore
     return c.json({ doc: saved });
   });
 
-  // ── Full user data snapshot ─────────────────────────────────────────────────
+  // ── Full user data snapshot (bootstrap / repair only) ──────────────────────
   app.get('/v1/data', (c) => {
     if (!dataStore) return c.json({ error: 'data store not available' }, 503);
     const data = dataStore.getData(ownerId);
-    return c.json({ data });
+    return c.json({ data, seq: dataStore.getCurrentSeq(ownerId) });
+  });
+
+  // ── Numbered changes since a device cursor (normal pull path) ─────────────
+  app.get('/v1/changes', (c) => {
+    if (!dataStore) return c.json({ error: 'data store not available' }, 503);
+    const since = Number(c.req.query('since') ?? '0');
+    if (!Number.isInteger(since) || since < 0) return c.json({ error: 'since must be a non-negative integer' }, 400);
+    return c.json(dataStore.getChanges(ownerId, since));
   });
 
   app.post('/v1/data', async (c) => {
@@ -88,7 +96,7 @@ export const createSyncApp = (store: ActiveFlowStore, dataStore: SqliteDataStore
     const body = await c.req.json() as { rowPatch?: UserDataRowPatch };
     if (!body.rowPatch || typeof body.rowPatch !== 'object') return c.json({ error: 'missing rowPatch payload' }, 400);
     dataStore.putDataPatch(ownerId, body.rowPatch);
-    return c.json({ ok: true });
+    return c.json({ ok: true, seq: dataStore.getCurrentSeq(ownerId) });
   });
 
   return app;
