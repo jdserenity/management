@@ -37,6 +37,9 @@
 .tdee-quick-row .tdee-meal-title-input { flex: 1 1 10rem; width: auto; }
 .tdee-quick-row .tdee-portion-protein { width: 88px; }
 .tdee-regular-search-row .tdee-meal-title-input { width: 100%; }
+.tdee-regular-no-match { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.tdee-add-regular-btn { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); color: var(--foreground); cursor: pointer; font-size: 0.85em; }
+.tdee-add-regular-btn:hover { background: var(--accent); }
 .tdee-regular-results { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
 .tdee-regular-result { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; text-align: left; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); color: var(--foreground); cursor: pointer; }
 .tdee-regular-result:hover { background: var(--accent); }

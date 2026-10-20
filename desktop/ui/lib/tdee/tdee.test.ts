@@ -3,7 +3,7 @@ import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
 import { activeEntries, isStapleLogged, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
 import { formatIngredientsList, mealTotalsFromIngredients } from '@/lib/tdee/ingredients';
-import { filterRegulars, hasCustomFoodInput, mealIdFromName, removeMeal, upsertMeal } from '@/lib/tdee/meals';
+import { filterRegulars, hasCustomFoodInput, mealIdFromName, regularFromSearch, removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import {
   entryCalories,
@@ -183,6 +183,18 @@ describe('tdee meals', () => {
     expect(filterRegulars(meals, '   ')).toEqual([]);
     expect(filterRegulars(meals, '  YOGURT ').map((m) => m.id)).toEqual(['a', 'c']);
     expect(filterRegulars(meals, 'pizza')).toEqual([]);
+  });
+
+  it('regularFromSearch builds a regular from the searched name and the custom-row macros, or refuses without calories', () => {
+    const existing = [{ id: 'soup', name: 'Soup', calories: 100, protein: 5 }];
+    expect(regularFromSearch('Chicken Wrap', '450', '20', existing)).toEqual({
+      id: 'chicken-wrap', name: 'Chicken Wrap', calories: 450, protein: 20
+    });
+    expect(regularFromSearch('  Chicken Wrap  ', '450.4', '', existing)?.calories).toBe(450);
+    expect(regularFromSearch('Soup', '100', '5', existing)?.id).toBe('soup-2');
+    expect(regularFromSearch('Chicken Wrap', '', '20', existing)).toBeNull();
+    expect(regularFromSearch('Chicken Wrap', '0', '20', existing)).toBeNull();
+    expect(regularFromSearch('   ', '450', '20', existing)).toBeNull();
   });
 
   it('hasCustomFoodInput is false for a blank custom row and true once anything is typed or filled', () => {

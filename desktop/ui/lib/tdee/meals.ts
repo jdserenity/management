@@ -1,3 +1,4 @@
+import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
 import type { TdeeMealDef } from '@/lib/tdee/types';
 
 export const mealIdFromName = (name: string, existing: TdeeMealDef[]): string => {
@@ -23,6 +24,23 @@ export const removeMeal = (meals: TdeeMealDef[], id: string): TdeeMealDef[] => m
 /** True when the Daily custom-food row holds anything the Clear button should wipe (a picked regular fills all of these). */
 export const hasCustomFoodInput = (f: { title: string; calories: string; protein: string; qty: string }): boolean =>
   f.title !== '' || f.calories !== '' || f.protein !== '' || f.qty !== '1';
+
+/**
+ * Build a new regular from a fruitless search: the searched name plus the
+ * calories/protein currently typed in the custom row. Returns null when the
+ * name is blank or no calories are entered yet (a regular needs calories).
+ */
+export const regularFromSearch = (
+  search: string,
+  caloriesRaw: string,
+  proteinRaw: string,
+  existing: TdeeMealDef[]
+): TdeeMealDef | null => {
+  const name = search.trim();
+  const calories = normalizeCalories(Number(caloriesRaw));
+  if (!name || !calories) return null;
+  return { id: mealIdFromName(name, existing), name, calories, protein: normalizeMacro(Number(proteinRaw) || 0) };
+};
 
 /** Regulars matching a name search; an empty search shows nothing — regulars only appear once searched for. */
 export const filterRegulars = (regulars: TdeeMealDef[], query: string): TdeeMealDef[] => {

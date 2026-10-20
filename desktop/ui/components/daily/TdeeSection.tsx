@@ -16,11 +16,12 @@ import {
   totalProtein
 } from '@/lib/tdee/totals';
 import type { TdeeMealDef } from '@/lib/tdee/types';
-import { filterRegulars, hasCustomFoodInput } from '@/lib/tdee/meals';
+import { filterRegulars, hasCustomFoodInput, regularFromSearch } from '@/lib/tdee/meals';
 import {
   addCustomEntry,
   loadTdeeFile,
-  removeTdeeEntry
+  removeTdeeEntry,
+  upsertTdeeRegular
 } from '@/lib/tdeeDb';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import {
@@ -91,6 +92,17 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
     setCustomProtein('');
     setCustomQty('1');
     setRegularSearch('');
+  };
+
+  const handleAddRegularFromSearch = async () => {
+    const meal = regularFromSearch(regularSearch, customCalories, customProtein, file.regulars);
+    if (!meal) {
+      // A regular needs calories: park the searched name in the Add food row
+      // so the user can type calories/protein, then tap this button again.
+      setCustomTitle(regularSearch.trim());
+      return;
+    }
+    setFile(await upsertTdeeRegular(file, meal, true));
   };
 
   const handlePickRegular = (regular: TdeeMealDef) => {
@@ -217,7 +229,15 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
         {file.regulars.length === 0 ? (
           <p className="tdee-tracker-empty">No regulars yet. Add them in Customize → Food.</p>
         ) : regularSearch.trim() === '' ? null : visibleRegulars.length === 0 ? (
-          <p className="tdee-tracker-empty">No regulars match “{regularSearch}”.</p>
+          <div className="tdee-regular-no-match">
+            <p className="tdee-tracker-empty">No regulars match “{regularSearch}”.</p>
+            <button type="button" className="tdee-add-regular-btn" onClick={() => void handleAddRegularFromSearch()}>
+              Add “{regularSearch.trim()}” as a regular
+            </button>
+            {regularFromSearch(regularSearch, customCalories, customProtein, file.regulars) ? null : (
+              <p className="tdee-tracker-empty">Enter its calories in Add food above first, then add it.</p>
+            )}
+          </div>
         ) : (
           <div className="tdee-regular-results">
             {visibleRegulars.map((regular) => (
