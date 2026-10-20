@@ -31,3 +31,12 @@
 }.tdee-portion-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: nowrap; justify-self: end; }.tdee-portion-x { color: var(--muted-foreground); font-size: 0.95em; line-height: 1; user-select: none; }.tdee-portion-input { width: 72px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); }
 
 .tdee-portion-qty { width: 52px; }
+
+.tdee-quick-add { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.tdee-quick-row { flex-wrap: wrap; }
+.tdee-quick-row .tdee-meal-title-input { flex: 1 1 10rem; width: auto; }
+.tdee-quick-row .tdee-portion-protein { width: 88px; }
+.tdee-regular-search-row .tdee-meal-title-input { width: 100%; }
+.tdee-regular-results { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.tdee-regular-result { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; text-align: left; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--secondary); color: var(--foreground); cursor: pointer; }
+.tdee-regular-result:hover { background: var(--accent); }

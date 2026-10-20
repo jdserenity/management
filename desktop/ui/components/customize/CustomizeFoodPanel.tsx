@@ -8,10 +8,8 @@ import type { TdeeFile, TdeeIngredient, TdeeMealDef } from '@/lib/tdee/types';
 import {
   loadTdeeFile,
   removeTdeeRegular,
-  removeTdeeStaple,
   updateTdeeTargets,
-  upsertTdeeRegular,
-  upsertTdeeStaple
+  upsertTdeeRegular
 } from '@/lib/tdeeDb';
 import { loadWaterFile, saveWaterTarget } from '@/lib/waterDb';
 import { litresToMl, mlToLitres } from '@/lib/water/totals';
@@ -200,8 +198,6 @@ export default function CustomizeFoodPanel() {
   };
   const [tdeeDraft, setTdeeDraft] = useState('');
   const [proteinDraft, setProteinDraft] = useState('');
-  const [stapleDraft, setStapleDraft] = useState<MealDraft>(emptyDraft);
-  const [stapleEditId, setStapleEditId] = useState<string | null>(null);
   const [regularDraft, setRegularDraft] = useState<MealDraft>(emptyDraft);
   const [regularEditId, setRegularEditId] = useState<string | null>(null);
   const [waterTargetDraft, setWaterTargetDraft] = useState('');
@@ -257,12 +253,7 @@ export default function CustomizeFoodPanel() {
         </div>
       </CustomizePanel>
 
-      <CustomizePanel title="Staples" description="One-tap items on the Daily food chain until logged each day. Totals sum from ingredients when you use them; otherwise set calories and protein directly.">
-        <MealList meals={file.staples} onEdit={(meal) => { setStapleEditId(meal.id); setStapleDraft(mealToDraft(meal)); }} onRemove={(id) => void removeTdeeStaple(file, id).then(setFile)} />
-        <MealEditor title={stapleEditId ? 'Edit staple' : 'Add staple'} draft={stapleDraft} editingId={stapleEditId} onDraftChange={setStapleDraft} onSave={() => void saveMeal(stapleDraft, stapleEditId, file.staples, upsertTdeeStaple, () => { setStapleDraft(emptyDraft()); setStapleEditId(null); })} onCancel={() => { setStapleDraft(emptyDraft()); setStapleEditId(null); }} />
-      </CustomizePanel>
-
-      <CustomizePanel title="Regulars" description="Reusable meals with default portions; log them from the + menu on Daily.">
+      <CustomizePanel title="Regulars" description="Reusable meals. On Daily, search regulars, tap one to fill the Add food fields, edit if needed, then press Eat.">
         <MealList meals={file.regulars} onEdit={(meal) => { setRegularEditId(meal.id); setRegularDraft(mealToDraft(meal)); }} onRemove={(id) => void removeTdeeRegular(file, id).then(setFile)} />
         <MealEditor title={regularEditId ? 'Edit regular' : 'Add regular'} draft={regularDraft} editingId={regularEditId} onDraftChange={setRegularDraft} onSave={() => void saveMeal(regularDraft, regularEditId, file.regulars, upsertTdeeRegular, () => { setRegularDraft(emptyDraft()); setRegularEditId(null); })} onCancel={() => { setRegularDraft(emptyDraft()); setRegularEditId(null); }} />
       </CustomizePanel>

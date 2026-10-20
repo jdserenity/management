@@ -1,7 +1,7 @@
 // src/components/daily/TdeeSection.tsx
 
 import { useState } from 'react';
-import { activeEntries, isStapleLogged } from '@/lib/tdee/entries';
+import { activeEntries } from '@/lib/tdee/entries';
 import { formatIngredientsList, normalizeMacro } from '@/lib/tdee/ingredients';
 import {
   entryCalories,
@@ -16,82 +16,18 @@ import {
   totalProtein
 } from '@/lib/tdee/totals';
 import type { TdeeMealDef } from '@/lib/tdee/types';
+import { filterRegulars } from '@/lib/tdee/meals';
 import {
   addCustomEntry,
-  addRegularEntry,
-  addStapleEntry,
   loadTdeeFile,
   removeTdeeEntry
 } from '@/lib/tdeeDb';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import {
-  buildTrackerChain,
-  TrackerAddPanel,
-  TrackerPlusButton,
   TrackerSummary,
+  withChainConnectors,
 } from '@/components/daily/TrackerChain';
 import './tdee.css';
-
-type PortionControlsProps = {
-  defaultCalories?: number;
-  defaultProtein?: number;
-  placeholderCalories?: string;
-  placeholderProtein?: string;
-  actionLabel?: string;
-  onAdd: (calories: number, protein: number, count: number) => Promise<void>;
-};
-
-function PortionControls({ defaultCalories, defaultProtein, placeholderCalories, placeholderProtein, actionLabel = 'Eat', onAdd }: PortionControlsProps) {
-  const [calories, setCalories] = useState(defaultCalories != null ? String(defaultCalories) : '');
-  const [protein, setProtein] = useState(
-    defaultProtein != null ? String(defaultProtein) : placeholderProtein ? '' : '0'
-  );
-  const [qty, setQty] = useState('1');
-  return (
-    <div className="tdee-portion-wrap">
-      <input
-        className="tdee-portion-input"
-        type="number"
-        min={1}
-        step={1}
-        placeholder={placeholderCalories}
-        value={calories}
-        onChange={(e) => setCalories(e.target.value)}
-      />
-      <input
-        className="tdee-portion-input tdee-portion-protein"
-        type="number"
-        min={0}
-        step={0.1}
-        placeholder={placeholderProtein}
-        value={protein}
-        onChange={(e) => setProtein(e.target.value)}
-      />
-      <span className="tdee-portion-x">×</span>
-      <input
-        className="tdee-portion-input tdee-portion-qty"
-        type="number"
-        min={1}
-        step={1}
-        value={qty}
-        onChange={(e) => setQty(e.target.value)}
-      />
-      <button
-        type="button"
-        className="tdee-add-btn"
-        onClick={() => {
-          const c = Math.round(Number(calories));
-          const p = normalizeMacro(Number(protein) || 0);
-          const count = Math.max(1, Math.round(Number(qty) || 1));
-          if (!c || c <= 0) return;
-          void onAdd(c, p, count);
-        }}
-      >
-        {actionLabel}
-      </button>
-    </div>
-  );
-}
 
 type Props = {
   refreshKey?: number;
@@ -104,8 +40,11 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
     'Failed to load nutrition data',
     { refreshKey }
   );
-  const [addMode, setAddMode] = useState(false);
   const [customTitle, setCustomTitle] = useState('');
+  const [customCalories, setCustomCalories] = useState('');
+  const [customProtein, setCustomProtein] = useState('');
+  const [customQty, setCustomQty] = useState('1');
+  const [regularSearch, setRegularSearch] = useState('');
 
   if (!storageReady) {
     return (
@@ -127,36 +66,30 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
   const proteinTotal = totalProtein(file.entries);
   const proteinTarget = file.protein || 0;
   const proteinRatio = progressRatio(proteinTotal, proteinTarget);
-  const pendingStaples = file.staples.filter((s) => !isStapleLogged(file.entries, s.id));
 
   const handleRemove = async (id: string) => {
     setFile(await removeTdeeEntry(file, id));
     onTrackerLinkedTaskChange?.();
   };
 
-  const handleStaple = async (staple: TdeeMealDef) => {
-    setFile(await addStapleEntry(file, staple));
-    onTrackerLinkedTaskChange?.();
-  };
-
-  const handleStapleFromEditor = async (staple: TdeeMealDef, calories: number, protein: number, count: number) => {
-    // Logs as kind staple + refId so the day's staple chip is replaced (pending chip hides).
-    setFile(await addStapleEntry(file, staple, calories, protein, count));
-    setAddMode(false);
-    onTrackerLinkedTaskChange?.();
-  };
-
-  const handleRegular = async (regular: TdeeMealDef, calories: number, protein: number, count: number) => {
-    setFile(await addRegularEntry(file, regular, calories, protein, count));
-    setAddMode(false);
-    onTrackerLinkedTaskChange?.();
-  };
-
-  const handleCustom = async (calories: number, protein: number, count: number) => {
+  const handleEat = async () => {
+    const calories = Math.round(Number(customCalories));
+    if (!calories || calories <= 0) return;
+    const protein = normalizeMacro(Number(customProtein) || 0);
+    const count = Math.max(1, Math.round(Number(customQty) || 1));
     setFile(await addCustomEntry(file, customTitle, calories, protein, count));
     setCustomTitle('');
-    setAddMode(false);
+    setCustomCalories('');
+    setCustomProtein('');
+    setCustomQty('1');
     onTrackerLinkedTaskChange?.();
+  };
+
+  const handlePickRegular = (regular: TdeeMealDef) => {
+    setCustomTitle(regular.name);
+    setCustomCalories(String(regular.calories));
+    setCustomProtein(String(regular.protein));
+    setCustomQty('1');
   };
 
   const loggedChips = logged.map((entry) => {
@@ -178,42 +111,9 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
     );
   });
 
-  const pendingNodes = !addMode
-    ? (pendingStaples.length === 0 && logged.length === 0
-      ? [
-          <p key="empty" className="tdee-tracker-empty tdee-chain-empty">
-            No staples configured yet. Add staples in Customize → Food.
-          </p>
-        ]
-      : pendingStaples.map((staple) => (
-          <button
-            key={`s-${staple.id}`}
-            type="button"
-            className="tdee-chain-btn"
-            title={`+${formatChipMacros(staple.calories, staple.protein)}`}
-            onClick={() => void handleStaple(staple)}
-          >
-            <span className="tdee-chain-label">{staple.name}</span>
-            <span className="tdee-chain-kcal">{formatChipMacros(staple.calories, staple.protein)}</span>
-          </button>
-        )))
-    : [];
-
-  const chainItems = buildTrackerChain({
-    chips: [...loggedChips, ...pendingNodes],
-    plus: (
-      <TrackerPlusButton
-        key="plus"
-        prefix="tdee"
-        addMode={addMode}
-        onOpen={() => setAddMode(true)}
-        titleClosed="Log a regular or one-off meal"
-      />
-    )
-  });
-
   const kcalRemaining = remainingDisplay(total, tdee);
   const proteinRemaining = proteinRemainingDisplay(proteinTotal, proteinTarget);
+  const visibleRegulars = filterRegulars(file.regulars, regularSearch);
 
   return (
     <section className="tdee-tracker-container" aria-label="Nutrition">
@@ -244,76 +144,87 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
           </div>
         ) : null}
       </TrackerSummary>
-      <div className="tdee-chain">{chainItems}</div>
-      {addMode ? (
-        <TrackerAddPanel prefix="tdee" title={<>Staples, regulars &amp; one-off</>} onClose={() => setAddMode(false)}>
-          <div className="tdee-regular-list">
-            {file.staples.length === 0 ? (
-              <p className="tdee-tracker-empty">No staples configured yet. Add them in Customize → Food.</p>
-            ) : (
-              file.staples.map((staple) => {
-                const alreadyLogged = isStapleLogged(file.entries, staple.id);
-                return (
-                  <div key={staple.id} className="tdee-regular-row">
-                    <div className="tdee-regular-info">
-                      <span className="tdee-regular-name">
-                        {staple.name}
-                        {alreadyLogged ? <span className="tdee-tracker-empty"> · logged</span> : null}
-                      </span>
-                      {staple.ingredients?.length ? (
-                        <div className="tdee-regular-ingredients">{formatIngredientsList(staple.ingredients)}</div>
-                      ) : null}
-                    </div>
-                    <PortionControls
-                      defaultCalories={staple.calories}
-                      defaultProtein={staple.protein}
-                      actionLabel={alreadyLogged ? 'Add more' : 'Eat'}
-                      onAdd={(calories, protein, count) => handleStapleFromEditor(staple, calories, protein, count)}
-                    />
-                  </div>
-                );
-              })
-            )}
+      {loggedChips.length ? <div className="tdee-chain">{withChainConnectors(loggedChips)}</div> : (
+        <p className="tdee-tracker-empty">Nothing eaten yet today.</p>
+      )}
+      <div className="tdee-quick-add">
+        <div className="tdee-custom-row tdee-quick-row">
+          <input
+            className="tdee-meal-title-input"
+            type="text"
+            placeholder="Add food"
+            aria-label="Food name"
+            value={customTitle}
+            onChange={(e) => setCustomTitle(e.target.value)}
+          />
+          <input
+            className="tdee-portion-input"
+            type="number"
+            min={1}
+            step={1}
+            placeholder="cals"
+            aria-label="Calories"
+            value={customCalories}
+            onChange={(e) => setCustomCalories(e.target.value)}
+          />
+          <input
+            className="tdee-portion-input tdee-portion-protein"
+            type="number"
+            min={0}
+            step={0.1}
+            placeholder="protein"
+            aria-label="Protein (g)"
+            value={customProtein}
+            onChange={(e) => setCustomProtein(e.target.value)}
+          />
+          <span className="tdee-portion-x">×</span>
+          <input
+            className="tdee-portion-input tdee-portion-qty"
+            type="number"
+            min={1}
+            step={1}
+            aria-label="Quantity"
+            value={customQty}
+            onChange={(e) => setCustomQty(e.target.value)}
+          />
+          <button type="button" className="tdee-add-btn" onClick={() => void handleEat()}>
+            Eat
+          </button>
+        </div>
+        <div className="tdee-regular-search-row">
+          <input
+            className="tdee-meal-title-input"
+            type="search"
+            placeholder="Search regulars"
+            aria-label="Search regulars"
+            value={regularSearch}
+            onChange={(e) => setRegularSearch(e.target.value)}
+          />
+        </div>
+        {file.regulars.length === 0 ? (
+          <p className="tdee-tracker-empty">No regulars yet. Add them in Customize → Food.</p>
+        ) : visibleRegulars.length === 0 ? (
+          <p className="tdee-tracker-empty">No regulars match “{regularSearch}”.</p>
+        ) : (
+          <div className="tdee-regular-results">
+            {visibleRegulars.map((regular) => (
+              <button
+                key={regular.id}
+                type="button"
+                className="tdee-regular-result"
+                title="Fill the Add food fields with this regular"
+                onClick={() => handlePickRegular(regular)}
+              >
+                <span className="tdee-regular-name">{regular.name}</span>
+                <span className="tdee-chain-kcal">{formatChipMacros(regular.calories, regular.protein)}</span>
+                {regular.ingredients?.length ? (
+                  <span className="tdee-regular-ingredients">{formatIngredientsList(regular.ingredients)}</span>
+                ) : null}
+              </button>
+            ))}
           </div>
-          <div className="tdee-regular-list">
-            {file.regulars.length === 0 ? (
-              <p className="tdee-tracker-empty">No regulars configured yet. Add them in Customize → Food.</p>
-            ) : (
-              file.regulars.map((regular) => (
-                <div key={regular.id} className="tdee-regular-row">
-                  <div className="tdee-regular-info">
-                    <span className="tdee-regular-name">{regular.name}</span>
-                    {regular.ingredients?.length ? (
-                      <div className="tdee-regular-ingredients">{formatIngredientsList(regular.ingredients)}</div>
-                    ) : null}
-                  </div>
-                  <PortionControls
-                    defaultCalories={regular.calories}
-                    defaultProtein={regular.protein}
-                    onAdd={(calories, protein, count) => handleRegular(regular, calories, protein, count)}
-                  />
-                </div>
-              ))
-            )}
-          </div>
-          <div className="tdee-custom-row">
-            <div className="tdee-regular-info">
-              <input
-                className="tdee-meal-title-input"
-                type="text"
-                placeholder="One-Off"
-                value={customTitle}
-                onChange={(e) => setCustomTitle(e.target.value)}
-              />
-            </div>
-            <PortionControls
-              placeholderCalories="cals"
-              placeholderProtein="protein"
-              onAdd={(calories, protein, count) => handleCustom(calories, protein, count)}
-            />
-          </div>
-        </TrackerAddPanel>
-      ) : null}
+        )}
+      </div>
     </section>
   );
 }

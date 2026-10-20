@@ -1,5 +1,3 @@
-// src/components/daily/WaterSection.tsx
-
 import { useState } from 'react';
 import { activeEntries } from '@/lib/water/entries';
 import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
@@ -7,10 +5,8 @@ import type { WaterEntry } from '@/lib/water/types';
 import { addWaterEntry, loadWaterFile, removeWaterEntry } from '@/lib/waterDb';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import {
-  buildTrackerChain,
-  TrackerAddPanel,
-  TrackerPlusButton,
-  TrackerSummary
+  TrackerSummary,
+  withChainConnectors
 } from '@/components/daily/TrackerChain';
 import './water.css';
 
@@ -28,7 +24,6 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
     'Failed to load water data',
     { refreshKey }
   );
-  const [addMode, setAddMode] = useState(false);
   const [customMl, setCustomMl] = useState('');
 
   if (!storageReady) {
@@ -57,7 +52,6 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
     if (!ml || ml <= 0) return;
     setFile(await addWaterEntry(file, label || formatWaterLabel(ml), ml, 1));
     setCustomMl('');
-    setAddMode(false);
     onTrackerLinkedTaskChange?.();
   };
 
@@ -77,19 +71,6 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
     );
   });
 
-  const chainItems = buildTrackerChain({
-    chips,
-    plus: (
-      <TrackerPlusButton
-        key="plus"
-        prefix={P}
-        addMode={addMode}
-        onOpen={() => setAddMode(true)}
-        titleClosed="Log water"
-      />
-    )
-  });
-
   return (
     <section className="water-tracker-container" aria-label="Water">
       <TrackerSummary
@@ -101,32 +82,29 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
         progressRatio={ratio}
         showProgress={target > 0}
       />
-      <div className="water-chain">{chainItems}</div>
-      {addMode ? (
-        <TrackerAddPanel prefix={P} title="Drink water" onClose={() => setAddMode(false)}>
-          <div className="water-quick-add">
-            {QUICK_AMOUNTS.map((ml) => (
-              <button key={ml} type="button" className="water-quick-btn" onClick={() => void handleAdd(ml)}>
-                {formatWaterLabel(ml)}
-              </button>
-            ))}
-          </div>
-          <div className="water-custom-row">
-            <input
-              className="water-custom-input"
-              type="number"
-              min={1}
-              step={1}
-              placeholder="ml"
-              value={customMl}
-              onChange={(e) => setCustomMl(e.target.value)}
-            />
-            <button type="button" className="water-log-btn" onClick={() => void handleAdd(Math.round(Number(customMl) || 0))}>
-              Drink
-            </button>
-          </div>
-        </TrackerAddPanel>
-      ) : null}
+      {chips.length ? <div className="water-chain">{withChainConnectors(chips)}</div> : null}
+      <div className="water-quick-add">
+        {QUICK_AMOUNTS.map((ml) => (
+          <button key={ml} type="button" className="water-quick-btn" onClick={() => void handleAdd(ml)}>
+            {formatWaterLabel(ml)}
+          </button>
+        ))}
+      </div>
+      <div className="water-custom-row">
+        <input
+          className="water-custom-input"
+          type="number"
+          min={1}
+          step={1}
+          placeholder="ml"
+          aria-label="Custom water amount (ml)"
+          value={customMl}
+          onChange={(e) => setCustomMl(e.target.value)}
+        />
+        <button type="button" className="water-log-btn" onClick={() => void handleAdd(Math.round(Number(customMl) || 0))}>
+          Drink
+        </button>
+      </div>
     </section>
   );
 }
