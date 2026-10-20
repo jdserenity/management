@@ -3,7 +3,7 @@
 /* Tell Tailwind v4 to also scan the shared desktop UI components. */
 @source "../../desktop/ui/**/*.{ts,tsx}";
 
-/* No zoom, ever: pans (page scroll, carousel drags) are allowed, pinch-zoom is not. */
+/* No zoom, ever: pans (page scroll, carousel drags) are allowed; pinching is not. */
 html,
 body {
   touch-action: pan-x pan-y;
