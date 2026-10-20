@@ -136,7 +136,7 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Client         | Creds location                    | Deploy                                                                                                  |
 | -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Desktop        | root `.env`                       | `npm run tauri build` → `npm run app:deploy` → `/Applications/Management.app`                           |
-| Companion prod | Cloudflare Pages env / GH secrets | Deploy **only** on `main` (`.github/workflows/deploy-companion.yml`); never on PR. Output `mobile/dist` |
+| Companion prod | Cloudflare Pages env / GH secrets | Cloudflare Pages Git connection builds + deploys on push to `main` (no GitHub deploy workflow — the redundant one was removed 2026-10-20). Output `mobile/dist` |
 | Server         | `/etc/mgmt/server.env`            | `npm run start:prod -w @mgmt/server` via systemd                                                        |
 
 `npm run db:backup` → `~/Library/Application Support/com.diamari.management/backups/`. App version: root `package.json` → `VITE_APP_VERSION`.
