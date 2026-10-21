@@ -230,6 +230,32 @@ describe('heatmap', () => {
     expect(isDayComplete(data, daily, '2026-05-20')).toBe(true);
   });
 
+  it('tracker-linked tasks count toward day completion only on the current day, never retroactively', () => {
+    const activities = [
+      { id: 'a' },
+      { id: 'automatic-water', trackerLinkedKind: 'water' as const },
+      { id: 'automatic-food', trackerLinkedKind: 'food' as const }
+    ];
+    const data = {
+      logs: { '2026-10-15': { a: { state: 'success' as const, updatedAt: 'x' } } },
+      activityStartDates: { a: '2026-10-01', 'automatic-water': '2026-09-30', 'automatic-food': '2026-09-30' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    // 2026-10-15 is in the past relative to today (2026-10-21): the tracker
+    // tasks synced in later must not strip that day of its X.
+    expect(getDayCompletionCounts(data, activities, '2026-10-15', '2026-10-21')).toEqual({ successCount: 1, historicalCount: 1 });
+    expect(isDayComplete(data, activities, '2026-10-15', '2026-10-21')).toBe(true);
+    // On the current day they still count: no tracker success yet, so not complete.
+    const today = {
+      ...data,
+      logs: { '2026-10-21': { a: { state: 'success' as const, updatedAt: 'x' } } }
+    };
+    expect(isDayComplete(today, activities, '2026-10-21', '2026-10-21')).toBe(false);
+  });
+
   it('becameDayComplete only on the incomplete → complete transition (e.g. a tracker-linked task finishing last)', () => {
     const daily = [{ id: 'a' }, { id: 'automatic-water' }];
     const base = {
