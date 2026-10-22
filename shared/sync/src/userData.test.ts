@@ -417,6 +417,42 @@ describe('wrapWithDataSync', () => {
     vi.unstubAllGlobals();
   });
 
+  it('pushes a write that lands while an earlier push is still enqueuing', async () => {
+    // Regression (water entries lost 2026-10-21): rapid writes during an
+    // in-flight push had their dirty flag cleared by that push, so the later
+    // writes were never uploaded even though the outbox drained "successfully".
+    vi.useRealTimers();
+    const bodies: string[] = [];
+    const mockFetch = vi.fn(async (_url: string, init?: { body?: string }) => {
+      bodies.push(String(init?.body ?? ''));
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal('fetch', mockFetch);
+    const db = makeStatefulAppKvDb();
+    let releaseGate: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { releaseGate = resolve; });
+    let gated = true;
+    const gatedDb: SqlDatabase = {
+      select: db.select,
+      execute: async (q, bind) => {
+        if (gated && q.includes('INSERT INTO sync_outbox')) { gated = false; await gate; }
+        return db.execute(q, bind);
+      }
+    };
+    const wrapped = wrapWithDataSync(gatedDb, () => ({ serverUrl: 'http://localhost:8787', token: 'tok' }), 30);
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v2', 2]);
+    // Let the first push start and park on the gated outbox insert.
+    await new Promise((r) => setTimeout(r, 80));
+    expect(mockFetch).not.toHaveBeenCalled();
+    // Second write lands mid-push; then the first push is released and finishes
+    // before the second write's own debounce fires.
+    await wrapped.execute('INSERT INTO app_kv (key,value,updated_at) VALUES (?,?,?)', ['k', 'v3', 3]);
+    releaseGate();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(bodies.join(' ')).toContain('v3');
+    vi.unstubAllGlobals();
+  });
+
   it('does not push when extracted snapshot is empty', async () => {
     const mockFetch = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal('fetch', mockFetch);

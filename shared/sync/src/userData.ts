@@ -652,6 +652,8 @@ export const wrapWithDataSync = (
   let timer: ReturnType<typeof setTimeout> | null = null;
   let skippedUnknownMutation = false;
   const dirtyTables = new Set<UserDataTable>();
+  /** Bump per write so an in-flight push can tell a table was re-dirtied after it read that table. */
+  const dirtyEpochs = new Map<UserDataTable, number>();
   const beforeMutationSnapshot: UserDataPatch = {};
 
   const scheduleSync = () => {
@@ -680,6 +682,7 @@ export const wrapWithDataSync = (
           logSyncInfo('sync discarded before snapshot after hydrate', { tables });
         }
         const afterMutation = await extractUserDataForTables(db, tables);
+        const epochsAtExtract = new Map(tables.map((t) => [t, dirtyEpochs.get(t) ?? 0]));
         const missingBefore = tables.filter((table) => !(table in beforeMutationSnapshot));
         if (missingBefore.length > 0) {
           logSyncInfo('sync patch missing before snapshot; upserting current rows only', { tables: missingBefore });
@@ -693,12 +696,22 @@ export const wrapWithDataSync = (
           const rowPatch = buildUserDataRowPatch(beforeMutation, knownAfter, knownTables);
           await enqueueSyncPatch(db, rowPatch);
         }
+        let redirtied = false;
         for (const table of tables) {
-          dirtyTables.delete(table);
-          delete beforeMutationSnapshot[table];
+          if ((dirtyEpochs.get(table) ?? 0) !== (epochsAtExtract.get(table) ?? 0)) {
+            // A write landed after this push read the table: keep it dirty
+            // (dropping the stale before-snapshot so it re-pushes upsert-only)
+            // instead of clearing the flag and silently losing that write.
+            delete beforeMutationSnapshot[table];
+            redirtied = true;
+          } else {
+            dirtyTables.delete(table);
+            delete beforeMutationSnapshot[table];
+          }
         }
         const drain = await drainSyncOutbox(db, serverUrl, token);
         if (!drain.ok) throw new Error('sync outbox drain failed');
+        if (redirtied && dirtyTables.size > 0) scheduleSync();
       }).catch((err) => {
         logSyncError('debounced push failed', err);
         onPushError?.(err);
@@ -722,7 +735,10 @@ export const wrapWithDataSync = (
         }
         const result = await db.execute(q, bind);
         if (mutation && touchedTables.length === 0) skippedUnknownMutation = true;
-        for (const table of touchedTables) dirtyTables.add(table);
+        for (const table of touchedTables) {
+          dirtyTables.add(table);
+          if (mutation) dirtyEpochs.set(table, (dirtyEpochs.get(table) ?? 0) + 1);
+        }
         if (mutation) markLocalSyncChangePending();
         scheduleSync();
         return result;
