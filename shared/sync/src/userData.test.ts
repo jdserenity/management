@@ -10,6 +10,7 @@ import {
   hydrateDbFromServer,
   wrapWithDataSync,
   runWithoutDataSync,
+  waitWhileDataSyncSuppressed,
   type UserData
 } from './userData';
 import { setSyncFetchImpl } from './syncFetch';
@@ -586,5 +587,32 @@ describe('wrapWithDataSync', () => {
     const tombs = enqueued.flatMap((p) => p.syncTombstones?.upserts ?? []);
     expect(deletes).toEqual([]);
     expect(tombs).toEqual([]);
+  });
+});
+
+describe('waitWhileDataSyncSuppressed', () => {
+  it('gives up after the bounded wait instead of polling forever when suppression never lifts', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const held = runWithoutDataSync(() => gate);
+    const started = Date.now();
+    // pollMs 5, maxWaitMs 60 → must resolve in well under a second even though
+    // the suppress window is still open (previously: infinite loop, push hung).
+    await waitWhileDataSyncSuppressed(5, 60);
+    expect(Date.now() - started).toBeLessThan(2_000);
+    release();
+    await held;
+  });
+
+  it('still waits for suppression to lift when it ends within the bound', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const held = runWithoutDataSync(() => gate);
+    const waiting = waitWhileDataSyncSuppressed(5, 60_000);
+    release();
+    await waiting;
+    await held;
+    // And resolves immediately when nothing is suppressed.
+    await waitWhileDataSyncSuppressed(5, 60);
   });
 });

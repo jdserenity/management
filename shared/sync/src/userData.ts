@@ -635,10 +635,26 @@ export const runWithoutDataSync = async <T>(fn: () => Promise<T>): Promise<T> =>
   }
 };
 
-/** Wait until hydrateDb / runWithoutDataSync is not rewriting tables (poll; works with fake timers). */
-export const waitWhileDataSyncSuppressed = async (pollMs = 25): Promise<void> => {
+/**
+ * Wait until hydrateDb / runWithoutDataSync is not rewriting tables (poll;
+ * works with fake timers). The wait is BOUNDED: if a suppress window ever
+ * wedges open (a rewrite that never finishes), the caller proceeds after
+ * maxWaitMs and a loud error is logged, instead of every queued push hanging
+ * forever with nothing applied and nothing reported (2026-10-22 wedge).
+ */
+export const waitWhileDataSyncSuppressed = async (pollMs = 25, maxWaitMs = 10_000): Promise<void> => {
+  let waitedMs = 0;
   while (dataSyncSuppressDepth > 0) {
+    if (waitedMs >= maxWaitMs) {
+      logSyncError(
+        'data-sync suppression never lifted; proceeding anyway so queued pushes are not lost',
+        new Error(`suppressed for over ${maxWaitMs}ms`),
+        { suppressDepth: dataSyncSuppressDepth }
+      );
+      return;
+    }
     await new Promise<void>((resolve) => { setTimeout(resolve, pollMs); });
+    waitedMs += pollMs;
   }
 };
 
