@@ -107,6 +107,51 @@ describe('applySyncChanges', () => {
     expect(qs[qs.length - 1]).toBe('COMMIT');
   });
 
+  it('groups consecutive same-table upserts into one statement and saves the cursor per chunk', async () => {
+    const db = makeDb('0');
+    const cell = (n: number): SyncChange => ({
+      seq: n, entity: 'streakLogCells', rowKey: `2026-07-26\u001frun${n}`, op: 'upsert',
+      row: { log_date: '2026-07-26', activity_id: `run${n}`, state: 'success', updated_at: '2026-07-26T10:00:00.000Z' }
+    });
+    const applied = await applySyncChanges(db, [cell(1), cell(2), cell(3)], 3);
+    expect(applied).toBe(3);
+    const upserts = execs(db).filter((c) => c.q.includes('streak_log_cells'));
+    expect(upserts).toHaveLength(1);
+    expect(upserts[0]?.bind).toHaveLength(12);
+    expect(execs(db).filter((c) => c.q === 'BEGIN')).toHaveLength(1);
+    expect(execs(db).filter((c) => c.q === 'COMMIT')).toHaveLength(1);
+  });
+
+  it('applies large batches in multiple chunks so progress is never all-or-nothing', async () => {
+    const db = makeDb('0');
+    const changes: SyncChange[] = Array.from({ length: 450 }, (_, i) => ({
+      seq: i + 1, entity: 'streakLogCells', rowKey: `2026-07-26\u001frun${i}`, op: 'upsert' as const,
+      row: { log_date: '2026-07-26', activity_id: `run${i}`, state: 'success', updated_at: '2026-07-26T10:00:00.000Z' }
+    }));
+    const applied = await applySyncChanges(db, changes, 450);
+    expect(applied).toBe(450);
+    // 450 changes / 200 per chunk = 3 transactions, cursor saved after each.
+    expect(execs(db).filter((c) => c.q === 'COMMIT')).toHaveLength(3);
+    const cursors = execs(db).filter((c) => c.q.includes('INSERT OR REPLACE INTO sync_state')).map((c) => c.bind?.[1]);
+    expect(cursors).toEqual(['200', '400', '450']);
+  });
+
+  it('isolates a poison change: good changes before it stay applied and the cursor stops before it', async () => {
+    const db = makeDb('0');
+    (db.execute as ReturnType<typeof vi.fn>).mockImplementation(async (q: string, bind?: unknown[]) => {
+      db.calls.push({ q, bind });
+      if (q.includes('streak_log_cells') && bind?.includes('poison')) throw new Error('bad row');
+      return { lastInsertId: 1, rowsAffected: 1 };
+    });
+    const cell = (seq: number, id: string): SyncChange => ({
+      seq, entity: 'streakLogCells', rowKey: `2026-07-26\u001f${id}`, op: 'upsert',
+      row: { log_date: '2026-07-26', activity_id: id, state: 'success', updated_at: '2026-07-26T10:00:00.000Z' }
+    });
+    await expect(applySyncChanges(db, [cell(1, 'run'), cell(2, 'poison'), cell(3, 'walk')], 3)).rejects.toThrow('bad row');
+    const cursors = execs(db).filter((c) => c.q.includes('INSERT OR REPLACE INTO sync_state')).map((c) => c.bind?.[1]);
+    expect(cursors[cursors.length - 1]).toBe('1');
+  });
+
   it('rolls back and keeps the old cursor when a change fails', async () => {
     const db = makeDb('3');
     (db.execute as ReturnType<typeof vi.fn>).mockImplementation(async (q: string, bind?: unknown[]) => {

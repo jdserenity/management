@@ -5,6 +5,7 @@ import { logSyncError, logSyncInfo, summarizeUserDataCounts } from './syncLog';
 import { drainSyncOutbox } from './syncOutbox';
 import { extractUserData, fetchUserDataWithSeq, hydrateDb, pushUserDataDiff } from './userData';
 import { totalUserDataRows } from './userDataSafety';
+import { markSyncPullResult } from './syncStatus';
 
 export type BidirectionalSyncResult = {
   pullOk: boolean;
@@ -112,6 +113,8 @@ const syncViaChangeLog = async (
   } else if (resp.currentSeq !== cursor) {
     await setSyncCursor(db, resp.currentSeq);
   }
+  // Pull only counts as successful once changes are applied locally.
+  markSyncPullResult(true);
   return { pushOk: true, bootstrapped: false };
 };
 
@@ -164,6 +167,8 @@ export const pullAndMergeUserData = async (opts: BidirectionalSyncOpts): Promise
     });
     return true;
   } catch (err) {
+    // Visible in Settings → Sync health instead of a silent stuck state.
+    markSyncPullResult(false, err instanceof Error ? err.message : String(err));
     logSyncError(`${logLabel} foreground pull failed`, err, { serverUrl });
     return false;
   }

@@ -68,7 +68,10 @@ export const fetchSyncChanges = async (
     throw new Error(`fetchSyncChanges: HTTP ${res.status}`);
   }
   const body = (await res.json()) as SyncChangesResponse;
-  markSyncPullResult(true);
+  // Do NOT mark the pull successful here: fetching is not syncing. The caller
+  // marks success only after the changes are actually applied locally —
+  // otherwise the status card says "Last pull: Just now" while every apply
+  // failed and nothing ever arrived (2026-10-22 incident).
   return {
     changes: Array.isArray(body.changes) ? body.changes : [],
     currentSeq: Number(body.currentSeq ?? 0),
@@ -79,6 +82,27 @@ export const fetchSyncChanges = async (
 const upsertSqlFor = (s: AnyUserDataTableSchema): string =>
   clientInsertSql(s).replace(/^INSERT INTO/, 'INSERT OR REPLACE INTO');
 
+/** Multi-row version of the client insert for batched upserts (non-singleton tables). */
+const groupedUpsertSqlFor = (s: AnyUserDataTableSchema, rowCount: number): string => {
+  const base = upsertSqlFor(s);
+  const oneRow = base.slice(base.lastIndexOf('VALUES') + 'VALUES'.length).trim();
+  return `${base.slice(0, base.lastIndexOf('VALUES'))}VALUES ${Array.from({ length: rowCount }, () => oneRow).join(',')}`;
+};
+
+const applyDeleteChange = async (raw: SqlDatabase, s: AnyUserDataTableSchema, change: SyncChange): Promise<void> => {
+  if (s.singleton || s.rowKey.length === 0) {
+    await raw.execute(`DELETE FROM ${s.sqlTable} WHERE id=1`);
+    return;
+  }
+  const key = change.key ?? {};
+  const cols = s.rowKey.filter((c) => key[c] != null);
+  if (!cols.length) return;
+  await raw.execute(
+    `DELETE FROM ${s.sqlTable} WHERE ${cols.map((c) => `${c}=?`).join(' AND ')}`,
+    cols.map((c) => key[c])
+  );
+};
+
 const applyOneChange = async (raw: SqlDatabase, change: SyncChange): Promise<void> => {
   const s = schemaByField[change.entity as keyof typeof schemaByField];
   if (!s) return;
@@ -86,26 +110,80 @@ const applyOneChange = async (raw: SqlDatabase, change: SyncChange): Promise<voi
     await raw.execute(upsertSqlFor(s), s.bind(change.row as never));
     return;
   }
-  if (change.op === 'delete') {
-    if (s.singleton || s.rowKey.length === 0) {
-      await raw.execute(`DELETE FROM ${s.sqlTable} WHERE id=1`);
-      return;
-    }
-    const key = change.key ?? {};
-    const cols = s.rowKey.filter((c) => key[c] != null);
-    if (!cols.length) return;
-    await raw.execute(
-      `DELETE FROM ${s.sqlTable} WHERE ${cols.map((c) => `${c}=?`).join(' AND ')}`,
-      cols.map((c) => key[c])
-    );
-  }
+  if (change.op === 'delete') await applyDeleteChange(raw, s, change);
 };
 
 /**
- * Apply server changes in seq order and advance the cursor, atomically.
- * Runs on the raw DB under the write lock + sync suppression, so a change can
- * never land half-way through a user save or re-enter the push wrapper.
- * Returns how many changes were written.
+ * Execute one chunk's changes in seq order. Consecutive upserts to the same
+ * table coalesce into a single multi-row statement — over the Tauri bridge
+ * every statement is an IPC round-trip, so 1,500 individual inserts become
+ * a handful of statements and no transaction stays open long.
+ */
+const executeChunkChanges = async (raw: SqlDatabase, chunk: SyncChange[]): Promise<void> => {
+  let i = 0;
+  while (i < chunk.length) {
+    const change = chunk[i]!;
+    const s = schemaByField[change.entity as keyof typeof schemaByField];
+    if (s && !s.singleton && change.op === 'upsert' && change.row) {
+      const rows: Record<string, unknown>[] = [change.row];
+      let j = i + 1;
+      while (j < chunk.length && chunk[j]!.entity === change.entity && chunk[j]!.op === 'upsert' && chunk[j]!.row) {
+        rows.push(chunk[j]!.row!);
+        j++;
+      }
+      const binds = rows.flatMap((r) => s.bind(r as never) as unknown[]);
+      await raw.execute(groupedUpsertSqlFor(s, rows.length), binds);
+      i = j;
+      continue;
+    }
+    await applyOneChange(raw, change);
+    i++;
+  }
+};
+
+/** Changes per transaction. Small enough that a hang/failure loses little and the write lock is never held long. */
+export const SYNC_APPLY_CHUNK_SIZE = 200;
+
+const applyChunk = async (
+  db: SqlDatabase,
+  chunk: SyncChange[],
+  cursorAfter: number
+): Promise<void> => {
+  await withDataSyncWriteLock(async () => {
+    const raw = await ensureSyncStateTable(db);
+    await runWithoutDataSync(async () => {
+      let began = false;
+      try {
+        try {
+          await raw.execute('BEGIN');
+          began = true;
+        } catch { /* some drivers reject BEGIN — apply without a txn */ }
+        await executeChunkChanges(raw, chunk);
+        await raw.execute('INSERT OR REPLACE INTO sync_state (key, value) VALUES (?, ?)', [
+          CURSOR_KEY,
+          String(Math.max(0, Math.floor(cursorAfter)))
+        ]);
+        if (began) await raw.execute('COMMIT');
+      } catch (err) {
+        if (began) {
+          try { await raw.execute('ROLLBACK'); } catch { /* ignore */ }
+        }
+        throw err;
+      }
+    });
+  });
+};
+
+/**
+ * Apply server changes in seq order, in chunks of SYNC_APPLY_CHUNK_SIZE.
+ * The cursor is committed after every chunk, so progress is never
+ * all-or-nothing: a crash or hang mid-batch keeps earlier chunks, and the
+ * next poll resumes where this one stopped instead of retrying thousands of
+ * changes in one giant transaction across the IPC bridge. The write lock is
+ * released between chunks so user writes are never queued behind a big pull.
+ * If a chunk fails, its changes are retried one-by-one to isolate the bad
+ * row; the cursor stops before that row and the error is rethrown (callers
+ * surface it in sync status) rather than silently swallowing the batch.
  */
 export const applySyncChanges = async (
   db: SqlDatabase,
@@ -116,30 +194,30 @@ export const applySyncChanges = async (
     await setSyncCursor(db, currentSeq);
     return 0;
   }
-  return withDataSyncWriteLock(async () => {
-    const raw = await ensureSyncStateTable(db);
-    return runWithoutDataSync(async () => {
-      let began = false;
-      try {
+  let applied = 0;
+  for (let start = 0; start < changes.length; start += SYNC_APPLY_CHUNK_SIZE) {
+    const chunk = changes.slice(start, start + SYNC_APPLY_CHUNK_SIZE);
+    const isLast = start + chunk.length >= changes.length;
+    const cursorAfter = isLast ? currentSeq : chunk[chunk.length - 1]!.seq;
+    try {
+      await applyChunk(db, chunk, cursorAfter);
+      applied += chunk.length;
+    } catch (chunkErr) {
+      // Isolate: retry this chunk one change at a time so one poison row
+      // cannot block every other change behind it forever.
+      logSyncError('applySyncChanges chunk failed; isolating', chunkErr, { chunk: chunk.length });
+      for (const change of chunk) {
         try {
-          await raw.execute('BEGIN');
-          began = true;
-        } catch { /* some drivers reject BEGIN — apply without a txn */ }
-        for (const change of changes) await applyOneChange(raw, change);
-        await raw.execute('INSERT OR REPLACE INTO sync_state (key, value) VALUES (?, ?)', [
-          CURSOR_KEY,
-          String(Math.max(0, Math.floor(currentSeq)))
-        ]);
-        if (began) await raw.execute('COMMIT');
-      } catch (err) {
-        if (began) {
-          try { await raw.execute('ROLLBACK'); } catch { /* ignore */ }
+          await applyChunk(db, [change], change.seq);
+          applied += 1;
+        } catch (err) {
+          logSyncError('applySyncChanges failed on change', err, { seq: change.seq, entity: change.entity, op: change.op });
+          throw err;
         }
-        logSyncError('applySyncChanges failed', err, { changes: changes.length });
-        throw err;
       }
-      logSyncInfo('applied server changes', { count: changes.length, currentSeq });
-      return changes.length;
-    });
-  });
+      if (isLast) await setSyncCursor(db, currentSeq);
+    }
+  }
+  logSyncInfo('applied server changes', { count: applied, currentSeq });
+  return applied;
 };
