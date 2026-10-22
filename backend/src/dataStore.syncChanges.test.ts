@@ -84,6 +84,30 @@ describe('SqliteDataStore change log (server referee)', () => {
     db.close();
   });
 
+  it('records no new change when a patch re-uploads rows identical to what the server already has', () => {
+    const { db, store } = open();
+    const cells = [
+      { log_date: '2026-07-25', activity_id: 'run', state: 'success', updated_at: '2026-07-25T10:00:00.000Z' },
+      { log_date: '2026-07-26', activity_id: 'run', state: 'success', updated_at: '2026-07-26T10:00:00.000Z' }
+    ];
+    store.putDataPatch('owner', { streakLogCells: { upserts: cells } });
+    expect(store.getChanges('owner', 0).currentSeq).toBe(2);
+    // Same bulk upload again (e.g. a device replaying its whole history):
+    // nothing changed, so no new change-log entries may be minted —
+    // every other device would otherwise have to re-apply 1,000s of no-ops.
+    store.putDataPatch('owner', { streakLogCells: { upserts: cells } });
+    expect(store.getChanges('owner', 0).currentSeq).toBe(2);
+    // A patch that actually changes one row still records exactly that one.
+    store.putDataPatch('owner', {
+      streakLogCells: { upserts: [{ ...cells[0]!, state: 'fail', updated_at: '2026-07-27T10:00:00.000Z' }, cells[1]!] }
+    });
+    const { changes, currentSeq } = store.getChanges('owner', 0);
+    expect(currentSeq).toBe(3);
+    expect(changes).toHaveLength(3);
+    expect(changes[2]?.row).toMatchObject({ log_date: '2026-07-25', state: 'fail' });
+    db.close();
+  });
+
   it('restarts the log with a snapshot marker on full replace', () => {
     const { db, store } = open();
     store.putDataPatch('owner', { appKv: { upserts: [{ key: 'a', value: '1', updated_at: 1 }] } });

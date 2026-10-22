@@ -149,10 +149,29 @@ export class SqliteDataStore {
     this.db.transaction(() => {
       // Final server state per touched row, in touch order — becomes the change log for this patch.
       const pending = new Map<string, Omit<SyncChange, 'seq'>>();
-      const record = (s: AnyTableSchema, rowOrKey: Record<string, unknown>): void => {
+      // Each touched row's state BEFORE this patch first touches it. A pending
+      // change whose final state is identical is not a change at all —
+      // recording it mints phantom change-log entries that every other device
+      // must download and re-apply for nothing (2026-10-22: a bulk re-upload
+      // of streak history created 1,491 no-op changes that wedged a device).
+      const beforeRows = new Map<string, string | null>();
+      const captureBefore = (s: AnyTableSchema, rowOrKey: Record<string, unknown>): void => {
+        const rowKey = changeRowKey(s, rowOrKey);
+        const mapKey = `${s.field}${TOMBSTONE_KEY_SEP}${rowKey}`;
+        if (!beforeRows.has(mapKey)) {
+          beforeRows.set(mapKey, JSON.stringify(this.readFinalRow(s, userId, rowOrKey)));
+        }
+      };
+      // Rows whose write the server actually accepted (statement changed a
+      // row). Only an accepted write with an unchanged final state may skip
+      // the change log: a REFUSED stale write must still broadcast the final
+      // row so the losing device gets corrected.
+      const acceptedWrites = new Set<string>();
+      const record = (s: AnyTableSchema, rowOrKey: Record<string, unknown>, accepted = false): void => {
         const finalRow = this.readFinalRow(s, userId, rowOrKey);
         const rowKey = changeRowKey(s, finalRow ?? rowOrKey);
         const mapKey = `${s.field}${TOMBSTONE_KEY_SEP}${rowKey}`;
+        if (accepted) acceptedWrites.add(mapKey);
         pending.delete(mapKey);
         if (finalRow) {
           pending.set(mapKey, { entity: s.field as SyncChange['entity'], rowKey, op: 'upsert', row: finalRow });
@@ -169,8 +188,9 @@ export class SqliteDataStore {
       if (tombPatch?.upserts?.length) {
         const upsert = this.db.prepare(serverPatchUpsertSql(tombSchema));
         for (const row of normalizeSyncTombstones(tombPatch.upserts)) {
-          upsert.run(...serverBindInsert(tombSchema, row, userId));
-          record(tombSchema, row as unknown as Record<string, unknown>);
+          captureBefore(tombSchema, row as unknown as Record<string, unknown>);
+          const info = upsert.run(...serverBindInsert(tombSchema, row, userId));
+          record(tombSchema, row as unknown as Record<string, unknown>, info.changes > 0);
         }
       }
 
@@ -190,12 +210,13 @@ export class SqliteDataStore {
 
         if (s.singleton) {
           if (patch.set !== undefined) {
+            captureBefore(s, (patch.set as Record<string, unknown>) ?? {});
             if (patch.set) {
-              this.db.prepare(serverPatchUpsertSql(s)).run(...serverBindInsert(s, patch.set, userId));
-              record(s, patch.set as Record<string, unknown>);
+              const info = this.db.prepare(serverPatchUpsertSql(s)).run(...serverBindInsert(s, patch.set, userId));
+              record(s, patch.set as Record<string, unknown>, info.changes > 0);
             } else {
-              this.db.prepare(serverDeleteSql(s)).run(userId);
-              record(s, {});
+              const info = this.db.prepare(serverDeleteSql(s)).run(userId);
+              record(s, {}, info.changes > 0);
             }
           }
           continue;
@@ -209,8 +230,9 @@ export class SqliteDataStore {
                 key && typeof key === 'object' && 'row_key' in key
                   ? { ...(key as object), row_key: normalizeTombstoneRowKey(String((key as { row_key: string }).row_key)) }
                   : key;
-              del.run(userId, ...s.bindDeleteKey(normalizedKey as never));
-              record(s, normalizedKey as Record<string, unknown>);
+              captureBefore(s, normalizedKey as Record<string, unknown>);
+              const info = del.run(userId, ...s.bindDeleteKey(normalizedKey as never));
+              record(s, normalizedKey as Record<string, unknown>, info.changes > 0);
             }
           }
           continue;
@@ -220,6 +242,7 @@ export class SqliteDataStore {
           const clock = s.updatedAtColumn;
           for (const key of patch.deletes) {
             const normalizedKey = key as Record<string, unknown>;
+            captureBefore(s, normalizedKey);
             const binds = s.bindDeleteKey(normalizedKey as never);
             if (clock) {
               const rowKey = deleteRowKeyForSchema(s.sqlTable, normalizedKey);
@@ -229,20 +252,22 @@ export class SqliteDataStore {
               // serverDeleteSql's WHERE matches bindDeleteKey (e.g. entries delete
               // by id only, not the full (id, log_day) row key) — building the
               // WHERE from rowKey instead under-binds and throws.
-              this.db.prepare(
+              const info = this.db.prepare(
                 `${serverDeleteSql(s)} AND ${clock} <= ?`
               ).run(userId, ...binds, deletedAt);
-            } else {
-              this.db.prepare(serverDeleteSql(s)).run(userId, ...binds);
+              record(s, normalizedKey, info.changes > 0);
+              continue;
             }
-            record(s, normalizedKey);
+            const info = this.db.prepare(serverDeleteSql(s)).run(userId, ...binds);
+            record(s, normalizedKey, info.changes > 0);
           }
         }
         if (patch.upserts) {
           const upsert = this.db.prepare(serverPatchUpsertSql(s));
           for (const row of patch.upserts) {
-            upsert.run(...serverBindInsert(s, row, userId));
-            record(s, row as Record<string, unknown>);
+            captureBefore(s, row as Record<string, unknown>);
+            const info = upsert.run(...serverBindInsert(s, row, userId));
+            record(s, row as Record<string, unknown>, info.changes > 0);
           }
         }
       }
@@ -251,6 +276,22 @@ export class SqliteDataStore {
         'INSERT INTO sync_changes (user_id, entity, row_key, op, row_json, key_json) VALUES (?, ?, ?, ?, ?, ?)'
       );
       for (const change of pending.values()) {
+        // Phantom-change guard: if the row's final state is byte-identical to
+        // what the server held before this patch, no device needs to hear
+        // about it. Without this, one bulk re-upload (a device replaying its
+        // whole history) mints 1,000s of no-op changes every other device
+        // must download and re-apply (2026-10-22 wedge). Two exceptions keep
+        // their broadcast: a REFUSED write (the sender must be corrected
+        // with the final row) and any delete whose row is actually gone now
+        // but existed before (a real deletion others must learn about —
+        // already excluded here since before !== final).
+        const mapKey = `${change.entity}${TOMBSTONE_KEY_SEP}${change.rowKey}`;
+        const before = beforeRows.get(mapKey);
+        const finalJson = JSON.stringify(change.row);
+        if (before !== undefined && before === finalJson) {
+          if (change.row === null) continue; // already absent; goal state holds
+          if (acceptedWrites.has(mapKey)) continue; // accepted verbatim; no-op
+        }
         insertChange.run(
           userId,
           change.entity,
