@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { carouselDragOffsetPx, slideIndexForSwipe } from '@/lib/trackerCarousel';
+import { carouselDragOffsetPx, slideIndexForSwipe, wrapSlideIndex } from '@/lib/trackerCarousel';
+
+describe('wrapSlideIndex', () => {
+  it('steps forward and wraps from the last slide to the first', () => {
+    expect(wrapSlideIndex(0, 1, 3)).toBe(1);
+    expect(wrapSlideIndex(1, 1, 3)).toBe(2);
+    expect(wrapSlideIndex(2, 1, 3)).toBe(0);
+  });
+
+  it('steps backward and wraps from the first slide to the last', () => {
+    expect(wrapSlideIndex(0, -1, 3)).toBe(2);
+    expect(wrapSlideIndex(2, -1, 3)).toBe(1);
+    expect(wrapSlideIndex(1, -1, 3)).toBe(0);
+  });
+});
 
 describe('slideIndexForSwipe', () => {
   it('swiping left advances to the next slide and swiping right goes back', () => {

@@ -2,7 +2,7 @@ import { useRef, useState, type TouchEvent } from 'react';
 import TdeeSection from '@/components/daily/TdeeSection';
 import WaterSection from '@/components/daily/WaterSection';
 import MovementSnackSection from '@/components/daily/MovementSnackSection';
-import { carouselDragOffsetPx, slideIndexForSwipe } from '@/lib/trackerCarousel';
+import { carouselDragOffsetPx, slideIndexForSwipe, wrapSlideIndex } from '@/lib/trackerCarousel';
 import './tracker-carousel.css';
 
 const SLIDE_COUNT = 3;
@@ -54,8 +54,8 @@ export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
       <button
         type="button"
         className="tracker-carousel-arrow tracker-carousel-arrow-prev"
-        aria-label="Switch panel"
-        onClick={() => setIndex((i) => (i + 1) % SLIDE_COUNT)}
+        aria-label="Previous panel"
+        onClick={() => setIndex((i) => wrapSlideIndex(i, -1, SLIDE_COUNT))}
       >
         ‹
       </button>
@@ -87,8 +87,8 @@ export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
       <button
         type="button"
         className="tracker-carousel-arrow tracker-carousel-arrow-next"
-        aria-label="Switch panel"
-        onClick={() => setIndex((i) => (i + 1) % SLIDE_COUNT)}
+        aria-label="Next panel"
+        onClick={() => setIndex((i) => wrapSlideIndex(i, 1, SLIDE_COUNT))}
       >
         ›
       </button>

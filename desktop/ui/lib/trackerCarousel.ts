@@ -1,6 +1,12 @@
 /** Minimum horizontal touch travel (px) before a drag counts as a slide swipe instead of a tap/scroll. */
 export const CAROUSEL_SWIPE_THRESHOLD_PX = 40;
 
+/** Arrow / wrap navigation: step by ±1 and wrap (first←→last). Works for any slideCount ≥ 1. */
+export const wrapSlideIndex = (current: number, step: number, slideCount: number): number => {
+  if (slideCount <= 0) return 0;
+  return ((current + step) % slideCount + slideCount) % slideCount;
+};
+
 /** Slide to show after a horizontal swipe; clamps at the ends instead of wrapping around. */
 export const slideIndexForSwipe = (current: number, startX: number, endX: number, slideCount: number): number => {
   const delta = startX - endX;
