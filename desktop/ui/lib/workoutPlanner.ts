@@ -52,6 +52,30 @@ export const normalizeWorkoutLogs = (raw: WorkoutLogEntry[]): WorkoutLogEntry[] 
     };
   });
 
+/**
+ * workout_log.exercises_json used to be a bare exercise array. Build/Move set logs also
+ * need movementSnack metadata, so we store `{ exercises, movementSnack }` when present
+ * and still accept the legacy bare array on read.
+ */
+export const serializeWorkoutLogExercisesJson = (entry: Pick<WorkoutLogEntry, 'exercises' | 'movementSnack'>): string =>
+  JSON.stringify(entry.movementSnack ? { exercises: entry.exercises, movementSnack: entry.movementSnack } : entry.exercises);
+
+export const parseWorkoutLogExercisesJson = (
+  raw: string
+): Pick<WorkoutLogEntry, 'exercises' | 'movementSnack'> => {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return { exercises: parsed as WorkoutLogEntry['exercises'] };
+    if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { exercises?: unknown }).exercises)) {
+      const obj = parsed as { exercises: WorkoutLogEntry['exercises']; movementSnack?: WorkoutLogEntry['movementSnack'] };
+      return obj.movementSnack ? { exercises: obj.exercises, movementSnack: obj.movementSnack } : { exercises: obj.exercises };
+    }
+  } catch {
+    /* caller logs */
+  }
+  return { exercises: [] };
+};
+
 export type StretchBodyRegion = 'upper' | 'lower';
 
 /** Stretch ids rolled into Today's movement (not per-move rows). */

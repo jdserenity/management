@@ -46,6 +46,8 @@ import {
   listTodayWorkoutExerciseTotals,
   listTodayMovementTotals,
   summarizeWorkoutLogs,
+  parseWorkoutLogExercisesJson,
+  serializeWorkoutLogExercisesJson,
   type ExerciseRunAgg,
   type FocusLogEntry,
   type WorkoutLogEntry
@@ -545,5 +547,23 @@ describe('listTodayMovementTotals', () => {
     ]);
     expect(rows.find((r) => r.id === '__stretch-upper')?.timedSeconds).toBe(200);
     expect(rows.find((r) => r.id === '__stretch-lower')?.timedSeconds).toBe(90);
+  });
+});
+
+describe('workout log exercises_json movementSnack round-trip', () => {
+  it('keeps legacy bare exercise arrays on read', () => {
+    expect(parseWorkoutLogExercisesJson(JSON.stringify([{ id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' }]))).toEqual({
+      exercises: [{ id: 'pushups', name: 'Push-ups', amount: 10, unit: 'reps' }]
+    });
+  });
+
+  it('persists and restores movementSnack set metadata with the exercises', () => {
+    const entry: Pick<WorkoutLogEntry, 'exercises' | 'movementSnack'> = {
+      exercises: [{ id: 'pullups', name: 'Chin-ups', amount: 7, unit: 'reps' }],
+      movementSnack: { day: '2026-10-24', slotId: 'build-pull', kind: 'build', setNumber: 1, setCount: 3 }
+    };
+    const raw = serializeWorkoutLogExercisesJson(entry);
+    expect(JSON.parse(raw)).toEqual({ exercises: entry.exercises, movementSnack: entry.movementSnack });
+    expect(parseWorkoutLogExercisesJson(raw)).toEqual(entry);
   });
 });

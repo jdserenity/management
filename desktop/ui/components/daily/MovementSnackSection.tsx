@@ -29,9 +29,9 @@ function BuildRepInput({
   const logged = amount != null ? String(amount) : '';
   const [draft, setDraft] = useState(logged);
   useEffect(() => { setDraft(logged); }, [logged]);
-  const commit = () => {
-    if (draft.trim() === logged) return;
-    onCommit(draft);
+  const commit = (value: string) => {
+    if (value.trim() === logged) return;
+    onCommit(value);
   };
   return (
     <input
@@ -41,8 +41,13 @@ function BuildRepInput({
       placeholder="x"
       value={draft}
       aria-label={ariaLabel}
-      onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, ''))}
-      onBlur={commit}
+      onChange={(event) => {
+        const next = event.target.value.replace(/[^\d]/g, '');
+        setDraft(next);
+        // Persist as soon as digits change — closing the app before blur used to drop the set.
+        commit(next);
+      }}
+      onBlur={() => commit(draft)}
       onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key === 'Enter') { event.currentTarget.blur(); }
       }}

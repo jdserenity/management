@@ -9,6 +9,8 @@ import {
 import {
   DEFAULT_ALLOWED_WORKOUT_IDS,
   normalizeWorkoutLogs,
+  parseWorkoutLogExercisesJson,
+  serializeWorkoutLogExercisesJson,
   resolveAllowedWorkoutIds,
   type FocusLogEntry,
   type WorkoutLogEntry
@@ -96,8 +98,11 @@ export const focusLogEntryFromRow = (row: FocusLogRow): FocusLogEntry => {
 
 export const workoutLogEntryFromRow = (row: WorkoutLogRow): WorkoutLogEntry => {
   let exercises: WorkoutLogEntry['exercises'] = [];
+  let movementSnack: WorkoutLogEntry['movementSnack'];
   try {
-    exercises = JSON.parse(row.exercises_json) as WorkoutLogEntry['exercises'];
+    const parsed = parseWorkoutLogExercisesJson(row.exercises_json);
+    exercises = parsed.exercises;
+    movementSnack = parsed.movementSnack;
   } catch (error) {
     console.error(`Failed to parse exercises_json for workout log ${row.id}:`, error);
   }
@@ -109,7 +114,8 @@ export const workoutLogEntryFromRow = (row: WorkoutLogRow): WorkoutLogEntry => {
     exercises,
     totalReps: row.total_reps,
     totalTimedSeconds: row.total_timed_seconds,
-    completionRatio: row.completion_ratio ?? 1
+    completionRatio: row.completion_ratio ?? 1,
+    ...(movementSnack ? { movementSnack } : {})
   };
 };
 
@@ -202,7 +208,7 @@ export const insertWorkoutLog = async (entry: WorkoutLogEntry): Promise<void> =>
       entry.workoutId,
       entry.workoutName,
       entry.completedAt,
-      JSON.stringify(entry.exercises),
+      serializeWorkoutLogExercisesJson(entry),
       entry.totalReps,
       entry.totalTimedSeconds,
       ratio
