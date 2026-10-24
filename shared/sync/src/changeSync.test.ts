@@ -95,16 +95,19 @@ describe('applySyncChanges', () => {
     expect(execs(db2).some((c) => c.q === 'DELETE FROM nutrition_config WHERE id=1')).toBe(true);
   });
 
-  it('advances the cursor to currentSeq inside the same apply', async () => {
+  it('advances the cursor to currentSeq after applying (no BEGIN/COMMIT — pool-safe)', async () => {
     const db = makeDb('0');
     await applySyncChanges(db, [{
       seq: 5, entity: 'appKv', rowKey: 'k', op: 'upsert', row: { key: 'k', value: 'v', updated_at: 9 }
     }], 5);
+    const qs = execs(db).map((c) => c.q);
+    expect(qs.some((q) => q.includes('app_kv'))).toBe(true);
+    expect(qs).not.toContain('BEGIN');
+    expect(qs).not.toContain('COMMIT');
+    expect(qs).not.toContain('ROLLBACK');
     const cursorWrite = execs(db).filter((c) => c.q.includes('INSERT OR REPLACE INTO sync_state'));
     expect(cursorWrite.some((c) => c.bind?.[1] === '5')).toBe(true);
-    const qs = execs(db).map((c) => c.q);
-    expect(qs.indexOf('BEGIN')).toBeLessThan(qs.findIndex((q) => q.includes('app_kv')));
-    expect(qs[qs.length - 1]).toBe('COMMIT');
+    expect(qs.indexOf(cursorWrite[cursorWrite.length - 1]!.q)).toBeGreaterThan(qs.findIndex((q) => q.includes('app_kv')));
   });
 
   it('groups consecutive same-table upserts into one statement and saves the cursor per chunk', async () => {
@@ -118,8 +121,8 @@ describe('applySyncChanges', () => {
     const upserts = execs(db).filter((c) => c.q.includes('streak_log_cells'));
     expect(upserts).toHaveLength(1);
     expect(upserts[0]?.bind).toHaveLength(12);
-    expect(execs(db).filter((c) => c.q === 'BEGIN')).toHaveLength(1);
-    expect(execs(db).filter((c) => c.q === 'COMMIT')).toHaveLength(1);
+    expect(execs(db).filter((c) => c.q === 'BEGIN')).toHaveLength(0);
+    expect(execs(db).filter((c) => c.q.includes('INSERT OR REPLACE INTO sync_state'))).toHaveLength(1);
   });
 
   it('applies large batches in multiple chunks so progress is never all-or-nothing', async () => {
@@ -130,10 +133,10 @@ describe('applySyncChanges', () => {
     }));
     const applied = await applySyncChanges(db, changes, 450);
     expect(applied).toBe(450);
-    // 450 changes / 200 per chunk = 3 transactions, cursor saved after each.
-    expect(execs(db).filter((c) => c.q === 'COMMIT')).toHaveLength(3);
+    // 450 changes / 200 per chunk = 3 cursor saves (no BEGIN/COMMIT).
     const cursors = execs(db).filter((c) => c.q.includes('INSERT OR REPLACE INTO sync_state')).map((c) => c.bind?.[1]);
     expect(cursors).toEqual(['200', '400', '450']);
+    expect(execs(db).some((c) => c.q === 'BEGIN' || c.q === 'COMMIT')).toBe(false);
   });
 
   it('isolates a poison change: good changes before it stay applied and the cursor stops before it', async () => {
@@ -152,7 +155,7 @@ describe('applySyncChanges', () => {
     expect(cursors[cursors.length - 1]).toBe('1');
   });
 
-  it('rolls back and keeps the old cursor when a change fails', async () => {
+  it('does not advance the cursor when a change fails (no ROLLBACK — pool-safe)', async () => {
     const db = makeDb('3');
     (db.execute as ReturnType<typeof vi.fn>).mockImplementation(async (q: string, bind?: unknown[]) => {
       db.calls.push({ q, bind });
@@ -164,7 +167,9 @@ describe('applySyncChanges', () => {
       row: { log_date: '2026-07-26', activity_id: 'run', state: 'success', updated_at: '2026-07-26T10:00:00.000Z' }
     }], 4)).rejects.toThrow('disk full');
     const qs = execs(db).map((c) => c.q);
-    expect(qs).toContain('ROLLBACK');
+    expect(qs).not.toContain('BEGIN');
     expect(qs).not.toContain('COMMIT');
+    expect(qs).not.toContain('ROLLBACK');
+    expect(execs(db).filter((c) => c.q.includes('INSERT OR REPLACE INTO sync_state'))).toHaveLength(0);
   });
 });

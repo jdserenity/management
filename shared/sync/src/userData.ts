@@ -207,8 +207,9 @@ export const hydrateDbFromServer = async (
  * Safety:
  * - Runs under the data-sync write lock (no interleaved user writes) unless alreadyLocked.
  * - Uses the raw DB (not wrapWithDataSync) so full-table DELETE cannot enqueue outbox deletes.
- * - Entire rewrite is one SQLite transaction when BEGIN/COMMIT are supported.
  * - Never replaces a non-empty local table with an empty snapshot (accidental wipe guard).
+ * - Does not wrap in BEGIN/COMMIT: Tauri plugin-sql's sqlx pool makes cross-statement
+ *   transactions unsafe (BEGIN on one connection, writes on another → database locked).
  */
 export const hydrateDb = async (
   db: SqlDatabase,
@@ -223,37 +224,24 @@ export const hydrateDb = async (
         syncTombstones: normalizeSyncTombstones(data.syncTombstones)
       };
       const local = await extractUserData(raw);
-      let began = false;
-      try {
-        await raw.execute('BEGIN');
-        began = true;
-      } catch {
-        /* some test mocks / drivers reject BEGIN — still rewrite without a txn */
-      }
-      try {
-        for (const s of USER_DATA_TABLE_SCHEMAS) {
-          const incoming = s.getRows(normalized);
-          const existing = s.getRows(local);
-          let rowsToWrite = incoming;
-          if (incoming.length === 0 && existing.length > 0) {
-            logSyncInfo('hydrateDb kept local rows (refusing empty wipe)', {
-              table: s.sqlTable,
-              localRows: existing.length
-            });
-            rowsToWrite = existing;
-          }
-          await raw.execute(`DELETE FROM ${s.sqlTable}`);
-          const sql = clientInsertSql(s);
-          for (const row of rowsToWrite) {
-            await raw.execute(sql, s.bind(row as never));
-          }
+      // No BEGIN/COMMIT across the Tauri sqlx pool — see applyChunk in changeSync.ts.
+      // Bootstrap hydrate is rare; the JS write lock still keeps user writes out.
+      for (const s of USER_DATA_TABLE_SCHEMAS) {
+        const incoming = s.getRows(normalized);
+        const existing = s.getRows(local);
+        let rowsToWrite = incoming;
+        if (incoming.length === 0 && existing.length > 0) {
+          logSyncInfo('hydrateDb kept local rows (refusing empty wipe)', {
+            table: s.sqlTable,
+            localRows: existing.length
+          });
+          rowsToWrite = existing;
         }
-        if (began) await raw.execute('COMMIT');
-      } catch (err) {
-        if (began) {
-          try { await raw.execute('ROLLBACK'); } catch { /* ignore */ }
+        await raw.execute(`DELETE FROM ${s.sqlTable}`);
+        const sql = clientInsertSql(s);
+        for (const row of rowsToWrite) {
+          await raw.execute(sql, s.bind(row as never));
         }
-        throw err;
       }
     });
   };

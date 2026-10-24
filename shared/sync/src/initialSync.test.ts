@@ -22,7 +22,12 @@ vi.mock('./dataSyncEvents', () => ({ dispatchDataSyncRefresh: vi.fn() }));
 
 import { applySyncChanges, fetchSyncChanges, getSyncCursor, setSyncCursor } from './changeSync';
 import { extractUserData, fetchUserDataWithSeq, hydrateDb, pushUserDataDiff } from './userData';
-import { pullAndMergeUserData, resetSyncWarningForTests, runBidirectionalInitialSync } from './initialSync';
+import {
+  pullAndMergeUserData,
+  resetForegroundPullInFlightForTests,
+  resetSyncWarningForTests,
+  runBidirectionalInitialSync
+} from './initialSync';
 
 const empty = () => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
@@ -37,6 +42,7 @@ const opts = { logLabel: 'test', db, serverUrl: 'https://mgmt.levier.cc', server
 beforeEach(() => {
   vi.clearAllMocks();
   resetSyncWarningForTests();
+  resetForegroundPullInFlightForTests();
   vi.mocked(extractUserData).mockResolvedValue(empty());
   vi.mocked(fetchUserDataWithSeq).mockResolvedValue({ data: empty(), seq: 0 });
   vi.mocked(hydrateDb).mockResolvedValue(undefined);
@@ -145,5 +151,21 @@ describe('pullAndMergeUserData (change-log referee)', () => {
     vi.mocked(fetchSyncChanges).mockRejectedValue(new Error('fetchSyncChanges: HTTP 500'));
     expect(await pullAndMergeUserData(opts)).toBe(false);
     expect(hydrateDb).not.toHaveBeenCalled();
+  });
+
+  it('coalesces overlapping poll/focus pulls onto one in-flight request', async () => {
+    vi.mocked(getSyncCursor).mockResolvedValue(3);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    vi.mocked(fetchSyncChanges).mockImplementation(async () => {
+      await gate;
+      return { changes: [], currentSeq: 3, snapshotRequired: false };
+    });
+    const a = pullAndMergeUserData(opts);
+    const b = pullAndMergeUserData(opts);
+    release();
+    expect(await a).toBe(true);
+    expect(await b).toBe(true);
+    expect(fetchSyncChanges).toHaveBeenCalledTimes(1);
   });
 });

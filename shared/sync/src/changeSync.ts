@@ -152,35 +152,30 @@ const applyChunk = async (
   await withDataSyncWriteLock(async () => {
     const raw = await ensureSyncStateTable(db);
     await runWithoutDataSync(async () => {
-      let began = false;
-      try {
-        try {
-          await raw.execute('BEGIN');
-          began = true;
-        } catch { /* some drivers reject BEGIN — apply without a txn */ }
-        await executeChunkChanges(raw, chunk);
-        await raw.execute('INSERT OR REPLACE INTO sync_state (key, value) VALUES (?, ?)', [
-          CURSOR_KEY,
-          String(Math.max(0, Math.floor(cursorAfter)))
-        ]);
-        if (began) await raw.execute('COMMIT');
-      } catch (err) {
-        if (began) {
-          try { await raw.execute('ROLLBACK'); } catch { /* ignore */ }
-        }
-        throw err;
-      }
+      // No BEGIN/COMMIT: Tauri's plugin-sql uses a sqlx pool (several connections
+      // to the same file). Separate BEGIN then INSERT then COMMIT often run on
+      // *different* connections, so the BEGIN stays open on one connection and
+      // every other write hits SQLITE_BUSY ("database is locked (5)") — the
+      // desktop-open + phone-edit failure mode. Upserts are idempotent
+      // (INSERT OR REPLACE); the JS write lock serializes writers; cursor is
+      // saved after the chunk so a crash mid-chunk just re-applies on next poll.
+      await executeChunkChanges(raw, chunk);
+      await raw.execute('INSERT OR REPLACE INTO sync_state (key, value) VALUES (?, ?)', [
+        CURSOR_KEY,
+        String(Math.max(0, Math.floor(cursorAfter)))
+      ]);
     });
   });
 };
 
 /**
  * Apply server changes in seq order, in chunks of SYNC_APPLY_CHUNK_SIZE.
- * The cursor is committed after every chunk, so progress is never
- * all-or-nothing: a crash or hang mid-batch keeps earlier chunks, and the
- * next poll resumes where this one stopped instead of retrying thousands of
- * changes in one giant transaction across the IPC bridge. The write lock is
- * released between chunks so user writes are never queued behind a big pull.
+ * The cursor is saved after every chunk, so progress is never all-or-nothing:
+ * a crash or hang mid-batch keeps earlier chunks, and the next poll resumes
+ * where this one stopped instead of retrying thousands of changes across the
+ * IPC bridge. The write lock is released between chunks so user writes are
+ * never queued behind a big pull. Chunks are NOT wrapped in BEGIN/COMMIT —
+ * Tauri plugin-sql's sqlx pool makes that lock the DB (see applyChunk).
  * If a chunk fails, its changes are retried one-by-one to isolate the bad
  * row; the cursor stops before that row and the error is rethrown (callers
  * surface it in sync status) rather than silently swallowing the batch.

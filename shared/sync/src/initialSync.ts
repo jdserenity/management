@@ -154,22 +154,36 @@ export const runBidirectionalInitialSync = async (opts: BidirectionalSyncOpts): 
   return { pullOk: true, pushOk: true, skipped: false, counts };
 };
 
+/** One in-flight foreground pull per process — poll + window-focus must not overlap. */
+let foregroundPullInFlight: Promise<boolean> | null = null;
+
 /** Foreground pull (poll / refocus): same change-log path; never merges snapshots. */
 export const pullAndMergeUserData = async (opts: BidirectionalSyncOpts): Promise<boolean> => {
   const { db, serverUrl, serverToken, logLabel } = opts;
   if (!serverUrl || !serverToken) return false;
-  try {
-    const { bootstrapped } = await syncViaChangeLog(db, serverUrl, serverToken);
-    dispatchDataSyncRefresh();
-    logSyncInfo(`${logLabel} foreground pull complete`, {
-      bootstrapped,
-      ...summarizeUserDataCounts(await extractUserData(db))
-    });
-    return true;
-  } catch (err) {
-    // Visible in Settings → Sync health instead of a silent stuck state.
-    markSyncPullResult(false, err instanceof Error ? err.message : String(err));
-    logSyncError(`${logLabel} foreground pull failed`, err, { serverUrl });
-    return false;
-  }
+  if (foregroundPullInFlight) return foregroundPullInFlight;
+  foregroundPullInFlight = (async () => {
+    try {
+      const { bootstrapped } = await syncViaChangeLog(db, serverUrl, serverToken);
+      dispatchDataSyncRefresh();
+      logSyncInfo(`${logLabel} foreground pull complete`, {
+        bootstrapped,
+        ...summarizeUserDataCounts(await extractUserData(db))
+      });
+      return true;
+    } catch (err) {
+      // Visible in Settings → Sync health instead of a silent stuck state.
+      markSyncPullResult(false, err instanceof Error ? err.message : String(err));
+      logSyncError(`${logLabel} foreground pull failed`, err, { serverUrl });
+      return false;
+    } finally {
+      foregroundPullInFlight = null;
+    }
+  })();
+  return foregroundPullInFlight;
+};
+
+/** @internal test hook */
+export const resetForegroundPullInFlightForTests = (): void => {
+  foregroundPullInFlight = null;
 };

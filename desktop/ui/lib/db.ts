@@ -47,9 +47,13 @@ export const getDb = async (): Promise<SqlDatabase> => {
     );
   }
   if (!tauriLoadPromise) {
-    tauriLoadPromise = import('@tauri-apps/plugin-sql').then(({ default: Database }) =>
-      Database.load(DB_ID).then(wrapTauriDb)
-    );
+    tauriLoadPromise = import('@tauri-apps/plugin-sql').then(async ({ default: Database }) => {
+      const raw = await Database.load(DB_ID);
+      // WAL is a file-level setting: one PRAGMA is enough for the whole DB.
+      // Helps the UI keep reading while sync writes (sqlx pool = several connections).
+      try { await raw.execute('PRAGMA journal_mode = WAL'); } catch { /* optional */ }
+      return wrapTauriDb(raw);
+    });
   }
   return tauriLoadPromise;
 };
