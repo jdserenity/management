@@ -187,12 +187,16 @@ describe('activity-catalog', () => {
 });
 
 describe('heatmap', () => {
-  it('builds a Sunday-first six-week month calendar', () => {
-    const dates = getMonthCalendarDates('2026-02');
-    expect(dates).toHaveLength(42);
-    expect(dates.slice(0, 1)).toEqual(['2026-02-01']);
-    expect(dates[28]).toBeNull();
-    expect(dates[41]).toBeNull();
+  it('builds a Sunday-first month calendar and drops blank trailing weeks', () => {
+    const feb = getMonthCalendarDates('2026-02');
+    expect(feb[0]).toBe('2026-02-01');
+    expect(feb).toHaveLength(28);
+    expect(feb[27]).toBe('2026-02-28');
+    // Oct 2026 ends on Saturday after filling five weeks; the sixth was empty padding.
+    const oct = getMonthCalendarDates('2026-10');
+    expect(oct[oct.length - 1]).toBe('2026-10-31');
+    expect(oct.length % 7).toBe(0);
+    expect(oct.length).toBeLessThan(42);
   });
 
   it('includes the current month and months represented by history', () => {

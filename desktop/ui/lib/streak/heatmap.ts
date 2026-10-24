@@ -57,7 +57,7 @@ export const isDayNecessaryFailed = (
   return false;
 };
 
-/** Calendar cells for a month, Sunday-first, padded to six complete weeks. */
+/** Calendar cells for a month, Sunday-first, full weeks only (no blank trailing week under the last days). */
 export const getMonthCalendarDates = (month: string): (string | null)[] => {
   const [year, monthNumber] = month.split('-').map(Number);
   const firstDay = new Date(year, monthNumber - 1, 1);
@@ -67,6 +67,9 @@ export const getMonthCalendarDates = (month: string): (string | null)[] => {
     const dayNumber = i - firstDay.getDay() + 1;
     cells.push(dayNumber >= 1 && dayNumber <= daysInMonth ? formatDate(new Date(year, monthNumber - 1, dayNumber)) : null);
   }
+  // Six-week padding left an empty row after months that end mid-grid (e.g. Oct 2026),
+  // which looked like a huge gap before the Food/Water widgets.
+  while (cells.length > 7 && cells.slice(-7).every((cell) => cell == null)) cells.length -= 7;
   return cells;
 };
 
