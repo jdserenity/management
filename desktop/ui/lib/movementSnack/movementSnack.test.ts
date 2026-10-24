@@ -4,6 +4,7 @@ import {
   buildMovementSnackLogEntry,
   buildMovementSnackSetLogEntry,
   buildSnackProgress,
+  buildTasksForTemplateDay,
   buildTasksFromPlan,
   countMovementSnacksToday,
   defaultMovementSnackEasyExercises,
@@ -20,6 +21,7 @@ import {
   movementSnackPlanForDate,
   requiredMovementSnackSetLogs,
   updateBuildExerciseSettings,
+  updateBuildSlotOnTemplateDay,
 } from './movementSnack';
 
 describe('defaultMovementSnackPrefs', () => {
@@ -125,6 +127,20 @@ describe('normalizeMovementSnackPrefs', () => {
     const pushTasks = Object.values(prefs.regimen).flat().filter((task) => task.kind === 'build' && task.exercise.id === 'pushups');
     expect(pushTasks).toHaveLength(3);
     expect(pushTasks.every((task) => task.exercise.repRange?.min === 12 && task.exercise.repRange?.max === 24 && task.exercise.currentProgression === 'Lower incline')).toBe(true);
+  });
+
+  it('exposes Day 1 / Day 2 Build templates that alternate through the week', () => {
+    const regimen = defaultMovementSnackPrefs().regimen;
+    expect(buildTasksForTemplateDay(regimen, 1).map((task) => task.slotId)).toEqual(['build-push', 'build-abs']);
+    expect(buildTasksForTemplateDay(regimen, 2).map((task) => task.slotId)).toEqual(['build-pull', 'build-legs']);
+  });
+
+  it('mirrors a Day 1 Build slot swap onto Mon, Wed, and Fri', () => {
+    const prefs = defaultMovementSnackPrefs();
+    const pullups = prefs.buildPool.find((exercise) => exercise.id === 'pullups')!;
+    const next = updateBuildSlotOnTemplateDay(prefs.regimen, 1, 'build-push', pullups);
+    expect(['Mon', 'Wed', 'Fri'].map((day) => next[day as 'Mon'].find((task) => task.slotId === 'build-push')?.exercise.id)).toEqual(['pullups', 'pullups', 'pullups']);
+    expect(next.Tue.find((task) => task.slotId === 'build-pull')?.exercise.id).toBe('pullups');
   });
 
   it('accepts valid custom exercises', () => {

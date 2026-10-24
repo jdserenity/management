@@ -74,6 +74,33 @@ const buildSlotsForDay = (day: MovementWeekday): BuildSnackSlot[] => ({
 const buildLabel = (slotId: BuildSnackSlot): string =>
   slotId === 'build-push' ? 'Push' : slotId === 'build-abs' ? 'Abs' : slotId === 'build-pull' ? 'Pull' : 'Legs';
 
+/** Customize shows Day 1 / Day 2 only — Mon/Wed/Fri share Day 1, Tue/Thu/Sat share Day 2. */
+export type BuildTemplateDay = 1 | 2;
+export const BUILD_TEMPLATE_DAYS: readonly BuildTemplateDay[] = [1, 2];
+export const BUILD_TEMPLATE_WEEKDAYS: Record<BuildTemplateDay, readonly MovementWeekday[]> = {
+  1: ['Mon', 'Wed', 'Fri'],
+  2: ['Tue', 'Thu', 'Sat']
+};
+
+export const buildTasksForTemplateDay = (regimen: MovementSnackRegimen, day: BuildTemplateDay): MovementSnackTask[] =>
+  regimen[BUILD_TEMPLATE_WEEKDAYS[day][0]].filter((task) => task.kind === 'build');
+
+/** Swap which Build exercise fills a slot on a template day; mirrors to every weekday in that template. */
+export const updateBuildSlotOnTemplateDay = (
+  regimen: MovementSnackRegimen,
+  day: BuildTemplateDay,
+  slotId: string,
+  exercise: ExerciseDefinition
+): MovementSnackRegimen => {
+  const next = { ...regimen };
+  BUILD_TEMPLATE_WEEKDAYS[day].forEach((weekday) => {
+    next[weekday] = regimen[weekday].map((task) =>
+      task.kind === 'build' && task.slotId === slotId ? { ...task, exercise: { ...exercise } } : task
+    );
+  });
+  return next;
+};
+
 export const defaultMovementSnackRegimen = (movePool: ExerciseDefinition[] = cloneQuickLogDefaults(), buildPool: ExerciseDefinition[] = defaultMovementSnackBuildPool()): MovementSnackRegimen => {
   const output = {} as MovementSnackRegimen;
   MOVEMENT_WEEKDAYS.forEach((day) => {
