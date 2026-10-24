@@ -41,12 +41,13 @@ describe('brandWordmark', () => {
     expect(html).toMatch(/<h1\b/);
   });
 
-  it('adds the unbroken-chain frame class when the prop is set', () => {
+  it('adds the unbroken-chain letter-outline class when the prop is set', () => {
     const html = renderToStaticMarkup(createElement(BrandWordmark, { unbrokenChain: true }));
     expect(html).toContain('daily-brand-wordmark--unbroken-chain');
     const css = fs.readFileSync(cssPath, 'utf8');
-    expect(css).toContain('daily-brand-wordmark--unbroken-chain');
-    expect(css).toContain('border: 4px solid');
+    expect(css).toContain('daily-brand-wordmark--unbroken-chain .daily-brand-wordmark__text');
+    expect(css).toContain('-webkit-text-stroke: 4px');
+    expect(css).toContain('paint-order: stroke fill');
   });
 
   const fontPath = brandWordmarkFontPath();

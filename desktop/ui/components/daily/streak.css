@@ -24,10 +24,14 @@
 .streak-calendar-day { position: relative; min-height: 52px; border: 1px solid var(--border); border-radius: 6px; background: var(--secondary); padding: 5px; box-sizing: border-box; }
 .streak-calendar-day-empty { border-color: transparent; background: transparent; }
 .streak-calendar-day-current { border-color: var(--primary); }
-.streak-calendar-day-unbroken-chain { border: 3px solid var(--unbroken-chain-accent, #dc2626); }
 .streak-calendar-day-number { color: var(--muted-foreground); font-size: 0.75em; }
 .streak-calendar-day-complete { background: color-mix(in srgb, var(--primary) 12%, var(--secondary)); }
 .streak-calendar-x { display: block; color: var(--primary); font-size: clamp(1.6rem, 7vw, 2.6rem); font-weight: 800; line-height: 0.9; text-align: center; }
+/* Unbroken-chain mode: thick red outline on the X glyph, not the day cell. */
+.streak-calendar-x--unbroken-chain {
+  -webkit-text-stroke: 3px var(--unbroken-chain-accent, #dc2626);
+  paint-order: stroke fill;
+}
 .streak-calendar-caption { margin: 8px 0 0; color: var(--muted-foreground); font-size: 0.75em; text-align: center; }
 
 /* Section labels between daily and weekly activities */

@@ -2,7 +2,7 @@ import { BRAND_WORDMARK_COLOR, BRAND_WORDMARK_FONT, BRAND_WORDMARK_TEXT } from '
 import './brandWordmark.css';
 
 type Props = {
-  /** Thick red border when the unbroken-chain calendar has 2+ consecutive X's. */
+  /** Thick red outline on the letter shapes when the unbroken-chain calendar has 2+ consecutive X's. */
   unbrokenChain?: boolean;
 };
 

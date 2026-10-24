@@ -47,9 +47,9 @@ export function StreakMonthlyCalendar({ state, month, onMonthChange }: Props) {
             ? `${dateStr}: ${successCount}/${historicalCount} activities${complete ? ' — complete' : ''}`
             : `${dateStr}: no scheduled activities`;
           return (
-            <div key={dateStr} className={`streak-calendar-day${complete ? ' streak-calendar-day-complete' : ''}${dateStr === state.currentDay ? ' streak-calendar-day-current' : ''}${inChain ? ' streak-calendar-day-unbroken-chain' : ''}`} title={title} data-date={dateStr}>
+            <div key={dateStr} className={`streak-calendar-day${complete ? ' streak-calendar-day-complete' : ''}${dateStr === state.currentDay ? ' streak-calendar-day-current' : ''}`} title={title} data-date={dateStr}>
               <span className="streak-calendar-day-number">{dayNumber}</span>
-              {complete ? <span className="streak-calendar-x" aria-label="Complete">X</span> : null}
+              {complete ? <span className={`streak-calendar-x${inChain ? ' streak-calendar-x--unbroken-chain' : ''}`} aria-label="Complete">X</span> : null}
             </div>
           );
         })}
