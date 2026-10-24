@@ -33,7 +33,7 @@ export type MovementSnackRegimen = Record<MovementWeekday, MovementSnackTask[]>;
 const BUILD_EXERCISES: Record<BuildSnackSlot, ExerciseDefinition> = {
   'build-push': { id: 'pushups', name: 'Push-ups', amount: 8, unit: 'reps', repRange: { min: 8, max: 20 }, currentProgression: 'Incline' },
   'build-abs': { id: 'reverse-crunches', name: 'Reverse crunches', amount: 10, unit: 'reps', repRange: { min: 10, max: 20 }, currentProgression: 'Bodyweight' },
-  'build-pull': { id: 'pullups', name: 'Pull-ups', amount: 3, unit: 'reps', repRange: { min: 3, max: 8 }, currentProgression: 'Assisted' },
+  'build-pull': { id: 'pullups', name: 'Chin-ups', amount: 3, unit: 'reps', repRange: { min: 3, max: 8 }, currentProgression: 'Assisted' },
   'build-legs': { id: 'single-leg-sit-to-stand', name: 'Single-leg sit-to-stand', amount: 6, unit: 'reps', repRange: { min: 6, max: 15 }, currentProgression: 'Weighted', unilateral: true }
 };
 

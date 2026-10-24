@@ -39,7 +39,8 @@
 .build-notes-entry { display: flex; flex-direction: column; gap: 4px; }
 .build-notes-line { display: flex; flex-wrap: wrap; align-items: baseline; font-size: 0.95em; line-height: 1.45; color: var(--foreground); }
 .build-notes-title { font-weight: 600; }
-.build-notes-dash { color: var(--muted-foreground); }
+/* Flex items discard leading/trailing spaces in their text, so pad the em dash instead. */
+.build-notes-dash { color: var(--muted-foreground); padding: 0 0.35em; }
 .build-notes-name { font-weight: 500; }
 .build-notes-progression { color: var(--muted-foreground); }
 .build-notes-sets { display: inline-flex; align-items: baseline; flex-wrap: wrap; }

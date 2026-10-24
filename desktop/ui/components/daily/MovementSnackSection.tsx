@@ -146,17 +146,17 @@ export default function MovementSnackSection({ onTrackerLinkedTaskChange }: Prop
               <div className="build-notes-entry" key={task.slotId}>
                 <div className="build-notes-line">
                   <span className="build-notes-title">BUILD {index + 1}</span>
-                  <span className="build-notes-dash" aria-hidden="true"> — </span>
+                  <span className="build-notes-dash" aria-hidden="true">—</span>
                   <span className="build-notes-name">{task.exercise.name}</span>
                   {!unilateral ? (
                     <>
-                      <span className="build-notes-dash" aria-hidden="true"> — </span>
+                      <span className="build-notes-dash" aria-hidden="true">—</span>
                       <BuildSetRow task={task} day={day} findLog={(setNumber, side) => findLog(task, setNumber, side)} onSave={(setNumber, value, side) => saveBuildSet(task, setNumber, value, side)} />
                     </>
                   ) : null}
                   {progression ? (
                     <>
-                      <span className="build-notes-dash" aria-hidden="true"> — </span>
+                      <span className="build-notes-dash" aria-hidden="true">—</span>
                       <span className="build-notes-progression">{progression}</span>
                     </>
                   ) : null}
