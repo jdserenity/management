@@ -16,6 +16,8 @@ export interface ExerciseDefinition {
   unit: ExerciseUnit;
   repRange?: ExerciseRepRange;
   currentProgression?: string;
+  /** When true, each set is logged once for right and once for left (e.g. single-leg). */
+  unilateral?: boolean;
 }
 
 /** Older logs used `{ reps }` only */
@@ -44,6 +46,8 @@ export interface WorkoutLogEntry {
     kind: 'build' | 'move';
     setNumber: number;
     setCount: number;
+    /** Present on unilateral Build set logs (right/left). */
+    side?: 'right' | 'left';
   };
 }
 

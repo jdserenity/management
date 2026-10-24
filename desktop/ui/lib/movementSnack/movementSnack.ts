@@ -34,8 +34,11 @@ const BUILD_EXERCISES: Record<BuildSnackSlot, ExerciseDefinition> = {
   'build-push': { id: 'pushups', name: 'Push-ups', amount: 8, unit: 'reps', repRange: { min: 8, max: 20 }, currentProgression: 'Incline' },
   'build-abs': { id: 'reverse-crunches', name: 'Reverse crunches', amount: 10, unit: 'reps', repRange: { min: 10, max: 20 }, currentProgression: 'Bodyweight' },
   'build-pull': { id: 'pullups', name: 'Pull-ups', amount: 3, unit: 'reps', repRange: { min: 3, max: 8 }, currentProgression: 'Assisted' },
-  'build-legs': { id: 'single-leg-sit-to-stand', name: 'Single-leg sit-to-stand', amount: 6, unit: 'reps', repRange: { min: 6, max: 15 }, currentProgression: 'Weighted' }
+  'build-legs': { id: 'single-leg-sit-to-stand', name: 'Single-leg sit-to-stand', amount: 6, unit: 'reps', repRange: { min: 6, max: 15 }, currentProgression: 'Weighted', unilateral: true }
 };
+
+export type MovementSnackSide = 'right' | 'left';
+export const MOVEMENT_SNACK_SIDES: readonly MovementSnackSide[] = ['right', 'left'];
 
 export const MOVEMENT_WEEKDAYS: readonly MovementWeekday[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_NAMES: readonly MovementWeekday[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -277,14 +280,70 @@ export const buildMovementSnackSetLogEntry = (
   exercise: ExerciseDefinition,
   setNumber: number,
   id: string,
-  completedAt: number = Date.now()
+  completedAt: number = Date.now(),
+  side?: MovementSnackSide
 ): WorkoutLogEntry => {
   const entry = buildMovementSnackLogEntry([exercise], id, completedAt);
   return {
     ...entry,
     workoutId: `movement-${task.kind}-${task.slotId}`,
     workoutName: `${task.kind === 'build' ? 'Build' : 'Move'} · ${task.label}`,
-    movementSnack: { day, slotId: task.slotId, kind: task.kind, setNumber, setCount: task.setCount }
+    movementSnack: {
+      day,
+      slotId: task.slotId,
+      kind: task.kind,
+      setNumber,
+      setCount: task.setCount,
+      ...(side ? { side } : {})
+    }
+  };
+};
+
+/** Sides to log for each set: both right and left when unilateral, otherwise one untitled set. */
+export const movementSnackSidesForExercise = (exercise: Pick<ExerciseDefinition, 'unilateral'>): Array<MovementSnackSide | undefined> =>
+  exercise.unilateral ? [...MOVEMENT_SNACK_SIDES] : [undefined];
+
+export const requiredMovementSnackSetLogs = (task: MovementSnackTask): number =>
+  task.setCount * (task.exercise.unilateral ? MOVEMENT_SNACK_SIDES.length : 1);
+
+export const findMovementSnackSetLog = (
+  logs: WorkoutLogEntry[],
+  day: string,
+  slotId: string,
+  setNumber: number,
+  side?: MovementSnackSide
+): WorkoutLogEntry | undefined =>
+  logs.find((log) => {
+    const ms = log.movementSnack;
+    if (!ms || ms.day !== day || ms.slotId !== slotId || ms.setNumber !== setNumber) return false;
+    return side ? ms.side === side : !ms.side;
+  });
+
+export const isMovementSnackTaskComplete = (
+  task: MovementSnackTask,
+  logs: WorkoutLogEntry[],
+  day: string
+): boolean => {
+  for (let setNumber = 1; setNumber <= task.setCount; setNumber++) {
+    for (const side of movementSnackSidesForExercise(task.exercise)) {
+      if (!findMovementSnackSetLog(logs, day, task.slotId, setNumber, side)) return false;
+    }
+  }
+  return true;
+};
+
+export const buildTasksFromPlan = (tasks: MovementSnackTask[]): MovementSnackTask[] =>
+  tasks.filter((task) => task.kind === 'build');
+
+export const buildSnackProgress = (
+  tasks: MovementSnackTask[],
+  logs: WorkoutLogEntry[],
+  day: string
+): { completedTasks: number; totalTasks: number } => {
+  const buildTasks = buildTasksFromPlan(tasks);
+  return {
+    completedTasks: buildTasks.filter((task) => isMovementSnackTaskComplete(task, logs, day)).length,
+    totalTasks: buildTasks.length
   };
 };
 

@@ -3,6 +3,8 @@ import { getStatsDayWindow } from '@/lib/dayBoundary';
 import {
   buildMovementSnackLogEntry,
   buildMovementSnackSetLogEntry,
+  buildSnackProgress,
+  buildTasksFromPlan,
   countMovementSnacksToday,
   defaultMovementSnackEasyExercises,
   defaultMovementSnackHardExercises,
@@ -10,10 +12,13 @@ import {
   defaultMovementSnackMobilityPool,
   defaultMovementSnackPrefs,
   defaultMovementSnackRegimen,
+  findMovementSnackSetLog,
+  isMovementSnackTaskComplete,
   MOVEMENT_SNACK_HARD_WORKOUT_ID,
   MOVEMENT_SNACK_EASY_WORKOUT_ID,
   normalizeMovementSnackPrefs,
   movementSnackPlanForDate,
+  requiredMovementSnackSetLogs,
   updateBuildExerciseSettings,
 } from './movementSnack';
 
@@ -38,6 +43,7 @@ describe('movement exercise pools', () => {
     expect(regimen.Sun.map((task) => task.kind)).toEqual(['move', 'move', 'move', 'move']);
     expect(defaultMovementSnackBuildPool().map((exercise) => exercise.id)).toEqual(['pushups', 'reverse-crunches', 'pullups', 'single-leg-sit-to-stand']);
     expect(defaultMovementSnackBuildPool().map((exercise) => `${exercise.repRange?.min}–${exercise.repRange?.max}:${exercise.currentProgression}`)).toEqual(['8–20:Incline', '10–20:Bodyweight', '3–8:Assisted', '6–15:Weighted']);
+    expect(defaultMovementSnackBuildPool().find((exercise) => exercise.id === 'single-leg-sit-to-stand')?.unilateral).toBe(true);
     expect(defaultMovementSnackMobilityPool()[0].unit).toBe('seconds');
   });
 });
@@ -220,9 +226,45 @@ describe('movement snack regimen', () => {
     expect(entry.exercises).toEqual([{ ...task.exercise, amount: 12 }]);
   });
 
+  it('logs unilateral build sets with a right or left side', () => {
+    const task = movementSnackPlanForDate(new Date(2026, 8, 15), defaultMovementSnackPrefs().quickLogExercises).find((entry) => entry.slotId === 'build-legs')!;
+    expect(task.exercise.unilateral).toBe(true);
+    expect(requiredMovementSnackSetLogs(task)).toBe(6);
+    const entry = buildMovementSnackSetLogEntry(task, '2026-09-15', { ...task.exercise, amount: 8 }, 1, 'set-1-right', Date.now(), 'right');
+    expect(entry.movementSnack).toEqual({ day: '2026-09-15', slotId: 'build-legs', kind: 'build', setNumber: 1, setCount: 3, side: 'right' });
+    expect(findMovementSnackSetLog([entry], '2026-09-15', 'build-legs', 1, 'right')).toBe(entry);
+    expect(findMovementSnackSetLog([entry], '2026-09-15', 'build-legs', 1, 'left')).toBeUndefined();
+  });
+
   it('counts three build set logs as one completed snack', () => {
     const task = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises)[0];
     const logs = [1, 2, 3].map((setNumber) => buildMovementSnackSetLogEntry(task, '2026-09-14', task.exercise, setNumber, `set-${setNumber}`, new Date(2026, 8, 14, 12).getTime()));
     expect(countMovementSnacksToday(logs, new Date(2026, 8, 14, 12).getTime(), 5)).toBe(1);
+  });
+
+  it('treats a bilateral build as complete after three sets and unilateral after six sided sets', () => {
+    const mon = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises);
+    const push = mon.find((task) => task.slotId === 'build-push')!;
+    const tue = movementSnackPlanForDate(new Date(2026, 8, 15), defaultMovementSnackPrefs().quickLogExercises);
+    const legs = tue.find((task) => task.slotId === 'build-legs')!;
+    const pushLogs = [1, 2, 3].map((setNumber) => buildMovementSnackSetLogEntry(push, '2026-09-14', push.exercise, setNumber, `push-${setNumber}`));
+    expect(isMovementSnackTaskComplete(push, pushLogs, '2026-09-14')).toBe(true);
+    expect(isMovementSnackTaskComplete(push, pushLogs.slice(0, 2), '2026-09-14')).toBe(false);
+    const halfLegs = [1, 2, 3].flatMap((setNumber) => [
+      buildMovementSnackSetLogEntry(legs, '2026-09-15', legs.exercise, setNumber, `r-${setNumber}`, Date.now(), 'right')
+    ]);
+    expect(isMovementSnackTaskComplete(legs, halfLegs, '2026-09-15')).toBe(false);
+    const fullLegs = halfLegs.concat([1, 2, 3].map((setNumber) => buildMovementSnackSetLogEntry(legs, '2026-09-15', legs.exercise, setNumber, `l-${setNumber}`, Date.now(), 'left')));
+    expect(isMovementSnackTaskComplete(legs, fullLegs, '2026-09-15')).toBe(true);
+  });
+
+  it('buildSnackProgress counts only Build tasks', () => {
+    const tasks = movementSnackPlanForDate(new Date(2026, 8, 14), defaultMovementSnackPrefs().quickLogExercises);
+    expect(buildTasksFromPlan(tasks).map((task) => task.slotId)).toEqual(['build-push', 'build-abs']);
+    const push = tasks.find((task) => task.slotId === 'build-push')!;
+    const logs = [1, 2, 3].map((setNumber) => buildMovementSnackSetLogEntry(push, '2026-09-14', push.exercise, setNumber, `push-${setNumber}`));
+    expect(buildSnackProgress(tasks, logs, '2026-09-14')).toEqual({ completedTasks: 1, totalTasks: 2 });
+    expect(buildSnackProgress(tasks, [], '2026-09-14')).toEqual({ completedTasks: 0, totalTasks: 2 });
+    expect(buildSnackProgress(movementSnackPlanForDate(new Date(2026, 8, 13), defaultMovementSnackPrefs().quickLogExercises), [], '2026-09-13')).toEqual({ completedTasks: 0, totalTasks: 0 });
   });
 });

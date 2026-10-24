@@ -89,6 +89,7 @@ import {
   defaultMovementSnackPrefs,
   normalizeMovementSnackPrefs,
   type MovementSnackPrefs,
+  type MovementSnackSide,
   type MovementSnackTask
 } from '@/lib/movementSnack/movementSnack';
 import { saveMovementSnackPrefs } from '@/lib/movementSnack/movementSnackPref';
@@ -150,7 +151,7 @@ interface SessionContextValue {
   clearMorningStretchCompletionToday: () => void;
   updateMovementSnackPrefs: (patch: Partial<MovementSnackPrefs>) => void;
   logMovementSnackCompletion: (easy: boolean, exercises?: ExerciseDefinition[]) => void;
-  logMovementSnackSet: (task: MovementSnackTask, day: string, exercise: ExerciseDefinition, setNumber: number) => void;
+  logMovementSnackSet: (task: MovementSnackTask, day: string, exercise: ExerciseDefinition, setNumber: number, side?: MovementSnackSide) => void;
   removeWorkoutLog: (id: string) => void;
   handleAllowedWorkoutToggle: (workoutId: string, enabled: boolean) => void;
   handleStretchPickToggle: (pickKey: string, enabled: boolean) => void;
@@ -669,9 +670,9 @@ export const SessionProvider = ({ children, syncClient: syncClientProp, syncMode
     );
   }, [appendWorkoutLog]);
 
-  const logMovementSnackSet = useCallback((task: MovementSnackTask, day: string, exercise: ExerciseDefinition, setNumber: number) => {
+  const logMovementSnackSet = useCallback((task: MovementSnackTask, day: string, exercise: ExerciseDefinition, setNumber: number, side?: MovementSnackSide) => {
     appendWorkoutLog(
-      buildMovementSnackSetLogEntry(task, day, exercise, setNumber, createPrefixedId('snack'), Date.now()),
+      buildMovementSnackSetLogEntry(task, day, exercise, setNumber, createPrefixedId('snack'), Date.now(), side),
       'Failed to persist movement snack set:'
     );
   }, [appendWorkoutLog]);
