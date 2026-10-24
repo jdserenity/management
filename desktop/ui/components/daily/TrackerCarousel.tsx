@@ -1,11 +1,12 @@
 import { useRef, useState, type TouchEvent } from 'react';
 import TdeeSection from '@/components/daily/TdeeSection';
 import WaterSection from '@/components/daily/WaterSection';
+import MovementSnackSection from '@/components/daily/MovementSnackSection';
 import { carouselDragOffsetPx, slideIndexForSwipe } from '@/lib/trackerCarousel';
 import './tracker-carousel.css';
 
-const SLIDE_COUNT = 2;
-const SLIDE_LABELS = ['Food', 'Water'];
+const SLIDE_COUNT = 3;
+const SLIDE_LABELS = ['Food', 'Water', 'Build'];
 /** Finger travel (px) before we decide whether a touch is a horizontal drag or a vertical scroll. */
 const DIRECTION_LOCK_PX = 8;
 
@@ -13,7 +14,7 @@ type Props = {
   onTrackerLinkedTaskChange?: () => void;
 };
 
-/** Food and Water share one slot on Daily. Touch devices drag between them (the panel follows the finger); desktop gets minimal side arrows. Both slides stay mounted so half-typed entries survive switching. */
+/** Food, Water, and Build share one slot on Daily. Touch devices drag between them (the panel follows the finger); desktop gets minimal side arrows. All slides stay mounted so half-typed entries survive switching. */
 export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
   const [index, setIndex] = useState(0);
   const [dragPx, setDragPx] = useState(0);
@@ -77,6 +78,9 @@ export default function TrackerCarousel({ onTrackerLinkedTaskChange }: Props) {
           </div>
           <div className="tracker-carousel-slide" aria-hidden={index !== 1}>
             <WaterSection onTrackerLinkedTaskChange={onTrackerLinkedTaskChange} />
+          </div>
+          <div className="tracker-carousel-slide" aria-hidden={index !== 2}>
+            <MovementSnackSection onTrackerLinkedTaskChange={onTrackerLinkedTaskChange} />
           </div>
         </div>
       </div>

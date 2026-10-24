@@ -32,3 +32,41 @@
 .movement-exercise-pools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .movement-exercise-pool { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 @media (max-width: 720px) { .movement-exercise-pools { grid-template-columns: 1fr; } }
+
+/* Daily Build slide — notes-style lines */
+.build-notes-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.build-notes-entry { display: flex; flex-direction: column; gap: 4px; }
+.build-notes-line { display: flex; flex-wrap: wrap; align-items: baseline; font-size: 0.95em; line-height: 1.45; color: var(--foreground); }
+.build-notes-title { font-weight: 600; }
+.build-notes-dash { color: var(--muted-foreground); }
+.build-notes-name { font-weight: 500; }
+.build-notes-progression { color: var(--muted-foreground); }
+.build-notes-sets { display: inline-flex; align-items: baseline; flex-wrap: wrap; }
+.build-notes-set-cell { display: inline-flex; align-items: baseline; }
+.build-notes-sep { color: var(--muted-foreground); white-space: pre; }
+.build-notes-side-row { display: flex; align-items: baseline; gap: 6px; padding-left: 1.1em; font-size: 0.92em; }
+.build-notes-side-label { color: var(--muted-foreground); min-width: 3.2em; }
+.build-notes-empty { margin: 4px 0 0; color: var(--muted-foreground); font-size: 0.9em; }
+.build-notes-rep {
+  width: 2.1em;
+  min-width: 1.6em;
+  padding: 0 1px;
+  margin: 0;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.build-notes-rep::placeholder { color: var(--muted-foreground); opacity: 1; }
+.build-notes-rep:focus {
+  outline: none;
+  border-bottom-color: var(--tracker-accent, rgb(16, 185, 129));
+}
+.build-notes-rep::-webkit-outer-spin-button,
+.build-notes-rep::-webkit-inner-spin-button { appearance: none; margin: 0; }

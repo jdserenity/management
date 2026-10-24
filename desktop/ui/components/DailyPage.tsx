@@ -13,8 +13,6 @@ export default function DailyPage() {
     setStreakRefreshKey((k) => k + 1);
   };
 
-  // MovementSnackSection is intentionally not rendered for now (exercise logging happens in notes);
-  // the component and its data plumbing are kept so it can be switched back on later.
   return (
     <div className="plugin-page">
       <BrandWordmark />

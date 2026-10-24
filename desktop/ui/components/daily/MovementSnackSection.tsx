@@ -1,74 +1,184 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
-import { movementSnackDayKey, movementSnackLogsToday, movementSnackPlanForTimestamp, type MovementSnackTask } from '@/lib/movementSnack/movementSnack';
+import {
+  buildSnackProgress,
+  buildTasksFromPlan,
+  findMovementSnackSetLog,
+  movementSnackDayKey,
+  movementSnackLogsToday,
+  movementSnackPlanForTimestamp,
+  movementSnackSidesForExercise,
+  type MovementSnackSide,
+  type MovementSnackTask
+} from '@/lib/movementSnack/movementSnack';
 import { TrackerSummary } from '@/components/daily/TrackerChain';
-import { formatExerciseAmount, formatExerciseRunAggLine, formatExerciseTarget, listTodayMovementTotals, type ExerciseDefinition } from '@/lib/workoutPlanner';
 import './movement.css';
 
 type Props = { onTrackerLinkedTaskChange?: () => void };
 
+function BuildRepInput({
+  amount,
+  ariaLabel,
+  onCommit
+}: {
+  amount: number | undefined;
+  ariaLabel: string;
+  onCommit: (value: string) => void;
+}) {
+  const logged = amount != null ? String(amount) : '';
+  const [draft, setDraft] = useState(logged);
+  useEffect(() => { setDraft(logged); }, [logged]);
+  const commit = () => {
+    if (draft.trim() === logged) return;
+    onCommit(draft);
+  };
+  return (
+    <input
+      className="build-notes-rep"
+      type="text"
+      inputMode="numeric"
+      placeholder="x"
+      value={draft}
+      aria-label={ariaLabel}
+      onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, ''))}
+      onBlur={commit}
+      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter') { event.currentTarget.blur(); }
+      }}
+    />
+  );
+}
+
+function BuildSetRow({
+  task,
+  day,
+  side,
+  label,
+  findLog,
+  onSave
+}: {
+  task: MovementSnackTask;
+  day: string;
+  side?: MovementSnackSide;
+  label?: string;
+  findLog: (setNumber: number, side?: MovementSnackSide) => ReturnType<typeof findMovementSnackSetLog>;
+  onSave: (setNumber: number, value: string, side?: MovementSnackSide) => void;
+}) {
+  const sets = Array.from({ length: task.setCount }, (_, index) => {
+    const setNumber = index + 1;
+    const log = findLog(setNumber, side);
+    const amount = log?.exercises[0] && 'unit' in log.exercises[0] ? log.exercises[0].amount : undefined;
+    return (
+      <span key={setNumber} className="build-notes-set-cell">
+        {index > 0 ? <span className="build-notes-sep" aria-hidden="true"> / </span> : null}
+        <BuildRepInput
+          amount={amount}
+          ariaLabel={`${task.exercise.name}${label ? ` ${label}` : ''} set ${setNumber}`}
+          onCommit={(value) => onSave(setNumber, value, side)}
+        />
+      </span>
+    );
+  });
+  if (!label) return <span className="build-notes-sets">{sets}</span>;
+  return (
+    <div className="build-notes-side-row">
+      <span className="build-notes-side-label">{label}:</span>
+      <span className="build-notes-sets">{sets}</span>
+    </div>
+  );
+}
+
 export default function MovementSnackSection({ onTrackerLinkedTaskChange }: Props) {
-  const { movementSnackPrefs, workoutLogs, dayRolloverHour, todayExerciseTotals, todayStretchTotals, logMovementSnackSet, removeWorkoutLog, sessionStorageReady } = useSession();
-  const [overrides, setOverrides] = useState<Record<string, ExerciseDefinition>>({});
-  const [actuals, setActuals] = useState<Record<string, string>>({});
-  const tasks = useMemo(() => movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen), [dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen]);
+  const { movementSnackPrefs, workoutLogs, dayRolloverHour, logMovementSnackSet, removeWorkoutLog, sessionStorageReady } = useSession();
+  const tasks = useMemo(
+    () => buildTasksFromPlan(movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen)),
+    [dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen]
+  );
   const day = movementSnackDayKey(Date.now(), dayRolloverHour);
   const logs = useMemo(() => movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour), [workoutLogs, dayRolloverHour]);
-  const completedSets = (task: MovementSnackTask) => logs.filter((log) => log.movementSnack?.day === day && log.movementSnack.slotId === task.slotId);
-  const done = tasks.reduce((count, task) => count + (completedSets(task).length >= task.setCount ? 1 : 0), 0);
-  const movementTotals = useMemo(() => listTodayMovementTotals(todayExerciseTotals, todayStretchTotals), [todayExerciseTotals, todayStretchTotals]);
+  const progress = useMemo(() => buildSnackProgress(tasks, logs, day), [tasks, logs, day]);
 
   if (!hasAppStorage()) return null;
   if (!sessionStorageReady) return <p className="movement-tracker-empty">Loading movement…</p>;
 
-  const afterMovementLogged = () => {
+  const findLog = (task: MovementSnackTask, setNumber: number, side?: MovementSnackSide) =>
+    findMovementSnackSetLog(logs, day, task.slotId, setNumber, side);
+
+  const saveBuildSet = (task: MovementSnackTask, setNumber: number, value: string, side?: MovementSnackSide) => {
+    const existing = findLog(task, setNumber, side);
+    if (!value.trim()) {
+      if (existing) { removeWorkoutLog(existing.id); onTrackerLinkedTaskChange?.(); }
+      return;
+    }
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) return;
+    if (existing) removeWorkoutLog(existing.id);
+    logMovementSnackSet(task, day, { ...task.exercise, amount: Math.round(amount) }, setNumber, side);
     onTrackerLinkedTaskChange?.();
   };
-  const logMove = (task: MovementSnackTask, exercise: ExerciseDefinition) => {
-    logMovementSnackSet(task, day, exercise, 1);
-    afterMovementLogged();
-  };
-  const undoMove = (task: MovementSnackTask) => {
-    const log = completedSets(task)[0];
-    if (log) { removeWorkoutLog(log.id); onTrackerLinkedTaskChange?.(); }
-  };
-  const saveBuildSet = (task: MovementSnackTask, setNumber: number, value: string) => {
-    const amount = Number(value);
-    if (!value.trim() || !Number.isFinite(amount) || amount < 0) return;
-    const existing = completedSets(task).find((log) => log.movementSnack?.setNumber === setNumber);
-    if (existing) removeWorkoutLog(existing.id);
-    const exercise = { ...task.exercise, amount: Math.round(amount) };
-    logMovementSnackSet(task, day, exercise, setNumber);
-    afterMovementLogged();
-  };
 
-  return <section className="movement-tracker-container" aria-label="Movement snacks">
-    <TrackerSummary prefix="movement" today={done} target={<>{tasks.length} movement snacks today</>} remainingText={done >= tasks.length ? 'Workout complete' : `${tasks.length - done} movement snack${tasks.length - done === 1 ? '' : 's'} left`} remainingClass={done >= tasks.length ? ' movement-remaining-done' : ''} progressRatio={tasks.length > 0 ? done / tasks.length : 0} showProgress />
-    <div className="movement-regimen-list">
-      {tasks.map((task) => {
-        const taskLogs = completedSets(task);
-        const loggedExercise = taskLogs[0]?.exercises[0];
-        const exercise = overrides[task.slotId] ?? (loggedExercise && 'unit' in loggedExercise ? loggedExercise : task.exercise);
-        return <div className="movement-snack-task" key={task.slotId}>
-          <div className="movement-snack-task-heading">
-            <div><strong>{task.kind === 'move' ? 'Move' : 'Build'} · {task.label}</strong><div className="movement-snack-task-exercise">Target: {formatExerciseTarget(task.kind === 'move' ? exercise : task.exercise)}{task.kind === 'build' ? ' each set' : ''}{task.kind === 'build' && task.exercise.currentProgression ? ` · ${task.exercise.currentProgression}` : ''}</div></div>
-            {task.kind === 'move' && movementSnackPrefs.movePool.length > 0 ? <select className="movement-custom-input" aria-label={`Override ${task.label} for today`} value={exercise.id} onChange={(event) => { const next = movementSnackPrefs.movePool.find((entry) => entry.id === event.target.value); if (next) setOverrides((current) => ({ ...current, [task.slotId]: next })); }}>
-              {movementSnackPrefs.movePool.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} · {formatExerciseAmount(entry)}</option>)}
-            </select> : null}
-          </div>
-          {task.kind === 'move' ? <button type="button" className={`movement-chain-btn${taskLogs.length > 0 ? ' movement-chain-done' : ''}`} onClick={() => taskLogs.length > 0 ? undoMove(task) : logMove(task, exercise)}>{taskLogs.length > 0 ? `✓ ${formatExerciseAmount(taskLogs[0].exercises[0])}` : formatExerciseAmount(exercise)}</button> : <div className="movement-build-sets">
-            {Array.from({ length: task.setCount }, (_, index) => {
-              const setNumber = index + 1;
-              const log = taskLogs.find((entry) => entry.movementSnack?.setNumber === setNumber);
-              const key = `${task.slotId}-${setNumber}`;
-              const value = actuals[key] ?? (log?.exercises[0] && 'unit' in log.exercises[0] ? String(log.exercises[0].amount) : '');
-              return <div className="movement-build-set" key={setNumber}><span className="movement-build-set-label">Set {setNumber} · goal {formatExerciseTarget(task.exercise)}</span><input className="movement-custom-input" type="number" min={0} inputMode="numeric" value={value} onChange={(event) => setActuals((current) => ({ ...current, [key]: event.target.value }))} aria-label={`${task.label} set ${setNumber} actual amount`} /><button type="button" className={`movement-chain-btn${log ? ' movement-chain-done' : ''}`} onClick={() => saveBuildSet(task, setNumber, value)}>{log ? 'Update' : 'Save set'}</button></div>;
-            })}
-          </div>}
-        </div>;
-      })}
-    </div>
-    {movementTotals.length > 0 ? <div className="movement-totals"><div className="movement-region"><p className="movement-region-title">Today&apos;s movement</p>{movementTotals.map((agg) => <div key={agg.id} className="movement-region-row">{formatExerciseRunAggLine(agg)}</div>)}</div></div> : null}
-  </section>;
+  return (
+    <section className="movement-tracker-container" aria-label="Build snacks">
+      <TrackerSummary
+        prefix="movement"
+        today={progress.completedTasks}
+        target={<>{progress.totalTasks || 0} Build snack{progress.totalTasks === 1 ? '' : 's'} today</>}
+        remainingText={
+          progress.totalTasks === 0
+            ? 'No Build snacks today'
+            : progress.completedTasks >= progress.totalTasks
+              ? 'Workout complete'
+              : `${progress.totalTasks - progress.completedTasks} Build snack${progress.totalTasks - progress.completedTasks === 1 ? '' : 's'} left`
+        }
+        remainingClass={progress.totalTasks > 0 && progress.completedTasks >= progress.totalTasks ? ' movement-remaining-done' : ''}
+        progressRatio={progress.totalTasks > 0 ? progress.completedTasks / progress.totalTasks : 0}
+        showProgress={progress.totalTasks > 0}
+      />
+      {tasks.length === 0 ? (
+        <p className="build-notes-empty">No Build snacks today</p>
+      ) : (
+        <div className="build-notes-list">
+          {tasks.map((task, index) => {
+            const progression = task.exercise.currentProgression?.trim();
+            const unilateral = Boolean(task.exercise.unilateral);
+            return (
+              <div className="build-notes-entry" key={task.slotId}>
+                <div className="build-notes-line">
+                  <span className="build-notes-title">BUILD {index + 1}</span>
+                  <span className="build-notes-dash" aria-hidden="true"> — </span>
+                  <span className="build-notes-name">{task.exercise.name}</span>
+                  {!unilateral ? (
+                    <>
+                      <span className="build-notes-dash" aria-hidden="true"> — </span>
+                      <BuildSetRow task={task} day={day} findLog={(setNumber, side) => findLog(task, setNumber, side)} onSave={(setNumber, value, side) => saveBuildSet(task, setNumber, value, side)} />
+                    </>
+                  ) : null}
+                  {progression ? (
+                    <>
+                      <span className="build-notes-dash" aria-hidden="true"> — </span>
+                      <span className="build-notes-progression">{progression}</span>
+                    </>
+                  ) : null}
+                </div>
+                {unilateral
+                  ? movementSnackSidesForExercise(task.exercise).map((side) => (
+                      <BuildSetRow
+                        key={side}
+                        task={task}
+                        day={day}
+                        side={side}
+                        label={side === 'right' ? 'Right' : 'Left'}
+                        findLog={(setNumber, rowSide) => findLog(task, setNumber, rowSide)}
+                        onSave={(setNumber, value, rowSide) => saveBuildSet(task, setNumber, value, rowSide)}
+                      />
+                    ))
+                  : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
 }

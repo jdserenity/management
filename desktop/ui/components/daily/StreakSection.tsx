@@ -8,8 +8,7 @@ import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { fireDayCompleteConfetti } from '@/lib/streak/display';
 import { becameDayComplete } from '@/lib/streak/heatmap';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
-import { movementSnackLogsToday } from '@/lib/movementSnack/movementSnack';
-import { movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack';
+import { buildSnackProgress, movementSnackDayKey, movementSnackLogsToday, movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
 import { dayEndTimeFromRolloverHour } from '@/lib/streak/dates';
 import {
@@ -52,10 +51,9 @@ export default function StreakSection({ refreshKey, trackerWidget }: Props) {
   const trackerLinkedSignature = state?.config.activities.map((activity) => `${activity.id}:${activity.trackerLinkedKind || ''}:${activity.enabled !== false}`).join('|') || '';
   const workoutProgress = useMemo(() => {
     const tasks = movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen);
-    const day = state?.currentDay || '';
+    const day = state?.currentDay || movementSnackDayKey(Date.now(), dayRolloverHour);
     const logs = movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour);
-    const completedTasks = tasks.filter((task) => logs.filter((log) => log.movementSnack?.day === day && log.movementSnack.slotId === task.slotId).length >= task.setCount).length;
-    return { completedTasks, totalTasks: tasks.length };
+    return buildSnackProgress(tasks, logs, day);
   }, [dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen, state?.currentDay, workoutLogs]);
 
   useEffect(() => {
