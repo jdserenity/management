@@ -52,14 +52,12 @@ function BuildRepInput({
 
 function BuildSetRow({
   task,
-  day,
   side,
   label,
   findLog,
   onSave
 }: {
   task: MovementSnackTask;
-  day: string;
   side?: MovementSnackSide;
   label?: string;
   findLog: (setNumber: number, side?: MovementSnackSide) => ReturnType<typeof findMovementSnackSetLog>;
@@ -151,7 +149,7 @@ export default function MovementSnackSection({ onTrackerLinkedTaskChange }: Prop
                   {!unilateral ? (
                     <>
                       <span className="build-notes-dash" aria-hidden="true">—</span>
-                      <BuildSetRow task={task} day={day} findLog={(setNumber, side) => findLog(task, setNumber, side)} onSave={(setNumber, value, side) => saveBuildSet(task, setNumber, value, side)} />
+                      <BuildSetRow task={task} findLog={(setNumber, side) => findLog(task, setNumber, side)} onSave={(setNumber, value, side) => saveBuildSet(task, setNumber, value, side)} />
                     </>
                   ) : null}
                   {progression ? (
@@ -166,7 +164,6 @@ export default function MovementSnackSection({ onTrackerLinkedTaskChange }: Prop
                       <BuildSetRow
                         key={side}
                         task={task}
-                        day={day}
                         side={side}
                         label={side === 'right' ? 'Right' : 'Left'}
                         findLog={(setNumber, rowSide) => findLog(task, setNumber, rowSide)}
