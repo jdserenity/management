@@ -1,6 +1,6 @@
 import { getLogState } from '@/lib/streak/logs';
 import { isActivityActiveOnDay } from '@/lib/streak/activityCatalog';
-import { formatDate } from '@/lib/streak/dates';
+import { formatDate, parseDate } from '@/lib/streak/dates';
 import type { StreakActivity, StreakData } from '@/lib/streak/types';
 
 export const isPerfectHeatmapCell = (done: number, total: number): boolean => total > 0 && done === total;
@@ -28,6 +28,39 @@ export const isDayComplete = (data: StreakData, activities: StreakActivity[], da
   const { successCount, historicalCount } = getDayCompletionCounts(data, activities, dayStr);
   return isPerfectHeatmapCell(successCount, historicalCount);
 };
+
+/** Unbroken-chain "mode" needs more than one consecutive complete day. */
+export const UNBROKEN_CHAIN_MODE_MIN_DAYS = 2;
+
+const previousDayStr = (dayStr: string): string => {
+  const d = parseDate(dayStr);
+  d.setDate(d.getDate() - 1);
+  return formatDate(d);
+};
+
+/**
+ * Consecutive complete calendar days ending at today (or yesterday if today has no X yet).
+ * Today without an X does not break the chain — the day is still in progress.
+ * A past incomplete day ends the chain.
+ */
+export const getUnbrokenChainDates = (
+  data: StreakData,
+  activities: StreakActivity[],
+  todayStr: string
+): string[] => {
+  const dates: string[] = [];
+  let cursor = isDayComplete(data, activities, todayStr) ? todayStr : previousDayStr(todayStr);
+  // Bound the walk so a sparse history cannot loop forever.
+  for (let i = 0; i < 2000; i++) {
+    if (!isDayComplete(data, activities, cursor)) break;
+    dates.push(cursor);
+    cursor = previousDayStr(cursor);
+  }
+  return dates;
+};
+
+export const isUnbrokenChainMode = (chainDates: readonly string[]): boolean =>
+  chainDates.length >= UNBROKEN_CHAIN_MODE_MIN_DAYS;
 
 /** True only when a change flips the day from incomplete to complete — the moment to celebrate. */
 export const becameDayComplete = (

@@ -17,9 +17,11 @@ import {
   getDayCompletionCounts,
   getCalendarMonthsWithData,
   getMonthCalendarDates,
+  getUnbrokenChainDates,
   isDayComplete,
   isDayNecessaryFailed,
-  isPerfectHeatmapCell
+  isPerfectHeatmapCell,
+  isUnbrokenChainMode
 } from '@/lib/streak/heatmap';
 import { makeDeletionCell, makeLogCell, getLogState } from '@/lib/streak/logs';
 import { mergeLogs, mergeState } from '@/lib/streak/merge';
@@ -303,6 +305,69 @@ describe('heatmap', () => {
     expect(becameDayComplete(complete, daily, complete, daily, '2026-05-20')).toBe(false);
     expect(becameDayComplete(incomplete, daily, incomplete, daily, '2026-05-20')).toBe(false);
     expect(becameDayComplete(complete, daily, incomplete, daily, '2026-05-20')).toBe(false);
+  });
+
+  it('getUnbrokenChainDates counts consecutive complete days and ignores an incomplete today', () => {
+    const daily = [{ id: 'a' }];
+    const success = { state: 'success' as const, updatedAt: 'x' };
+    const data = {
+      logs: {
+        '2026-10-20': { a: success },
+        '2026-10-21': { a: success },
+        '2026-10-22': { a: success },
+        '2026-10-23': {}
+      },
+      activityStartDates: { a: '2026-10-01' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    // Today still open — chain is the three completed days behind it.
+    expect(getUnbrokenChainDates(data, daily, '2026-10-23')).toEqual(['2026-10-22', '2026-10-21', '2026-10-20']);
+    expect(isUnbrokenChainMode(getUnbrokenChainDates(data, daily, '2026-10-23'))).toBe(true);
+    // Completing today extends the chain.
+    const todayDone = {
+      ...data,
+      logs: { ...data.logs, '2026-10-23': { a: success } }
+    };
+    expect(getUnbrokenChainDates(todayDone, daily, '2026-10-23')).toEqual([
+      '2026-10-23', '2026-10-22', '2026-10-21', '2026-10-20'
+    ]);
+  });
+
+  it('getUnbrokenChainDates stops at a missed day and leaves mode off for a single-day chain', () => {
+    const daily = [{ id: 'a' }];
+    const success = { state: 'success' as const, updatedAt: 'x' };
+    const gap = {
+      logs: {
+        '2026-10-20': { a: success },
+        '2026-10-21': {},
+        '2026-10-22': { a: success }
+      },
+      activityStartDates: { a: '2026-10-01' },
+      pausedActivities: {},
+      unpausedActivities: {},
+      activityResetCounts: {},
+      stats: {}
+    };
+    // Gap at 10-21: only today's X counts — not enough for mode.
+    expect(getUnbrokenChainDates(gap, daily, '2026-10-22')).toEqual(['2026-10-22']);
+    expect(isUnbrokenChainMode(['2026-10-22'])).toBe(false);
+    expect(isUnbrokenChainMode(['2026-10-22', '2026-10-21'])).toBe(true);
+    // Multi-day chain, then a full missed day: once that miss is yesterday, mode is off.
+    const brokenAfterMiss = {
+      ...gap,
+      logs: {
+        '2026-10-20': { a: success },
+        '2026-10-21': { a: success },
+        '2026-10-22': { a: success },
+        '2026-10-23': {}
+      }
+    };
+    expect(isUnbrokenChainMode(getUnbrokenChainDates(brokenAfterMiss, daily, '2026-10-23'))).toBe(true);
+    expect(getUnbrokenChainDates(brokenAfterMiss, daily, '2026-10-24')).toEqual([]);
+    expect(isUnbrokenChainMode([])).toBe(false);
   });
 
   it('isDayNecessaryFailed when a necessary task is incomplete', () => {
