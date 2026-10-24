@@ -1,5 +1,5 @@
-/* Extra bottom margin so the page dots aren't glued to the habit list below. */
-.tracker-carousel { position: relative; margin: 0 0 36px; }
+/* padding-bottom (not margin) — margins were collapsing into the habit list and eating the gap. */
+.tracker-carousel { position: relative; margin: 0; padding-bottom: 28px; }
 
 /* pan-y: vertical touches scroll the page; horizontal drags are ours to handle. */
 .tracker-carousel-viewport { overflow: hidden; touch-action: pan-y; }
