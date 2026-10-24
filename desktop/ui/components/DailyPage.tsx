@@ -8,6 +8,7 @@ import TrackerCarousel from '@/components/daily/TrackerCarousel';
 
 export default function DailyPage() {
   const [streakRefreshKey, setStreakRefreshKey] = useState(0);
+  const [unbrokenChainActive, setUnbrokenChainActive] = useState(false);
 
   const handleTrackerLinkedTaskChange = () => {
     setStreakRefreshKey((k) => k + 1);
@@ -15,10 +16,11 @@ export default function DailyPage() {
 
   return (
     <div className="plugin-page">
-      <BrandWordmark />
+      <BrandWordmark unbrokenChain={unbrokenChainActive} />
       <DailyStretchSections />
       <StreakSection
         refreshKey={streakRefreshKey}
+        onUnbrokenChainModeChange={setUnbrokenChainActive}
         trackerWidget={<TrackerCarousel onTrackerLinkedTaskChange={handleTrackerLinkedTaskChange} />}
       />
     </div>

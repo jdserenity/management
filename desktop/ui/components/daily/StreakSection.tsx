@@ -6,7 +6,7 @@ import { StreakMonthlyCalendar } from '@/components/daily/StreakHeatmaps';
 import { useSession } from '@/context/SessionContext';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
 import { fireDayCompleteConfetti } from '@/lib/streak/display';
-import { becameDayComplete } from '@/lib/streak/heatmap';
+import { becameDayComplete, getUnbrokenChainDates, isUnbrokenChainMode } from '@/lib/streak/heatmap';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { buildSnackProgress, movementSnackDayKey, movementSnackLogsToday, movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack';
 import type { StreakLogState, StreakState } from '@/lib/streak/types';
@@ -26,13 +26,15 @@ import './streak.css';
 
 type Props = {
   refreshKey?: number;
+  /** Called when unbroken-chain mode (2+ consecutive complete days) turns on or off. */
+  onUnbrokenChainModeChange?: (active: boolean) => void;
   /** Rendered between the calendar and the task list (the Food/Water carousel on Daily). */
   trackerWidget?: ReactNode;
 };
 
 type StreakBundle = { state: StreakState };
 
-export default function StreakSection({ refreshKey, trackerWidget }: Props) {
+export default function StreakSection({ refreshKey, onUnbrokenChainModeChange, trackerWidget }: Props) {
   const { movementSnackPrefs, workoutLogs, dayRolloverHour } = useSession();
   const loadBundle = useCallback(async (): Promise<StreakBundle> => {
     return { state: await loadStreakState() };
@@ -55,6 +57,16 @@ export default function StreakSection({ refreshKey, trackerWidget }: Props) {
     const logs = movementSnackLogsToday(workoutLogs, Date.now(), dayRolloverHour);
     return buildSnackProgress(tasks, logs, day);
   }, [dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen, state?.currentDay, workoutLogs]);
+
+  const unbrokenChainActive = useMemo(() => {
+    if (!state) return false;
+    const catalog = buildActivityCatalog(state.config, state.data);
+    return isUnbrokenChainMode(getUnbrokenChainDates(state.data, catalog, state.currentDay));
+  }, [state]);
+
+  useEffect(() => {
+    onUnbrokenChainModeChange?.(unbrokenChainActive);
+  }, [onUnbrokenChainModeChange, unbrokenChainActive]);
 
   useEffect(() => {
     if (!state) return;

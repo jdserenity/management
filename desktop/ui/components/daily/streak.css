@@ -24,6 +24,7 @@
 .streak-calendar-day { position: relative; min-height: 52px; border: 1px solid var(--border); border-radius: 6px; background: var(--secondary); padding: 5px; box-sizing: border-box; }
 .streak-calendar-day-empty { border-color: transparent; background: transparent; }
 .streak-calendar-day-current { border-color: var(--primary); }
+.streak-calendar-day-unbroken-chain { border: 3px solid var(--unbroken-chain-accent, #dc2626); }
 .streak-calendar-day-number { color: var(--muted-foreground); font-size: 0.75em; }
 .streak-calendar-day-complete { background: color-mix(in srgb, var(--primary) 12%, var(--secondary)); }
 .streak-calendar-x { display: block; color: var(--primary); font-size: clamp(1.6rem, 7vw, 2.6rem); font-weight: 800; line-height: 0.9; text-align: center; }

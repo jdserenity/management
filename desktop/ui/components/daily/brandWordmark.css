@@ -26,6 +26,14 @@
   width: 100%;
   justify-content: center;
   margin: 0;
+  box-sizing: border-box;
+}
+
+/* Unbroken-chain mode: thick red frame around the Management wordmark. */
+.daily-brand-wordmark--unbroken-chain {
+  border: 4px solid var(--unbroken-chain-accent, #dc2626);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
 }
 
 @media (max-width: 640px) {

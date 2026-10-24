@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
-import { getDayCompletionCounts, getCalendarMonthsWithData, getMonthCalendarDates, isDayComplete } from '@/lib/streak/heatmap';
+import { getDayCompletionCounts, getCalendarMonthsWithData, getMonthCalendarDates, getUnbrokenChainDates, isDayComplete, isUnbrokenChainMode } from '@/lib/streak/heatmap';
 import type { StreakState } from '@/lib/streak/types';
 
 type Props = {
@@ -18,13 +18,16 @@ export function StreakMonthlyCalendar({ state, month, onMonthChange }: Props) {
   const currentMonth = state.currentDay.slice(0, 7);
   const months = useMemo(() => getCalendarMonthsWithData(state.data, currentMonth), [currentMonth, state.data]);
   const monthDates = useMemo(() => getMonthCalendarDates(month), [month]);
+  const unbrokenChainDates = useMemo(() => getUnbrokenChainDates(state.data, catalog, state.currentDay), [catalog, state.currentDay, state.data]);
+  const unbrokenChainActive = isUnbrokenChainMode(unbrokenChainDates);
+  const unbrokenChainSet = useMemo(() => new Set(unbrokenChainActive ? unbrokenChainDates : []), [unbrokenChainActive, unbrokenChainDates]);
   const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(`${month}-02T12:00:00`));
   const monthIndex = months.indexOf(month);
   const canGoPrevious = monthIndex > 0;
   const canGoNext = monthIndex >= 0 && monthIndex < months.length - 1 && month < currentMonth;
 
   return (
-    <div className="streak-calendar-container" aria-label="Unbroken chain calendar">
+    <div className={`streak-calendar-container${unbrokenChainActive ? ' streak-calendar-container--unbroken-chain' : ''}`} aria-label="Unbroken chain calendar">
       <div className="streak-heatmap-nav">
         <button type="button" className={`streak-nav-btn${canGoPrevious ? '' : ' streak-nav-btn-disabled'}`} disabled={!canGoPrevious} onClick={() => onMonthChange(months[monthIndex - 1])}>‹</button>
         <span className="streak-calendar-label">{monthLabel}</span>
@@ -38,12 +41,13 @@ export function StreakMonthlyCalendar({ state, month, onMonthChange }: Props) {
           if (!dateStr) return <div key={index} className="streak-calendar-day streak-calendar-day-empty" aria-hidden="true" />;
           const { successCount, historicalCount } = getDayCompletionCounts(state.data, catalog, dateStr);
           const complete = isDayComplete(state.data, catalog, dateStr);
+          const inChain = unbrokenChainSet.has(dateStr);
           const dayNumber = Number(dateStr.slice(8, 10));
           const title = historicalCount > 0
             ? `${dateStr}: ${successCount}/${historicalCount} activities${complete ? ' — complete' : ''}`
             : `${dateStr}: no scheduled activities`;
           return (
-            <div key={dateStr} className={`streak-calendar-day${complete ? ' streak-calendar-day-complete' : ''}${dateStr === state.currentDay ? ' streak-calendar-day-current' : ''}`} title={title} data-date={dateStr}>
+            <div key={dateStr} className={`streak-calendar-day${complete ? ' streak-calendar-day-complete' : ''}${dateStr === state.currentDay ? ' streak-calendar-day-current' : ''}${inChain ? ' streak-calendar-day-unbroken-chain' : ''}`} title={title} data-date={dateStr}>
               <span className="streak-calendar-day-number">{dayNumber}</span>
               {complete ? <span className="streak-calendar-x" aria-label="Complete">X</span> : null}
             </div>
