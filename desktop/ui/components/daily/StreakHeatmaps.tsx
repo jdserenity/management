@@ -36,8 +36,8 @@ export function StreakMonthlyCalendar({ state, month, onMonthChange }: Props) {
       <div className="streak-calendar-grid">
         {monthDates.map((dateStr, index) => {
           if (!dateStr) return <div key={index} className="streak-calendar-day streak-calendar-day-empty" aria-hidden="true" />;
-          const { successCount, historicalCount } = getDayCompletionCounts(state.data, catalog, dateStr, state.currentDay);
-          const complete = isDayComplete(state.data, catalog, dateStr, state.currentDay);
+          const { successCount, historicalCount } = getDayCompletionCounts(state.data, catalog, dateStr);
+          const complete = isDayComplete(state.data, catalog, dateStr);
           const dayNumber = Number(dateStr.slice(8, 10));
           const title = historicalCount > 0
             ? `${dateStr}: ${successCount}/${historicalCount} activities${complete ? ' — complete' : ''}`

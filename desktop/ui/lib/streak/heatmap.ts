@@ -8,18 +8,15 @@ export const isPerfectHeatmapCell = (done: number, total: number): boolean => to
 export const getDayCompletionCounts = (
   data: StreakData,
   activities: StreakActivity[],
-  dayStr: string,
-  todayStr?: string
+  dayStr: string
 ): { successCount: number; historicalCount: number } => {
   let successCount = 0;
   let historicalCount = 0;
   const log = data.logs[dayStr] || {};
   for (const activity of activities) {
-    // Tracker-linked tasks (water/food/workout goals) are only ever reconciled
-    // against the current day — no checkmark can exist for past days, so
-    // counting them there would retroactively strip X's from days that were
-    // complete before the task ever synced to this device.
-    if (activity.trackerLinkedKind && todayStr && dayStr !== todayStr) continue;
+    // Tracker-linked (water/food/workout) count like every other habit: active
+    // that day and success in the log. Skipping them on past days was a hack
+    // that handed out false calendar X's when water/food/workout weren't done.
     if (!isActivityActiveOnDay(activity, data, dayStr)) continue;
     historicalCount++;
     if (getLogState(log[activity.id]) === 'success') successCount++;
@@ -27,8 +24,8 @@ export const getDayCompletionCounts = (
   return { successCount, historicalCount };
 };
 
-export const isDayComplete = (data: StreakData, activities: StreakActivity[], dayStr: string, todayStr?: string): boolean => {
-  const { successCount, historicalCount } = getDayCompletionCounts(data, activities, dayStr, todayStr);
+export const isDayComplete = (data: StreakData, activities: StreakActivity[], dayStr: string): boolean => {
+  const { successCount, historicalCount } = getDayCompletionCounts(data, activities, dayStr);
   return isPerfectHeatmapCell(successCount, historicalCount);
 };
 
@@ -37,7 +34,7 @@ export const becameDayComplete = (
   prevData: StreakData, prevActivities: StreakActivity[],
   nextData: StreakData, nextActivities: StreakActivity[],
   dayStr: string
-): boolean => !isDayComplete(prevData, prevActivities, dayStr, dayStr) && isDayComplete(nextData, nextActivities, dayStr, dayStr);
+): boolean => !isDayComplete(prevData, prevActivities, dayStr) && isDayComplete(nextData, nextActivities, dayStr);
 
 /**
  * A necessary daily task that is active but not success fails the whole day.
