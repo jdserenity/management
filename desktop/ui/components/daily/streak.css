@@ -5,7 +5,7 @@
 .streak-tracker-empty { color: var(--muted-foreground); font-style: italic; }
 
 /* Unbroken-chain calendar */
-.streak-calendar-container { margin-bottom: 16px; }
+.streak-calendar-container { margin-bottom: 0; padding-bottom: 24px; }
 
 .streak-heatmap-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px; }
 

@@ -1,5 +1,5 @@
-/* padding-bottom (not margin) — margins were collapsing into the habit list and eating the gap. */
-.tracker-carousel { position: relative; margin: 0; padding-bottom: 28px; }
+/* padding (not margin) so gaps to the calendar above and habits below can't collapse away. */
+.tracker-carousel { position: relative; margin: 0; padding-top: 4px; padding-bottom: 28px; }
 
 /* pan-y: vertical touches scroll the page; horizontal drags are ours to handle. */
 .tracker-carousel-viewport { overflow: hidden; touch-action: pan-y; }
