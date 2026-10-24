@@ -1,7 +1,7 @@
 import { dbExecute, dbSelect, dbDeleteExceptIds, syncNow, sqlFlag } from '@/lib/sqlWrite';
 import { loadDayRolloverHourPref } from '@/lib/dayBoundaryPref';
 import { buildActivityConfigMap } from '@/lib/streak/activityCatalog';
-import { clearActivityLogs, incrementResetCount } from '@/lib/streak/domain';
+import { clampTrackerLinkedStartDates, clearActivityLogs, incrementResetCount } from '@/lib/streak/domain';
 import { dayEndTimeFromRolloverHour, getCurrentDay } from '@/lib/streak/dates';
 import { makeDeletionCell, makeLogCell, normalizeLogs } from '@/lib/streak/logs';
 import { recalculateAllStats } from '@/lib/streak/stats';
@@ -208,7 +208,11 @@ export const loadStreakState = async (): Promise<StreakState> => {
   const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
   const currentDay = getCurrentDay(dayEndTime);
   const { config, partial } = await loadRows();
-  const data: StreakData = { ...partial, stats: {} };
+  const { next: activityStartDates, changedIds } = clampTrackerLinkedStartDates(config.activities, partial.activityStartDates);
+  const data: StreakData = { ...partial, activityStartDates, stats: {} };
+  if (changedIds.length) {
+    for (const activityId of changedIds) await upsertMetaRow(activityId, data);
+  }
   return buildState(config, data, currentDay, dayEndTime);
 };
 

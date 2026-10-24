@@ -2,6 +2,30 @@ import { getLogState, normalizeLogs } from '@/lib/streak/logs';
 import { parseDate, formatDate } from '@/lib/streak/dates';
 import type { StreakActivity, StreakConfig, StreakData } from '@/lib/streak/types';
 
+/**
+ * Tracker-linked water/food/workout were not usable across devices until this day
+ * (sync left them missing on the phone). Start dates stamped earlier than this
+ * made the calendar demand them for weeks of history that never had them to check.
+ */
+export const TRACKER_LINKED_START_FLOOR = '2026-10-20';
+
+/** Bump tracker-linked start dates that predate the floor; returns which ids changed. */
+export const clampTrackerLinkedStartDates = (
+  activities: StreakActivity[],
+  activityStartDates: Record<string, string>
+): { next: Record<string, string>; changedIds: string[] } => {
+  const next = { ...activityStartDates };
+  const changedIds: string[] = [];
+  for (const activity of activities) {
+    if (!activity.trackerLinkedKind) continue;
+    const start = next[activity.id];
+    if (start && start < TRACKER_LINKED_START_FLOOR) {
+      next[activity.id] = TRACKER_LINKED_START_FLOOR;
+      changedIds.push(activity.id);
+    }
+  }
+  return { next, changedIds };
+};
 
 export const clearActivityLogs = (
   logs: StreakData['logs'],

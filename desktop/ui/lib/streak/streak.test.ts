@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { buildActivityCatalog, getActiveActivitiesForDay, parseScheduledDays } from '@/lib/streak/activityCatalog';
 import {
   backfillArchivedAt,
+  clampTrackerLinkedStartDates,
   clearActivityLogs,
   incrementResetCount,
   mergePausedOnIncoming,
   mergeResetCounts,
   normalizeConfig,
-  pausedStateFromVault
+  pausedStateFromVault,
+  TRACKER_LINKED_START_FLOOR
 } from '@/lib/streak/domain';
 import { getISOWeekStart, isDateInWeek } from '@/lib/streak/dates';
 import {
@@ -230,34 +232,56 @@ describe('heatmap', () => {
     expect(isDayComplete(data, daily, '2026-05-20')).toBe(true);
   });
 
-  it('tracker-linked tasks count toward day completion on past days too (no false calendar X)', () => {
+  it('clamps tracker-linked start dates up to the floor so pre-tracker calendar days keep their X', () => {
+    const { next, changedIds } = clampTrackerLinkedStartDates(
+      [
+        { id: 'a' },
+        { id: 'automatic-water', trackerLinkedKind: 'water' },
+        { id: 'automatic-food', trackerLinkedKind: 'food' }
+      ],
+      { a: '2026-09-01', 'automatic-water': '2026-09-30', 'automatic-food': '2026-10-22' }
+    );
+    expect(changedIds).toEqual(['automatic-water']);
+    expect(next['automatic-water']).toBe(TRACKER_LINKED_START_FLOOR);
+    expect(next['automatic-food']).toBe('2026-10-22');
+    expect(next.a).toBe('2026-09-01');
+  });
+
+  it('tracker-linked tasks count toward day completion once their start date has begun', () => {
     const activities = [
       { id: 'a' },
       { id: 'automatic-water', trackerLinkedKind: 'water' as const },
       { id: 'automatic-food', trackerLinkedKind: 'food' as const }
     ];
-    const data = {
+    const beforeTrackers = {
       logs: { '2026-10-15': { a: { state: 'success' as const, updatedAt: 'x' } } },
-      activityStartDates: { a: '2026-10-01', 'automatic-water': '2026-09-30', 'automatic-food': '2026-09-30' },
+      activityStartDates: { a: '2026-10-01', 'automatic-water': '2026-10-20', 'automatic-food': '2026-10-20' },
       pausedActivities: {},
       unpausedActivities: {},
       activityResetCounts: {},
       stats: {}
     };
-    // Manual habits alone are not enough — water/food were active and not success.
-    expect(getDayCompletionCounts(data, activities, '2026-10-15')).toEqual({ successCount: 1, historicalCount: 3 });
-    expect(isDayComplete(data, activities, '2026-10-15')).toBe(false);
+    // Before the tracker-linked start floor, only manual habits matter.
+    expect(getDayCompletionCounts(beforeTrackers, activities, '2026-10-15')).toEqual({ successCount: 1, historicalCount: 1 });
+    expect(isDayComplete(beforeTrackers, activities, '2026-10-15')).toBe(true);
+    // On/after the start date, unfinished water/food block the X.
+    const afterStart = {
+      ...beforeTrackers,
+      logs: { '2026-10-21': { a: { state: 'success' as const, updatedAt: 'x' } } }
+    };
+    expect(getDayCompletionCounts(afterStart, activities, '2026-10-21')).toEqual({ successCount: 1, historicalCount: 3 });
+    expect(isDayComplete(afterStart, activities, '2026-10-21')).toBe(false);
     const withTrackers = {
-      ...data,
+      ...beforeTrackers,
       logs: {
-        '2026-10-15': {
+        '2026-10-21': {
           a: { state: 'success' as const, updatedAt: 'x' },
           'automatic-water': { state: 'success' as const, updatedAt: 'x' },
           'automatic-food': { state: 'success' as const, updatedAt: 'x' }
         }
       }
     };
-    expect(isDayComplete(withTrackers, activities, '2026-10-15')).toBe(true);
+    expect(isDayComplete(withTrackers, activities, '2026-10-21')).toBe(true);
   });
 
   it('becameDayComplete only on the incomplete → complete transition (e.g. a tracker-linked task finishing last)', () => {
