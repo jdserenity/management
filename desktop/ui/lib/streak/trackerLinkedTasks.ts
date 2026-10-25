@@ -22,7 +22,8 @@ export const trackerLinkedTaskChecks = (progress: TrackerLinkedTaskProgress): Pa
       (calorieTarget <= 0 || calories >= calorieTarget) &&
       (proteinTarget <= 0 || protein >= proteinTarget);
   }
-  if (progress.workout) checks.workout = progress.workout.totalTasks > 0 && progress.workout.completedTasks >= progress.workout.totalTasks;
+  // totalTasks === 0 is a rest day (Sunday Build schedule) — nothing left to do counts as done.
+  if (progress.workout) checks.workout = progress.workout.completedTasks >= progress.workout.totalTasks;
   return checks;
 };
 

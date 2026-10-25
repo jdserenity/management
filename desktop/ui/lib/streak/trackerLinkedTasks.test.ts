@@ -21,4 +21,8 @@ describe('tracker-linked streak task thresholds', () => {
     expect(trackerLinkedTaskChecks({ workout: { completedTasks: 3, totalTasks: 4 } }).workout).toBe(false);
     expect(trackerLinkedTaskChecks({ workout: { completedTasks: 4, totalTasks: 4 } }).workout).toBe(true);
   });
+
+  it('checks workout on a rest day with no Build tasks (Sunday)', () => {
+    expect(trackerLinkedTaskChecks({ workout: { completedTasks: 0, totalTasks: 0 } }).workout).toBe(true);
+  });
 });
