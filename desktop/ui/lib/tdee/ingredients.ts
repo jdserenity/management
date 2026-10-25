@@ -11,6 +11,17 @@ export const normalizeCalories = (n: number): number => {
   return Math.round(n);
 };
 
+/** Portion multiplier (e.g. 2.26 × a 100 g regular). Invalid / non-positive → 1. */
+export const normalizeCount = (n: number): number => {
+  if (!Number.isFinite(n) || n <= 0) return 1;
+  return Math.round(n * 100) / 100;
+};
+
+export const formatCount = (n: number): string => {
+  const v = normalizeCount(n);
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+};
+
 const normalizeIngredient = (name: string, raw: unknown): TdeeIngredient | null => {
   if (typeof raw === 'number') return { name, calories: normalizeCalories(raw), protein: 0 };
   if (raw && typeof raw === 'object' && typeof (raw as { calories?: unknown }).calories === 'number') {

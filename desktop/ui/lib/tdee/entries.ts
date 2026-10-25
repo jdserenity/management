@@ -1,4 +1,4 @@
-import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
+import { normalizeCalories, normalizeCount, normalizeMacro } from '@/lib/tdee/ingredients';
 import type { TdeeFile, TdeeLogEntry, TdeeStoredEntry } from '@/lib/tdee/types';
 
 export const newEntryId = (): string => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -17,7 +17,7 @@ export const makeEntry = (opts: {
   label: opts.label,
   calories: normalizeCalories(opts.calories),
   protein: normalizeMacro(opts.protein ?? 0),
-  count: Math.max(1, Math.round(opts.count ?? 1)),
+  count: normalizeCount(opts.count ?? 1),
   updatedAt: new Date().toISOString()
 });
 

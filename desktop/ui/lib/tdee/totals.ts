@@ -6,10 +6,10 @@ const entryCount = (entry: TdeeLogEntry): number =>
   typeof entry.count === 'number' && entry.count > 0 ? entry.count : 1;
 
 export const entryCalories = (entry: TdeeLogEntry): number =>
-  normalizeCalories(entry.calories) * entryCount(entry);
+  normalizeCalories(normalizeCalories(entry.calories) * entryCount(entry));
 
 export const entryProtein = (entry: TdeeLogEntry): number =>
-  normalizeMacro(entry.protein || 0) * entryCount(entry);
+  normalizeMacro(normalizeMacro(entry.protein || 0) * entryCount(entry));
 
 export const totalCalories = (entries: TdeeStoredEntry[]): number =>
   activeEntries(entries).reduce((sum, entry) => sum + entryCalories(entry), 0);

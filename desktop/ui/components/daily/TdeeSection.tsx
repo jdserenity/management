@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { activeEntries } from '@/lib/tdee/entries';
-import { formatIngredientsList, normalizeMacro } from '@/lib/tdee/ingredients';
+import { formatCount, formatIngredientsList, normalizeCount, normalizeMacro } from '@/lib/tdee/ingredients';
 import {
   entryCalories,
   entryProtein,
@@ -77,7 +77,7 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
     const calories = Math.round(Number(customCalories));
     if (!calories || calories <= 0) return;
     const protein = normalizeMacro(Number(customProtein) || 0);
-    const count = Math.max(1, Math.round(Number(customQty) || 1));
+    const count = normalizeCount(Number(customQty) || 1);
     setFile(await addCustomEntry(file, customTitle, calories, protein, count));
     setCustomTitle('');
     setCustomCalories('');
@@ -116,7 +116,7 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
     const amount = entryCalories(entry);
     const protein = entryProtein(entry);
     const macros = formatChipMacros(amount, protein);
-    const displayLabel = entry.count > 1 ? `${entry.label} ×${entry.count}` : entry.label;
+    const displayLabel = entry.count !== 1 ? `${entry.label} ×${formatCount(entry.count)}` : entry.label;
     return (
       <button
         key={entry.id}
@@ -201,8 +201,8 @@ export default function TdeeSection({ refreshKey, onTrackerLinkedTaskChange }: P
           <input
             className="tdee-portion-input tdee-portion-qty"
             type="number"
-            min={1}
-            step={1}
+            min={0.01}
+            step={0.01}
             aria-label="Quantity"
             value={customQty}
             onChange={(e) => setCustomQty(e.target.value)}

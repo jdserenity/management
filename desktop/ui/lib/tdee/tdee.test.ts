@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
-import { activeEntries, isStapleLogged, makeTombstone } from '@/lib/tdee/entries';
+import { activeEntries, isStapleLogged, makeEntry, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
-import { formatIngredientsList, mealTotalsFromIngredients } from '@/lib/tdee/ingredients';
+import { formatCount, formatIngredientsList, mealTotalsFromIngredients, normalizeCount } from '@/lib/tdee/ingredients';
 import { filterRegulars, hasCustomFoodInput, mealIdFromName, regularFromSearch, removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import {
@@ -45,6 +45,12 @@ describe('tdee totals', () => {
     expect(entryProtein({ id: '2', kind: 'custom', refId: null, label: 'b', calories: 450, protein: 25, count: 2, updatedAt: 'x' })).toBe(50);
   });
 
+  it('decimal count multiplies macros (e.g. 226 g of a 100 g regular)', () => {
+    const entry = { id: '1', kind: 'custom' as const, refId: null, label: 'Pulled pork 100g', calories: 250, protein: 28, count: 2.26, updatedAt: 'x' };
+    expect(entryCalories(entry)).toBe(565);
+    expect(entryProtein(entry)).toBe(63.28);
+  });
+
   it('progressRatio caps at 1', () => {
     expect(progressRatio(3000, 2500)).toBe(1);
     expect(progressRatio(1250, 2500)).toBe(0.5);
@@ -71,6 +77,37 @@ describe('tdee totals', () => {
   it('formatChipMacros shows calories and protein', () => {
     expect(formatChipMacros(600, 0)).toBe('600 / 0g');
     expect(formatChipMacros(800, 45)).toBe('800 / 45g');
+  });
+});
+
+describe('tdee count', () => {
+  it('normalizeCount keeps two-decimal portion multipliers', () => {
+    expect(normalizeCount(2.26)).toBe(2.26);
+    expect(normalizeCount(0.5)).toBe(0.5);
+    expect(normalizeCount(0)).toBe(1);
+    expect(normalizeCount(Number.NaN)).toBe(1);
+  });
+
+  it('formatCount drops trailing zeros', () => {
+    expect(formatCount(2)).toBe('2');
+    expect(formatCount(2.26)).toBe('2.26');
+    expect(formatCount(2.5)).toBe('2.5');
+  });
+
+  it('makeEntry preserves fractional count instead of rounding to an integer', () => {
+    expect(makeEntry({ kind: 'custom', label: 'Pulled pork', calories: 250, protein: 28, count: 2.26 }).count).toBe(2.26);
+  });
+
+  it('normalizeFile keeps fractional entry counts', () => {
+    const file = normalizeFile({
+      tdee: 2000,
+      protein: 150,
+      staples: [],
+      regulars: [],
+      day: '2026-10-25',
+      entries: [{ id: 'e1', kind: 'custom', refId: null, label: 'Pulled pork', calories: 250, protein: 28, count: 2.26, updatedAt: 'x' }]
+    });
+    expect(activeEntries(file.entries)[0]?.count).toBe(2.26);
   });
 });
 
