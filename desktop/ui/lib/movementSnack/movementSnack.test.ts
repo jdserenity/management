@@ -3,6 +3,7 @@ import { getStatsDayWindow } from '@/lib/dayBoundary';
 import {
   buildMovementSnackLogEntry,
   buildMovementSnackSetLogEntry,
+  BUILD_REST_DAY_LABEL,
   buildSnackProgress,
   buildTasksForTemplateDay,
   buildTasksFromPlan,
@@ -282,5 +283,9 @@ describe('movement snack regimen', () => {
     expect(buildSnackProgress(tasks, logs, '2026-09-14')).toEqual({ completedTasks: 1, totalTasks: 2 });
     expect(buildSnackProgress(tasks, [], '2026-09-14')).toEqual({ completedTasks: 0, totalTasks: 2 });
     expect(buildSnackProgress(movementSnackPlanForDate(new Date(2026, 8, 13), defaultMovementSnackPrefs().quickLogExercises), [], '2026-09-13')).toEqual({ completedTasks: 0, totalTasks: 0 });
+  });
+
+  it('rest-day Build carousel label is Rest Day', () => {
+    expect(BUILD_REST_DAY_LABEL).toBe('Rest Day 😌');
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useSession } from '@/context/SessionContext';
 import { hasAppStorage } from '@/lib/appRuntime';
 import {
+  BUILD_REST_DAY_LABEL,
   buildSnackProgress,
   buildTasksFromPlan,
   findMovementSnackSetLog,
@@ -121,26 +122,26 @@ export default function MovementSnackSection({ onTrackerLinkedTaskChange }: Prop
     onTrackerLinkedTaskChange?.();
   };
 
+  const isRestDay = progress.totalTasks === 0;
+
   return (
     <section className="movement-tracker-container" aria-label="Build snacks">
       <TrackerSummary
         prefix="movement"
-        today={progress.completedTasks}
-        target={<>{progress.totalTasks || 0} Build snack{progress.totalTasks === 1 ? '' : 's'} today</>}
+        today={isRestDay ? BUILD_REST_DAY_LABEL : progress.completedTasks}
+        target={isRestDay ? undefined : <>{progress.totalTasks} Build snack{progress.totalTasks === 1 ? '' : 's'} today</>}
         remainingText={
-          progress.totalTasks === 0
-            ? 'No Build snacks today'
+          isRestDay
+            ? ''
             : progress.completedTasks >= progress.totalTasks
               ? 'Workout complete'
               : `${progress.totalTasks - progress.completedTasks} Build snack${progress.totalTasks - progress.completedTasks === 1 ? '' : 's'} left`
         }
-        remainingClass={progress.totalTasks > 0 && progress.completedTasks >= progress.totalTasks ? ' movement-remaining-done' : ''}
+        remainingClass={isRestDay || progress.completedTasks >= progress.totalTasks ? ' movement-remaining-done' : ''}
         progressRatio={progress.totalTasks > 0 ? progress.completedTasks / progress.totalTasks : 0}
         showProgress={progress.totalTasks > 0}
       />
-      {tasks.length === 0 ? (
-        <p className="build-notes-empty">No Build snacks today</p>
-      ) : (
+      {isRestDay ? null : (
         <div className="build-notes-list">
           {tasks.map((task, index) => {
             const progression = task.exercise.currentProgression?.trim();

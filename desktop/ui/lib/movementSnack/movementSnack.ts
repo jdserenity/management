@@ -362,6 +362,9 @@ export const isMovementSnackTaskComplete = (
 export const buildTasksFromPlan = (tasks: MovementSnackTask[]): MovementSnackTask[] =>
   tasks.filter((task) => task.kind === 'build');
 
+/** Daily Build carousel copy when there are no Build snacks (Sunday rest day). */
+export const BUILD_REST_DAY_LABEL = 'Rest Day 😌';
+
 export const buildSnackProgress = (
   tasks: MovementSnackTask[],
   logs: WorkoutLogEntry[],
