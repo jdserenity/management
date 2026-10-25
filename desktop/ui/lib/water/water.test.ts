@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activeEntries, makeEntry, makeTombstone } from '@/lib/water/entries';
+import { WATER_QUICK_AMOUNTS } from '@/lib/water/quickAmounts';
 import {
   entryMl,
   formatLitres,
@@ -10,6 +11,12 @@ import {
   remainingDisplay,
   totalWater
 } from '@/lib/water/totals';
+
+describe('water quick amounts', () => {
+  it('includes 375 ml between glass and half-litre for cans/bottles', () => {
+    expect([...WATER_QUICK_AMOUNTS]).toEqual([100, 250, 375, 500, 750, 1000]);
+  });
+});
 
 describe('water totals', () => {
   it('totalWater sums entries with count', () => {

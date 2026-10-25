@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { activeEntries } from '@/lib/water/entries';
+import { WATER_QUICK_AMOUNTS } from '@/lib/water/quickAmounts';
 import { entryMl, formatLitres, formatWaterLabel, progressRatio, remainingDisplay, totalWater } from '@/lib/water/totals';
 import type { WaterEntry } from '@/lib/water/types';
 import { addWaterEntry, loadWaterFile, removeWaterEntry } from '@/lib/waterDb';
@@ -10,7 +11,6 @@ import {
 } from '@/components/daily/TrackerChain';
 import './water.css';
 
-const QUICK_AMOUNTS = [100, 250, 500, 750, 1000] as const;
 const P = 'water' as const;
 
 type Props = {
@@ -84,7 +84,7 @@ export default function WaterSection({ refreshKey, onTrackerLinkedTaskChange }: 
       />
       {chips.length ? <div className="water-chain">{withChainConnectors(chips)}</div> : null}
       <div className="water-quick-add">
-        {QUICK_AMOUNTS.map((ml) => (
+        {WATER_QUICK_AMOUNTS.map((ml) => (
           <button key={ml} type="button" className="water-quick-btn" onClick={() => void handleAdd(ml)}>
             {formatWaterLabel(ml)}
           </button>
