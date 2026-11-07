@@ -159,7 +159,7 @@ describe('activity-reset', () => {
 
 describe('activity-catalog', () => {
   it('merges active, archived, and log-only activity ids', () => {
-    const config = { activities: [{ id: 'a' }], archivedActivities: [{ id: 'b' }] };
+    const config = { activities: [{ id: 'a' }], archivedActivities: [{ id: 'b' }], categories: [] };
     const data = { logs: { '2026-05-01': { c: { state: 'success' as const, updatedAt: 'x' } } }, activityStartDates: { d: '2026-05-01' }, pausedActivities: {}, unpausedActivities: {}, activityResetCounts: {}, stats: {} };
     const ids = buildActivityCatalog(config, data).map((a) => a.id).sort();
     expect(ids).toEqual(['a', 'b', 'c', 'd']);
@@ -181,7 +181,7 @@ describe('activity-catalog', () => {
       activityResetCounts: {},
       stats: {}
     };
-    const catalog = buildActivityCatalog({ activities: [{ id: 'wake-up' }], archivedActivities: [] }, data);
+    const catalog = buildActivityCatalog({ activities: [{ id: 'wake-up' }], archivedActivities: [], categories: [] }, data);
     const active = getActiveActivitiesForDay(catalog, data, '2026-05-20').map((a) => a.id);
     expect(active.includes('br-lesson')).toBe(false);
     expect(active.includes('wake-up')).toBe(true);
@@ -437,7 +437,7 @@ describe('streak display', () => {
 
 describe('archive backfill', () => {
   it('sets archivedAt to day after last log', () => {
-    const config: StreakConfig = { activities: [], archivedActivities: [{ id: 'school' }] };
+    const config: StreakConfig = { activities: [], archivedActivities: [{ id: 'school' }], categories: [] };
     const data = { logs: { '2026-05-01': { school: { state: 'success' as const, updatedAt: 'x' } } }, activityStartDates: {}, pausedActivities: {}, unpausedActivities: {}, activityResetCounts: {}, stats: {} };
     expect(backfillArchivedAt(config, data)).toBe(true);
     expect(config.archivedActivities[0].archivedAt).toBe('2026-05-02');

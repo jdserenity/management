@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StreakState } from '@/lib/streak/types';
-import { applyStreakLogLocally, archiveStreakActivity, reconcileTrackerLinkedStreakActivities, reorderStreakActivities, saveStreakLog, setTrackerLinkedStreakTaskEnabled } from '@/lib/streakDb';
+import { applyStreakLogLocally, archiveStreakActivity, deleteStreakCategory, reconcileTrackerLinkedStreakActivities, reorderStreakActivities, saveStreakLog, setTrackerLinkedStreakTaskEnabled, upsertStreakCategory } from '@/lib/streakDb';
 
-const { executeCalls, activityRows, logRows, metaRows } = vi.hoisted(() => ({
+const { executeCalls, activityRows, categoryRows, logRows, metaRows } = vi.hoisted(() => ({
   executeCalls: [] as string[],
   activityRows: new Map<string, Record<string, unknown>>(),
+  categoryRows: new Map<string, Record<string, unknown>>(),
   logRows: new Map<string, Record<string, unknown>>(),
   metaRows: new Map<string, Record<string, unknown>>()
 }));
@@ -18,6 +19,9 @@ vi.mock('@/lib/db', () => ({
     select: async <T>(sql: string): Promise<T> => {
       if (sql.includes('FROM streak_activities')) {
         return [...activityRows.values()] as T;
+      }
+      if (sql.includes('FROM streak_categories')) {
+        return [...categoryRows.values()] as T;
       }
       if (sql.includes('FROM streak_log_cells')) {
         return [...logRows.values()] as T;
@@ -33,15 +37,32 @@ vi.mock('@/lib/db', () => ({
         activityRows.set(String(params[0]), {
           id: params[0],
           name: params[1],
+          description: params[2],
+          frequency: params[3],
+          weekly_target: params[4],
+          scheduled_days_json: params[5],
+          can_fail: params[6],
+          necessary: params[7],
           archived_at: params[8],
           sort_order: params[9],
-          necessary: params[7],
           linked_staple_id: params[10],
           linked_water: params[11],
           linked_movement_burst: params[12],
+          extra_calories: params[13],
+          extra_protein: params[14],
+          extra_water_ml: params[15],
           automatic_kind: params[16],
           enabled: params[17],
-          updated_at: params[18]
+          category_id: params[18],
+          updated_at: params[19]
+        });
+      }
+      if (sql.includes('INSERT INTO streak_categories')) {
+        categoryRows.set(String(params[0]), {
+          id: params[0],
+          name: params[1],
+          sort_order: params[2],
+          updated_at: params[3]
         });
       }
       if (sql.includes('INSERT INTO streak_log_cells')) {
@@ -65,6 +86,9 @@ vi.mock('@/lib/db', () => ({
       if (sql.startsWith('DELETE FROM streak_log_cells WHERE log_date')) {
         logRows.delete(`${params[0]}:${params[1]}`);
       }
+      if (sql.startsWith('DELETE FROM streak_categories WHERE id=')) {
+        categoryRows.delete(String(params[0]));
+      }
     }
   })
 }));
@@ -73,7 +97,8 @@ const baseState = (): StreakState => ({
   currentDay: '2026-07-07',
   config: {
     activities: [{ id: 'run', name: 'Run', frequency: 'daily', canFail: false }],
-    archivedActivities: []
+    archivedActivities: [],
+    categories: []
   },
   data: {
     logs: {},
@@ -90,6 +115,7 @@ describe('streakDb row-level saves', () => {
   beforeEach(() => {
     executeCalls.length = 0;
     activityRows.clear();
+    categoryRows.clear();
     logRows.clear();
     metaRows.clear();
     activityRows.set('run', {
@@ -111,6 +137,7 @@ describe('streakDb row-level saves', () => {
       extra_water_ml: null,
       automatic_kind: null,
       enabled: 1,
+      category_id: null,
       updated_at: '2026-07-01T00:00:00.000Z'
     });
   });
@@ -168,6 +195,7 @@ describe('streakDb row-level saves', () => {
       extra_water_ml: null,
       automatic_kind: null,
       enabled: 1,
+      category_id: null,
       updated_at: '2026-07-01T00:00:00.000Z'
     });
     const state = baseState();
@@ -196,5 +224,20 @@ describe('streakDb row-level saves', () => {
     expect(next.config.activities.map((activity) => activity.id)).toContain('automatic-water');
     expect(activityRows.get('automatic-water')?.automatic_kind).toBe('water');
     expect(activityRows.get('automatic-water')?.enabled).toBe(1);
+  });
+
+  it('upsertStreakCategory inserts a category row and delete clears membership', async () => {
+    const withCat = await upsertStreakCategory(baseState(), { name: 'French' }, true);
+    expect(withCat.config.categories.map((c) => c.id)).toContain('french');
+    expect(categoryRows.get('french')?.name).toBe('French');
+    const state = baseState();
+    state.config.categories = [{ id: 'french', name: 'French' }];
+    state.config.activities = [{ id: 'run', name: 'Run', frequency: 'daily', canFail: false, categoryId: 'french' }];
+    categoryRows.set('french', { id: 'french', name: 'French', sort_order: 0, updated_at: 'x' });
+    const cleared = await deleteStreakCategory(state, 'french');
+    expect(cleared.config.categories).toEqual([]);
+    expect(cleared.config.activities[0]?.categoryId).toBeUndefined();
+    expect(activityRows.get('run')?.category_id).toBeNull();
+    expect(categoryRows.has('french')).toBe(false);
   });
 });

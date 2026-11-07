@@ -1,6 +1,6 @@
 import { getLogState, normalizeLogs } from '@/lib/streak/logs';
 import { parseDate, formatDate } from '@/lib/streak/dates';
-import type { StreakActivity, StreakConfig, StreakData } from '@/lib/streak/types';
+import type { StreakActivity, StreakCategory, StreakConfig, StreakData } from '@/lib/streak/types';
 
 /**
  * Tracker-linked water/food/workout were not usable across devices until this day
@@ -143,15 +143,23 @@ const normalizeActivity = (raw: unknown): StreakActivity | null => {
     necessary: !!a.necessary,
     archivedAt: typeof a.archivedAt === 'string' ? a.archivedAt : a.archivedAt === null ? null : undefined,
     trackerLinkedKind: a.trackerLinkedKind === 'water' || a.trackerLinkedKind === 'food' || a.trackerLinkedKind === 'workout' ? a.trackerLinkedKind : undefined,
-    enabled: a.enabled === false ? false : undefined
+    enabled: a.enabled === false ? false : undefined,
+    categoryId: typeof a.categoryId === 'string' && a.categoryId ? a.categoryId : undefined
   };
+};
+
+const normalizeCategory = (raw: unknown): StreakCategory | null => {
+  if (!raw || typeof raw !== 'object' || typeof (raw as StreakCategory).id !== 'string') return null;
+  const c = raw as StreakCategory;
+  return { id: c.id, name: typeof c.name === 'string' && c.name ? c.name : c.id };
 };
 
 export const normalizeConfig = (raw: unknown): StreakConfig => {
   const data = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   return {
     activities: Array.isArray(data.activities) ? data.activities.map(normalizeActivity).filter((x): x is StreakActivity => x !== null) : [],
-    archivedActivities: Array.isArray(data.archivedActivities) ? data.archivedActivities.map(normalizeActivity).filter((x): x is StreakActivity => x !== null) : []
+    archivedActivities: Array.isArray(data.archivedActivities) ? data.archivedActivities.map(normalizeActivity).filter((x): x is StreakActivity => x !== null) : [],
+    categories: Array.isArray(data.categories) ? data.categories.map(normalizeCategory).filter((x): x is StreakCategory => x !== null) : []
   };
 };
 

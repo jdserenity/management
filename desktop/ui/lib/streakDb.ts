@@ -6,7 +6,8 @@ import { dayEndTimeFromRolloverHour, getCurrentDay } from '@/lib/streak/dates';
 import { makeDeletionCell, makeLogCell, normalizeLogs } from '@/lib/streak/logs';
 import { recalculateAllStats } from '@/lib/streak/stats';
 import { trackerLinkedTaskChecks, trackerLinkedTaskDefinition, type TrackerLinkedTaskProgress } from '@/lib/streak/trackerLinkedTasks';
-import type { TrackerLinkedStreakTaskKind, StreakActivity, StreakConfig, StreakData, StreakLogState, StreakState } from '@/lib/streak/types';
+import { withActivityCategory } from '@/lib/streak/categories';
+import type { TrackerLinkedStreakTaskKind, StreakActivity, StreakCategory, StreakConfig, StreakData, StreakLogState, StreakState } from '@/lib/streak/types';
 
 type ActivityRow = {
   id: string;
@@ -27,8 +28,11 @@ type ActivityRow = {
   extra_water_ml: number | null;
   automatic_kind: string | null;
   enabled: number;
+  category_id: string | null;
   updated_at: string;
 };
+
+type CategoryRow = { id: string; name: string; sort_order: number; updated_at: string | null };
 
 type LogRow = { log_date: string; activity_id: string; state: string; updated_at: string };
 type MetaRow = {
@@ -63,6 +67,7 @@ const activityFromRow = (row: ActivityRow): StreakActivity => {
     } catch { /* ignore */ }
   }
   if (row.archived_at) a.archivedAt = row.archived_at;
+  if (row.category_id) a.categoryId = row.category_id;
   return a;
 };
 
@@ -82,12 +87,13 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
     null, 0, 0, null, null, null,
     a.trackerLinkedKind ?? null,
     a.enabled === false ? 0 : 1,
+    a.categoryId ?? null,
     updatedAt
   ];
 };
 
-const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, automatic_kind, enabled, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+const UPSERT_ACTIVITY_SQL = `INSERT INTO streak_activities (id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, automatic_kind, enabled, category_id, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 ON CONFLICT(id) DO UPDATE SET
   name=excluded.name,
   description=excluded.description,
@@ -106,7 +112,15 @@ ON CONFLICT(id) DO UPDATE SET
   extra_water_ml=excluded.extra_water_ml,
   automatic_kind=excluded.automatic_kind,
   enabled=excluded.enabled,
+  category_id=excluded.category_id,
   updated_at=excluded.updated_at`;
+
+const UPSERT_CATEGORY_SQL = `INSERT INTO streak_categories (id, name, sort_order, updated_at) VALUES ($1, $2, $3, $4)
+ON CONFLICT(id) DO UPDATE SET name=excluded.name, sort_order=excluded.sort_order, updated_at=excluded.updated_at`;
+
+const upsertCategoryRow = async (c: StreakCategory, sortOrder: number, updatedAt = syncNow()): Promise<void> => {
+  await dbExecute(UPSERT_CATEGORY_SQL, [c.id, c.name || c.id, sortOrder, updatedAt]);
+};
 
 const upsertActivityRow = async (a: StreakActivity, archived: boolean, sortOrder: number, updatedAt = syncNow()): Promise<void> => {
   await dbExecute(UPSERT_ACTIVITY_SQL, activityBinds(a, archived, sortOrder, updatedAt));
@@ -165,7 +179,7 @@ const buildState = (config: StreakConfig, data: StreakData, currentDay: string, 
 
 const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakData, 'stats'> }> => {
   const activityRows = await dbSelect<ActivityRow[]>(
-    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, automatic_kind, enabled, updated_at FROM streak_activities ORDER BY sort_order, name'
+    'SELECT id, name, description, frequency, weekly_target, scheduled_days_json, can_fail, necessary, archived_at, sort_order, linked_staple_id, linked_water, linked_movement_burst, extra_calories, extra_protein, extra_water_ml, automatic_kind, enabled, category_id, updated_at FROM streak_activities ORDER BY sort_order, name'
   );
   const activities: StreakActivity[] = [];
   const archivedActivities: StreakActivity[] = [];
@@ -174,6 +188,10 @@ const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakD
     if (row.archived_at) archivedActivities.push(a);
     else activities.push(a);
   }
+  const categoryRows = await dbSelect<CategoryRow[]>(
+    'SELECT id, name, sort_order, updated_at FROM streak_categories ORDER BY sort_order, name'
+  );
+  const categories: StreakCategory[] = categoryRows.map((row) => ({ id: row.id, name: row.name || row.id }));
   const logRows = await dbSelect<LogRow[]>(
     'SELECT log_date, activity_id, state, updated_at FROM streak_log_cells ORDER BY log_date, activity_id'
   );
@@ -198,7 +216,7 @@ const loadRows = async (): Promise<{ config: StreakConfig; partial: Omit<StreakD
     if (row.reset_count) activityResetCounts[row.activity_id] = row.reset_count;
   }
   return {
-    config: { activities, archivedActivities },
+    config: { activities, archivedActivities, categories },
     partial: { logs: normalizeLogs(logs), activityStartDates, pausedActivities, unpausedActivities, activityResetCounts }
   };
 };
@@ -390,25 +408,99 @@ const mergeActivityFields = (prev: StreakActivity, incoming: StreakActivity): St
     necessary: !!incoming.necessary
   };
   if (!next.necessary) delete next.necessary;
+  if ('categoryId' in incoming) {
+    if (incoming.categoryId) next.categoryId = incoming.categoryId;
+    else delete next.categoryId;
+  }
   return next;
+};
+
+const persistActivityOrder = async (activities: StreakActivity[], updatedAt = syncNow()): Promise<void> => {
+  for (let i = 0; i < activities.length; i++) await upsertActivityRow(activities[i]!, false, i, updatedAt);
 };
 
 export const upsertStreakActivity = async (state: StreakState, activity: StreakActivity, isNew: boolean): Promise<StreakState> => {
   if (isNew) {
     const created = mergeActivityFields({ id: activity.id }, activity);
-    state.config.activities = [...state.config.activities, created];
+    const placed = withActivityCategory([...state.config.activities, created], created.id, created.categoryId ?? null);
+    state.config.activities = placed;
     state.data.activityStartDates = { ...state.data.activityStartDates, [activity.id]: state.currentDay };
-    await upsertActivityRow(created, false, state.config.activities.length - 1);
+    await persistActivityOrder(placed);
     await upsertMetaRow(activity.id, state.data);
   } else {
-    state.config.activities = state.config.activities.map((a) =>
-      a.id === activity.id ? mergeActivityFields(a, activity) : a
-    );
-    const idx = state.config.activities.findIndex((a) => a.id === activity.id);
-    const merged = state.config.activities[idx];
-    if (merged) await upsertActivityRow(merged, false, idx);
+    const prev = state.config.activities.find((a) => a.id === activity.id);
+    const merged = prev ? mergeActivityFields(prev, activity) : mergeActivityFields({ id: activity.id }, activity);
+    const categoryChanged = (prev?.categoryId ?? null) !== (merged.categoryId ?? null);
+    const placed = categoryChanged
+      ? withActivityCategory(
+          state.config.activities.map((a) => (a.id === activity.id ? merged : a)),
+          activity.id,
+          merged.categoryId ?? null
+        )
+      : state.config.activities.map((a) => (a.id === activity.id ? merged : a));
+    state.config.activities = placed;
+    await persistActivityOrder(placed);
   }
   return loadStreakState();
+};
+
+const slugifyCategory = (name: string): string =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'category';
+
+export const upsertStreakCategory = async (
+  state: StreakState,
+  category: { id?: string; name: string },
+  isNew: boolean
+): Promise<StreakState> => {
+  const trimmed = category.name.trim();
+  if (!trimmed) return state;
+  const id = (isNew ? slugifyCategory(trimmed) : (category.id || '').trim()) || slugifyCategory(trimmed);
+  const next: StreakCategory = { id, name: trimmed };
+  if (isNew) {
+    state.config.categories = [...state.config.categories, next];
+    await upsertCategoryRow(next, state.config.categories.length - 1);
+  } else {
+    state.config.categories = state.config.categories.map((c) => (c.id === id ? next : c));
+    const idx = state.config.categories.findIndex((c) => c.id === id);
+    await upsertCategoryRow(next, Math.max(0, idx));
+  }
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
+};
+
+/** Hard-delete a category and clear membership on its activities. */
+export const deleteStreakCategory = async (state: StreakState, categoryId: string): Promise<StreakState> => {
+  const cleared = state.config.activities.map((a) => {
+    if (a.categoryId !== categoryId) return a;
+    const next = { ...a };
+    delete next.categoryId;
+    return next;
+  });
+  state.config.activities = cleared;
+  state.config.categories = state.config.categories.filter((c) => c.id !== categoryId);
+  const updatedAt = syncNow();
+  await persistActivityOrder(cleared, updatedAt);
+  await dbExecute('DELETE FROM streak_categories WHERE id=$1', [categoryId]);
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
+};
+
+export const reorderStreakCategories = async (state: StreakState, orderedIds: string[]): Promise<StreakState> => {
+  const byId = new Map(state.config.categories.map((c) => [c.id, c]));
+  const next: StreakCategory[] = [];
+  for (const id of orderedIds) {
+    const c = byId.get(id);
+    if (c) { next.push(c); byId.delete(id); }
+  }
+  for (const c of byId.values()) next.push(c);
+  state.config.categories = next;
+  const updatedAt = syncNow();
+  for (let i = 0; i < next.length; i++) await upsertCategoryRow(next[i]!, i, updatedAt);
+  const rolloverHour = await loadDayRolloverHourPref();
+  const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
+  return buildState(state.config, state.data, state.currentDay, dayEndTime);
 };
 
 export const setTrackerLinkedStreakTaskEnabled = async (
@@ -477,10 +569,7 @@ export const reorderStreakActivities = async (state: StreakState, orderedIds: st
   // Keep any activities missing from orderedIds at the end (safety).
   for (const a of byId.values()) next.push(a);
   state.config.activities = next;
-  const updatedAt = syncNow();
-  for (let i = 0; i < next.length; i++) {
-    await upsertActivityRow(next[i], false, i, updatedAt);
-  }
+  await persistActivityOrder(next);
   const rolloverHour = await loadDayRolloverHourPref();
   const dayEndTime = dayEndTimeFromRolloverHour(rolloverHour);
   return buildState(state.config, state.data, state.currentDay, dayEndTime);

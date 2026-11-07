@@ -3,6 +3,11 @@ export type TrackerLinkedStreakTaskKind = 'water' | 'food' | 'workout';
 
 export type StreakLogCell = { state: StreakLogState; updatedAt: string };
 
+export type StreakCategory = {
+  id: string;
+  name: string;
+};
+
 export type StreakActivity = {
   id: string;
   name?: string;
@@ -17,6 +22,8 @@ export type StreakActivity = {
   enabled?: boolean;
   /** If true, missing success on this activity fails the whole day on the heatmap (red X). */
   necessary?: boolean;
+  /** Optional folder for Daily/Customize collapsible groups; omit/undefined = uncategorized. */
+  categoryId?: string;
   archivedAt?: string | null;
   _fromConfig?: boolean;
   _logOnly?: boolean;
@@ -25,6 +32,7 @@ export type StreakActivity = {
 export type StreakConfig = {
   activities: StreakActivity[];
   archivedActivities: StreakActivity[];
+  categories: StreakCategory[];
 };
 
 export type StreakActivityStats = {
