@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { StreakActivity } from '@/lib/streak/types';
+import type { StreakActivity, StreakCategory } from '@/lib/streak/types';
 
 type Props = {
   open: boolean;
   activity: StreakActivity | null;
   isNew: boolean;
+  categories: StreakCategory[];
   onClose: () => void;
   onSave: (activity: StreakActivity, isNew: boolean) => void;
 };
@@ -16,7 +17,7 @@ type Props = {
 const slugify = (name: string): string =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'activity';
 
-export default function ActivityEditorDialog({ open, activity, isNew, onClose, onSave }: Props) {
+export default function ActivityEditorDialog({ open, activity, isNew, categories, onClose, onSave }: Props) {
   const [id, setId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -24,6 +25,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
   const [weeklyTarget, setWeeklyTarget] = useState('1');
   const [scheduledDays, setScheduledDays] = useState('Sun');
   const [necessary, setNecessary] = useState(false);
+  const [categoryId, setCategoryId] = useState('');
   const isTrackerLinked = !!activity?.trackerLinkedKind;
 
   useEffect(() => {
@@ -35,6 +37,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
     setWeeklyTarget(String(activity?.weeklyTarget ?? 1));
     setScheduledDays((activity?.scheduledDays || ['Sun']).join(', '));
     setNecessary(!!activity?.necessary);
+    setCategoryId(activity?.categoryId || '');
   }, [open, activity]);
 
   const handleSave = () => {
@@ -46,6 +49,7 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
       name: trimmedName,
       frequency: isTrackerLinked ? 'daily' : frequency,
       necessary,
+      categoryId: categoryId || undefined,
       ...(description.trim() ? { description: description.trim() } : {}),
       ...(activity?.trackerLinkedKind ? { trackerLinkedKind: activity.trackerLinkedKind, enabled: activity.enabled !== false } : {}),
       ...(!isTrackerLinked && frequency === 'weekly' ? {
@@ -77,6 +81,15 @@ export default function ActivityEditorDialog({ open, activity, isNew, onClose, o
           <label className="block">
             <span className="text-muted-foreground">Description</span>
             <textarea className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="text-muted-foreground">Category</span>
+            <select className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              <option value="">None (uncategorized)</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </label>
           {!isTrackerLinked ? <label className="block">
             <span className="text-muted-foreground">Frequency</span>
