@@ -22,8 +22,8 @@ const tableColumns = (db: Database.Database, table: string): string[] =>
 describe('SCHEMA_MIGRATIONS', () => {
   it('has contiguous versions through the latest schema', () => {
     const versions = SCHEMA_MIGRATIONS.map((m) => m.version);
-    expect(LATEST_SCHEMA_VERSION).toBe(17);
-    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+    expect(LATEST_SCHEMA_VERSION).toBe(18);
+    expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
   });
 
   it('includes water tracker and streak cross-log migrations', () => {
@@ -77,6 +77,14 @@ describe('SCHEMA_MIGRATIONS', () => {
     const db = new Database(':memory:');
     await runSchemaMigrations(wrapSqlite(db));
     expect(tableColumns(db, 'sync_state')).toEqual(expect.arrayContaining(['key', 'value']));
+    db.close();
+  });
+
+  it('adds streak_categories and category_id in migration v18', async () => {
+    const db = new Database(':memory:');
+    await runSchemaMigrations(wrapSqlite(db));
+    expect(tableColumns(db, 'streak_categories')).toEqual(expect.arrayContaining(['id', 'name', 'sort_order', 'updated_at']));
+    expect(tableColumns(db, 'streak_activities')).toContain('category_id');
     db.close();
   });
 });

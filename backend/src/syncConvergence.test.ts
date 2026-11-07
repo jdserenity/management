@@ -57,7 +57,7 @@ describe('two-device convergence through the server referee', () => {
     store.putData('owner', {
       focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
       nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-      streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+      streakActivities: [], streakCategories: [], streakLogCells: [], streakActivityMeta: [],
       waterConfig: null, waterEntries: [], syncTombstones: []
     });
     await pull(store, deviceA);

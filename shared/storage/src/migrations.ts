@@ -1,6 +1,6 @@
 export type SchemaMigration = { version: number; description: string; sql: string };
 
-/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v16). */
+/** Keep in sync with desktop/src-tauri/src/main.rs sqlite:local.db migrations (v1–v18). */
 export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
   {
     version: 1,
@@ -87,6 +87,11 @@ export const SCHEMA_MIGRATIONS: SchemaMigration[] = [
     version: 17,
     description: 'sync_state_change_log_cursor',
     sql: 'CREATE TABLE IF NOT EXISTS sync_state (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);'
+  },
+  {
+    version: 18,
+    description: 'streak_categories_and_activity_category_id',
+    sql: "CREATE TABLE IF NOT EXISTS streak_categories (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT); ALTER TABLE streak_activities ADD COLUMN category_id TEXT;"
   }
 ];
 

@@ -43,7 +43,7 @@ describe('companion storage sync', () => {
     extractUserData.mockResolvedValue({
       focusLog: [], workoutLog: [], appKv: [{ key: 'k', value: 'v', updated_at: 1 }], nutritionConfig: null,
       nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-      streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+      streakActivities: [], streakCategories: [], streakLogCells: [], streakActivityMeta: [],
       waterConfig: null, waterEntries: [], syncTombstones: []
     });
   });

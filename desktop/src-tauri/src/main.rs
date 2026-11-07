@@ -779,6 +779,12 @@ pub fn run() {
                         sql: "CREATE TABLE IF NOT EXISTS sync_state (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);",
                         kind: MigrationKind::Up,
                     },
+                    Migration {
+                        version: 18,
+                        description: "streak_categories_and_activity_category_id",
+                        sql: "CREATE TABLE IF NOT EXISTS streak_categories (id TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, updated_at TEXT); ALTER TABLE streak_activities ADD COLUMN category_id TEXT;",
+                        kind: MigrationKind::Up,
+                    },
                 ],
             ).build())
         .setup(|app| {

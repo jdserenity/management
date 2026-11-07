@@ -11,6 +11,7 @@ export type LocalDbTable =
   | 'nutrition_regulars'
   | 'nutrition_entries'
   | 'streak_activities'
+  | 'streak_categories'
   | 'streak_log_cells'
   | 'streak_activity_meta'
   | 'water_config'
@@ -47,6 +48,7 @@ export const LOCAL_DB_TABLES: LocalDbTable[] = [
   'nutrition_regulars',
   'nutrition_entries',
   'streak_activities',
+  'streak_categories',
   'streak_log_cells',
   'streak_activity_meta',
   'water_config',
@@ -123,6 +125,14 @@ export const SYNC_TABLE_REGISTRY: Record<LocalDbTable, SyncTableDef> = {
     sqlTable: 'streak_activities',
     scope: 'shared',
     userDataField: 'streakActivities',
+    rowKey: ['id'],
+    updatedAtColumn: 'updated_at',
+    mergeKind: 'row_lww'
+  },
+  streak_categories: {
+    sqlTable: 'streak_categories',
+    scope: 'shared',
+    userDataField: 'streakCategories',
     rowKey: ['id'],
     updatedAtColumn: 'updated_at',
     mergeKind: 'row_lww'

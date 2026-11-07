@@ -8,6 +8,7 @@ export const summarizeUserDataCounts = (data: Partial<UserData> | null | undefin
   nutritionRegulars: data?.nutritionRegulars?.length ?? 0,
   nutritionEntries: data?.nutritionEntries?.length ?? 0,
   streakActivities: data?.streakActivities?.length ?? 0,
+  streakCategories: data?.streakCategories?.length ?? 0,
   streakLogCells: data?.streakLogCells?.length ?? 0,
   waterEntries: data?.waterEntries?.length ?? 0,
   syncTombstones: data?.syncTombstones?.length ?? 0

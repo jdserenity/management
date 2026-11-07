@@ -5,7 +5,7 @@ import { SqliteDataStore } from './dataStore';
 const emptyData = () => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-  streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+  streakActivities: [], streakCategories: [], streakLogCells: [], streakActivityMeta: [],
   waterConfig: null, waterEntries: [], syncTombstones: []
 });
 
@@ -55,7 +55,7 @@ describe('SqliteDataStore change log (server referee)', () => {
       scheduled_days_json: null, can_fail: 0, necessary: 0, sort_order: 0,
       linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
       extra_calories: null, extra_protein: null, extra_water_ml: null,
-      automatic_kind: null, enabled: 1
+      automatic_kind: null, enabled: 1, category_id: null
     };
     store.putData('owner', { ...emptyData(), streakActivities: [{ ...base, archived_at: '2026-07-07', updated_at: '2026-07-07T12:00:00Z' }] });
     store.putDataPatch('owner', {

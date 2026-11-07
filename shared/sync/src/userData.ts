@@ -56,7 +56,11 @@ export interface StreakActivity {
   linked_staple_id: string | null; linked_water: number; linked_movement_burst: number;
   extra_calories: number | null; extra_protein: number | null; extra_water_ml: number | null;
   automatic_kind: string | null; enabled: number;
+  category_id: string | null;
   updated_at: string;
+}
+export interface StreakCategory {
+  id: string; name: string; sort_order: number; updated_at: string;
 }
 export interface StreakLogCell { log_date: string; activity_id: string; state: string; updated_at: string; }
 export interface StreakActivityMeta {
@@ -79,6 +83,7 @@ export interface UserData {
   nutritionRegulars: NutritionRegular[];
   nutritionEntries: NutritionEntry[];
   streakActivities: StreakActivity[];
+  streakCategories: StreakCategory[];
   streakLogCells: StreakLogCell[];
   streakActivityMeta: StreakActivityMeta[];
   waterConfig: WaterConfig | null;
@@ -97,6 +102,7 @@ export type NutritionStapleDeleteKey = Pick<NutritionStaple, 'id'>;
 export type NutritionRegularDeleteKey = Pick<NutritionRegular, 'id'>;
 export type NutritionEntryDeleteKey = Pick<NutritionEntry, 'id'>;
 export type StreakActivityDeleteKey = Pick<StreakActivity, 'id'>;
+export type StreakCategoryDeleteKey = Pick<StreakCategory, 'id'>;
 export type StreakLogCellDeleteKey = Pick<StreakLogCell, 'log_date' | 'activity_id'>;
 export type StreakActivityMetaDeleteKey = Pick<StreakActivityMeta, 'activity_id'>;
 export type WaterEntryDeleteKey = Pick<WaterEntry, 'id'>;
@@ -111,6 +117,7 @@ export interface UserDataRowPatch {
   nutritionRegulars?: { upserts?: NutritionRegular[]; deletes?: NutritionRegularDeleteKey[] };
   nutritionEntries?: { upserts?: NutritionEntry[]; deletes?: NutritionEntryDeleteKey[] };
   streakActivities?: { upserts?: StreakActivity[]; deletes?: StreakActivityDeleteKey[] };
+  streakCategories?: { upserts?: StreakCategory[]; deletes?: StreakCategoryDeleteKey[] };
   streakLogCells?: { upserts?: StreakLogCell[]; deletes?: StreakLogCellDeleteKey[] };
   streakActivityMeta?: { upserts?: StreakActivityMeta[]; deletes?: StreakActivityMetaDeleteKey[] };
   waterConfig?: { set?: WaterConfig | null; deletes?: WaterConfigDeleteKey[] };
@@ -391,6 +398,7 @@ export const emptyUserData = (): UserData => ({
   nutritionRegulars: [],
   nutritionEntries: [],
   streakActivities: [],
+  streakCategories: [],
   streakLogCells: [],
   streakActivityMeta: [],
   waterConfig: null,
@@ -417,6 +425,7 @@ export const enrichPatchWithTombstones = (
     { entity: 'nutritionRegulars', deletes: rowPatch.nutritionRegulars?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
     { entity: 'nutritionEntries', deletes: rowPatch.nutritionEntries?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
     { entity: 'streakActivities', deletes: rowPatch.streakActivities?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
+    { entity: 'streakCategories', deletes: rowPatch.streakCategories?.deletes as Array<Record<string, unknown>> | undefined, keyOf: (d) => String(d.id ?? '') },
     {
       entity: 'streakLogCells',
       deletes: rowPatch.streakLogCells?.deletes as Array<Record<string, unknown>> | undefined,
@@ -542,6 +551,11 @@ export const buildUserDataRowPatch = (
     if (table === 'streakActivities') {
       const { upserts, deletes } = diffRows(before.streakActivities ?? [], after.streakActivities ?? [], (r) => r.id, (r) => ({ id: r.id }));
       if (upserts.length || deletes.length) rowPatch.streakActivities = { upserts, deletes: deletes as StreakActivityDeleteKey[] };
+      continue;
+    }
+    if (table === 'streakCategories') {
+      const { upserts, deletes } = diffRows(before.streakCategories ?? [], after.streakCategories ?? [], (r) => r.id, (r) => ({ id: r.id }));
+      if (upserts.length || deletes.length) rowPatch.streakCategories = { upserts, deletes: deletes as StreakCategoryDeleteKey[] };
       continue;
     }
     if (table === 'streakLogCells') {

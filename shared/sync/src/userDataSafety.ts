@@ -4,7 +4,7 @@ import type { UserData } from './userData';
 export const totalUserDataRows = (data: UserData): number => {
   let n = (data.focusLog?.length ?? 0) + (data.workoutLog?.length ?? 0) + (data.appKv?.length ?? 0);
   n += (data.nutritionStaples?.length ?? 0) + (data.nutritionRegulars?.length ?? 0) + (data.nutritionEntries?.length ?? 0);
-  n += (data.streakActivities?.length ?? 0) + (data.streakLogCells?.length ?? 0) + (data.streakActivityMeta?.length ?? 0);
+  n += (data.streakActivities?.length ?? 0) + (data.streakCategories?.length ?? 0) + (data.streakLogCells?.length ?? 0) + (data.streakActivityMeta?.length ?? 0);
   n += data.waterEntries?.length ?? 0;
   n += data.syncTombstones?.length ?? 0;
   if (data.nutritionConfig) n += 1;

@@ -7,6 +7,7 @@ const streakActivity = (overrides: Record<string, unknown> = {}) => ({
   scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
   linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
   extra_calories: null, extra_protein: null, extra_water_ml: null,
+  automatic_kind: null, enabled: 1, category_id: null,
   updated_at: '2026-07-01T00:00:00.000Z',
   ...overrides
 });

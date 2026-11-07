@@ -89,6 +89,12 @@ export const mergeUserDataRowPatches = (left: UserDataRowPatch, right: UserDataR
       deletes: mergeDeletes(merged.streakActivities?.deletes, right.streakActivities.deletes)
     };
   }
+  if (right.streakCategories) {
+    merged.streakCategories = {
+      upserts: mergeUpserts(merged.streakCategories?.upserts, right.streakCategories.upserts, (r) => r.id),
+      deletes: mergeDeletes(merged.streakCategories?.deletes, right.streakCategories.deletes)
+    };
+  }
   if (right.streakLogCells) {
     merged.streakLogCells = {
       upserts: mergeUpserts(merged.streakLogCells?.upserts, right.streakLogCells.upserts, (r) => `${r.log_date}\0${r.activity_id}`),

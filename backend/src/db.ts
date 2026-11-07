@@ -121,6 +121,16 @@ const SCHEMA_SQL = `
     extra_water_ml INTEGER,
     automatic_kind TEXT,
     enabled INTEGER NOT NULL DEFAULT 1,
+    category_id TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS streak_categories (
+    id TEXT NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    name TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (id, user_id)
   );
@@ -201,6 +211,15 @@ const migrateServerSchema = (db: Database.Database): void => {
     'ALTER TABLE streak_activities ADD COLUMN linked_movement_burst INTEGER NOT NULL DEFAULT 0',
     'ALTER TABLE streak_activities ADD COLUMN automatic_kind TEXT',
     'ALTER TABLE streak_activities ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE streak_activities ADD COLUMN category_id TEXT',
+    `CREATE TABLE IF NOT EXISTS streak_categories (
+      id TEXT NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      name TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (id, user_id)
+    )`,
     'ALTER TABLE streak_activity_meta ADD COLUMN updated_at TEXT',
     'ALTER TABLE nutrition_staples ADD COLUMN updated_at TEXT',
     'ALTER TABLE nutrition_regulars ADD COLUMN updated_at TEXT',

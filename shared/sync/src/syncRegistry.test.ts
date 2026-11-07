@@ -41,6 +41,8 @@ describe('syncRegistry', () => {
     expect(isSyncableSqlTable('posture_log')).toBe(false);
     expect(isSyncableSqlTable('streak_activities')).toBe(true);
     expect(userDataFieldForSqlTable('streak_activities')).toBe('streakActivities');
+    expect(isSyncableSqlTable('streak_categories')).toBe(true);
+    expect(userDataFieldForSqlTable('streak_categories')).toBe('streakCategories');
   });
 
   it('maps every USER_DATA_TABLES entry to a shared sql table', () => {

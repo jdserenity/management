@@ -20,7 +20,7 @@ import { setSyncFetchImpl } from './syncFetch';
 const emptyData = (): UserData => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-  streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+  streakActivities: [], streakCategories: [], streakLogCells: [], streakActivityMeta: [],
   waterConfig: null, waterEntries: [], syncTombstones: []
 });
 
@@ -29,6 +29,7 @@ const streakRow = (overrides: Partial<UserData['streakActivities'][0]> = {}) => 
   scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
   linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
   extra_calories: null, extra_protein: null, extra_water_ml: null,
+  automatic_kind: null, enabled: 1, category_id: null,
   updated_at: '2026-01-01T00:00:00Z',
   ...overrides
 });
@@ -245,7 +246,7 @@ describe('extractUserData', () => {
     const db = makeMockDb();
     await extractUserData(db);
     const selects = db.calls.filter((c) => c.startsWith('SELECT:'));
-    expect(selects).toHaveLength(13);
+    expect(selects).toHaveLength(14);
   });
 
   it('returns nutritionConfig as null when table is empty', async () => {

@@ -11,6 +11,7 @@ import type {
   NutritionStaple,
   StreakActivity,
   StreakActivityMeta,
+  StreakCategory,
   StreakLogCell,
   SyncTombstone,
   UserData,
@@ -158,7 +159,7 @@ const streakActivities: UserDataTableSchema<StreakActivity, { id: string }> = {
   columns: [
     'id', 'name', 'description', 'frequency', 'weekly_target', 'scheduled_days_json', 'can_fail', 'necessary',
     'archived_at', 'sort_order', 'linked_staple_id', 'linked_water', 'linked_movement_burst',
-    'extra_calories', 'extra_protein', 'extra_water_ml', 'automatic_kind', 'enabled', 'updated_at'
+    'extra_calories', 'extra_protein', 'extra_water_ml', 'automatic_kind', 'enabled', 'category_id', 'updated_at'
   ],
   rowKey: ['id'],
   serverUserIdIndex: 1,
@@ -170,10 +171,25 @@ const streakActivities: UserDataTableSchema<StreakActivity, { id: string }> = {
     r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null,
     r.can_fail, r.necessary ?? 0, r.archived_at ?? null, r.sort_order, r.linked_staple_id ?? null,
     r.linked_water ?? 0, r.linked_movement_burst ?? 0, r.extra_calories ?? null, r.extra_protein ?? null,
-    r.extra_water_ml ?? null, r.automatic_kind ?? null, r.enabled ?? 1, r.updated_at
+    r.extra_water_ml ?? null, r.automatic_kind ?? null, r.enabled ?? 1, r.category_id ?? null, r.updated_at
   ],
   bindDeleteKey: (k) => [k.id],
   getRows: (d) => d.streakActivities
+};
+
+const streakCategories: UserDataTableSchema<StreakCategory, { id: string }> = {
+  field: 'streakCategories',
+  sqlTable: 'streak_categories',
+  columns: ['id', 'name', 'sort_order', 'updated_at'],
+  rowKey: ['id'],
+  serverUserIdIndex: 1,
+  mergeKind: 'row_lww',
+  singleton: false,
+  orderBy: 'sort_order',
+  updatedAtColumn: 'updated_at',
+  bind: (r) => [r.id, r.name, r.sort_order, r.updated_at],
+  bindDeleteKey: (k) => [k.id],
+  getRows: (d) => d.streakCategories
 };
 
 const streakLogCells: UserDataTableSchema<StreakLogCell, { log_date: string; activity_id: string }> = {
@@ -257,6 +273,7 @@ export const USER_DATA_TABLE_SCHEMAS = [
   nutritionRegulars,
   nutritionEntries,
   streakActivities,
+  streakCategories,
   streakLogCells,
   streakActivityMeta,
   waterConfig,

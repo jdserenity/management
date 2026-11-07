@@ -92,7 +92,7 @@ describe('server', () => {
       focusLog: [], workoutLog: [],
       appKv: [{ key: 'keep', value: 'v1', updated_at: 1 }],
       nutritionConfig: null, nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-      streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+      streakActivities: [], streakCategories: [], streakLogCells: [], streakActivityMeta: [],
       waterConfig: null,
       waterEntries: [{ id: 'w1', log_day: '2026-06-28', label: 'Bottle', ml: 500, count: 1, updated_at: '2026-06-28T10:00:00Z', deleted: 0 }]
     });

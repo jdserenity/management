@@ -10,7 +10,7 @@ import {
 const emptyData = (): UserData => ({
   focusLog: [], workoutLog: [], appKv: [], nutritionConfig: null,
   nutritionStaples: [], nutritionRegulars: [], nutritionEntries: [],
-  streakActivities: [], streakLogCells: [], streakActivityMeta: [],
+  streakActivities: [], streakCategories: [], streakLogCells: [], streakActivityMeta: [],
   waterConfig: null, waterEntries: [], syncTombstones: []
 });
 
