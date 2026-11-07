@@ -5,11 +5,17 @@ import StreakActivityRow from '@/components/daily/StreakActivityRow';
 import { StreakMonthlyCalendar } from '@/components/daily/StreakHeatmaps';
 import { useSession } from '@/context/SessionContext';
 import { buildActivityCatalog } from '@/lib/streak/activityCatalog';
+import { buildInterleavedTaskBlocks, type TaskListBlock } from '@/lib/streak/categories';
+import {
+  loadCollapsedCategoryIds,
+  saveCollapsedCategoryIds,
+  toggleCollapsedCategoryId
+} from '@/lib/streak/categoryCollapse';
 import { fireDayCompleteConfetti } from '@/lib/streak/display';
 import { becameDayComplete, getUnbrokenChainDates, isUnbrokenChainMode } from '@/lib/streak/heatmap';
 import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { buildSnackProgress, movementSnackDayKey, movementSnackLogsToday, movementSnackPlanForTimestamp } from '@/lib/movementSnack/movementSnack';
-import type { StreakLogState, StreakState } from '@/lib/streak/types';
+import type { StreakActivity, StreakLogState, StreakState } from '@/lib/streak/types';
 import { dayEndTimeFromRolloverHour } from '@/lib/streak/dates';
 import {
   applyStreakLogLocally,
@@ -50,6 +56,7 @@ export default function StreakSection({ refreshKey, onUnbrokenChainModeChange, t
     });
   };
   const [calendarMonth, setCalendarMonth] = useState<string | null>(null);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => loadCollapsedCategoryIds());
   const trackerLinkedSignature = state?.config.activities.map((activity) => `${activity.id}:${activity.trackerLinkedKind || ''}:${activity.enabled !== false}`).join('|') || '';
   const workoutProgress = useMemo(() => {
     const tasks = movementSnackPlanForTimestamp(Date.now(), dayRolloverHour, movementSnackPrefs.movePool, movementSnackPrefs.regimen);
@@ -107,6 +114,56 @@ export default function StreakSection({ refreshKey, onUnbrokenChainModeChange, t
     }
   };
 
+  const toggleCategory = (categoryId: string) => {
+    setCollapsedIds((prev) => {
+      const next = toggleCollapsedCategoryId(prev, categoryId);
+      saveCollapsedCategoryIds(next);
+      return next;
+    });
+  };
+
+  const renderActivity = (a: StreakActivity) => (
+    <StreakActivityRow
+      key={a.id}
+      activity={a}
+      state={state!}
+      onLog={(id, s, d) => void handleLog(id, s, d)}
+      onEditDescription={(id, desc) => void updateStreakActivityDescription(state!, id, desc).then(setState)}
+    />
+  );
+
+  const doneCount = (acts: StreakActivity[]): number => {
+    if (!state) return 0;
+    return acts.filter((a) => state.data.logs[state.currentDay]?.[a.id]?.state === 'success').length;
+  };
+
+  const renderBlocks = (blocks: TaskListBlock[]) =>
+    blocks.map((block) => {
+      if (block.type === 'activity') return renderActivity(block.activity);
+      const collapsed = collapsedIds.has(block.category.id);
+      const done = doneCount(block.activities);
+      const total = block.activities.length;
+      return (
+        <div key={`cat-${block.category.id}`} className="streak-category">
+          <button
+            type="button"
+            className="streak-category-toggle"
+            aria-expanded={!collapsed}
+            onClick={() => toggleCategory(block.category.id)}
+          >
+            <span className="streak-category-chevron" aria-hidden>{collapsed ? '▸' : '▾'}</span>
+            <span className="streak-category-name">{block.category.name}</span>
+            <span className="streak-category-progress">{done}/{total}</span>
+          </button>
+          {collapsed ? null : (
+            <div className="streak-category-body">
+              {block.activities.map(renderActivity)}
+            </div>
+          )}
+        </div>
+      );
+    });
+
   if (!storageReady) {
     return (
       <section className="streak-tracker-container" aria-label="Habits">
@@ -120,6 +177,8 @@ export default function StreakSection({ refreshKey, onUnbrokenChainModeChange, t
 
   const dailyActivities = state.config.activities.filter((a) => a.enabled !== false && a.frequency !== 'weekly');
   const weeklyActivities = state.config.activities.filter((a) => a.enabled !== false && a.frequency === 'weekly');
+  const dailyBlocks = buildInterleavedTaskBlocks(dailyActivities, state.config.categories);
+  const weeklyBlocks = buildInterleavedTaskBlocks(weeklyActivities, state.config.categories);
 
   return (
     <section className="streak-tracker-container" aria-label="Habits">
@@ -132,25 +191,9 @@ export default function StreakSection({ refreshKey, onUnbrokenChainModeChange, t
         <>
           <div className="streak-activities">
             {dailyActivities.length > 0 && weeklyActivities.length > 0 ? <div className="streak-section-label">Daily</div> : null}
-            {dailyActivities.map((a) => (
-              <StreakActivityRow
-                key={a.id}
-                activity={a}
-                state={state}
-                onLog={(id, s, d) => void handleLog(id, s, d)}
-                onEditDescription={(id, desc) => void updateStreakActivityDescription(state, id, desc).then(setState)}
-              />
-            ))}
+            {renderBlocks(dailyBlocks)}
             {weeklyActivities.length > 0 ? <div className="streak-section-label">Weekly</div> : null}
-            {weeklyActivities.map((a) => (
-              <StreakActivityRow
-                key={a.id}
-                activity={a}
-                state={state}
-                onLog={(id, s, d) => void handleLog(id, s, d)}
-                onEditDescription={(id, desc) => void updateStreakActivityDescription(state, id, desc).then(setState)}
-              />
-            ))}
+            {renderBlocks(weeklyBlocks)}
           </div>
         </>
       )}
