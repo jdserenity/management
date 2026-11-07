@@ -41,6 +41,7 @@ Durations (`@mgmt/core` `SESSION_DURATIONS_MINUTES`, re-exported from `workoutPl
 - Daily Food has no + menu: an always-visible custom row (name/calories/protein/×qty/Eat, plus a × button whenever the row holds anything) sits above a name-search over regulars; regulars render only after a search is typed, tapping a regular fills the custom row, and Eat logs a `custom` entry. Qty accepts decimals (`normalizeCount`, two places — e.g. 2.26 × a 100 g regular). A fruitless regulars search offers to add the searched name as a new regular using the custom row's calories/protein. Daily Water quick amounts (`WATER_QUICK_AMOUNTS`: 100/250/375/500/750/1000 ml) plus a custom ml row with a × clear button. The companion PWA forbids zooming (viewport `maximum-scale=1, user-scalable=no` + `touch-action: pan-x pan-y` in `mobile/`). Staples have no UI on Daily or in Customize → Food (stored `nutrition_staples` data and old `kind: staple` entries are kept untouched).
 - Streak activity titles are always clickable: with description toggles it; without description, expands a truncated name.
 - Streak activities: order by `sort_order` (add order + grip pointer-drag reorder in Customize → Tasks; Daily uses same order). DnD keeps DOM order fixed during drag (ghost + insert line); hit-tests midpoints via `findInsertIndex` / `moveIdToInsertIndex` in `lib/streak/reorder.ts` — do not live-reorder against frozen boxes (that glitches). Optional tracker-linked Water, Workout, and Food activities can be enabled, edited, and reordered with normal tasks; they render with a disabled gray checkmark and are completed only when their tracker reaches its configured threshold. Tracker-linked Workout treats `totalTasks === 0` (Sunday / no Build snacks) as complete so the checkmark auto-fills on rest days. The old networked/cross-link activity configuration is removed.
+- Task categories (`streak_categories` + nullable `streak_activities.category_id`): user-managed folders created/renamed/deleted in Customize → Tasks; activity editor assigns membership. Daily and Customize render an **interleaved** list via `buildInterleavedTaskBlocks` — uncategorized rows and category groups share one `sort_order` walk (emit the whole category at its first member). Empty categories hide on Daily; Customize lists them after the mixed list. Daily category headers collapse/expand; collapsed ids live in localStorage `mgmt_streak_category_collapsed_v1` (per device, not synced).
 
 Engine: `SessionContext.tsx` (single `PersistedFlowState` + effects) + `@mgmt/core` (`flowEngine.ts`, `flowState.ts`, `sessionProgress.ts`, `breakFlow.ts`, `exerciseMode.ts`). Workout modules: `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts` (break picking + stretch helpers).
 
@@ -78,7 +79,7 @@ Boot: `DesktopBoot.tsx` / `CompanionBoot.tsx` → `SyncBootScreen` until SQLite 
 | `app_kv`          | Key-value prefs + active flow state               | per-key (see registry) |
 | `nutrition_*`     | TDEE config, staples, regulars, today entries     | shared                 |
 | `water_*`         | Water target + today entries                      | shared                 |
-| `streak_*`        | Activities, log cells, pause/reset meta           | shared                 |
+| `streak_*`        | Activities, categories, log cells, pause/reset meta | shared               |
 | `sync_tombstones` | Hard-delete markers (entity, row_key, deleted_at) | shared                 |
 | `sync_outbox`     | Pending row patches                               | local only             |
 | `sync_state`      | Change-log cursor (`user_data_seq`)               | local only             |
@@ -150,7 +151,7 @@ App presence: `dock` (Regular) vs `menu_bar` (Accessory). Tray is installed **on
 | Nav                  | `desktop/ui/lib/navConfig.ts`                                                                                                                  |
 | Feature switches     | `desktop/ui/lib/features.ts` (`FEATURE_WORK`, `FEATURE_POSTURE`)                                                                               |
 | Session state        | `desktop/ui/context/SessionContext.tsx` (holds one `PersistedFlowState`); pure transitions in `@mgmt/core` `flowEngine.ts` / `exerciseMode.ts` |
-| Feature DBs          | `sessionDb.ts`, `streakDb.ts`, `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/`                                                                    |
+| Feature DBs          | `sessionDb.ts`, `streakDb.ts` (+ `lib/streak/categories.ts`, `categoryCollapse.ts`), `tdeeDb.ts`, `waterDb.ts`, `stretchCreator/`              |
 | Workout modules      | `workoutTypes.ts`, `workoutCatalogs.ts`, `sessionStats.ts`, barrel `workoutPlanner.ts`                                                         |
 | Plugin UI            | `desktop/ui/plugin-ui.css`, tokens in `App.css`                                                                                                |
 | app_kv prefs         | `desktop/ui/lib/appKv.ts` (get/set + bool/json/int factories); thin `*Pref.ts` wrappers                                                        |
