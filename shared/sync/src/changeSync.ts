@@ -5,6 +5,7 @@ import { markSyncPullResult } from './syncStatus';
 import type { SyncChange, SyncChangesResponse } from './syncChanges';
 import { syncFetch } from './syncFetch';
 import { getRawSqlDatabase, runWithoutDataSync } from './userData';
+import { resolveIncomingCategoryId } from './streakCategoryId';
 import { clientInsertSql, schemaByField, type AnyUserDataTableSchema } from './userDataSchema';
 import { withDataSyncWriteLock } from './syncWriteLock';
 
@@ -103,11 +104,44 @@ const applyDeleteChange = async (raw: SqlDatabase, s: AnyUserDataTableSchema, ch
   );
 };
 
+const localCategoryIdsByActivityId = async (
+  raw: SqlDatabase,
+  ids: string[]
+): Promise<Map<string, string | null>> => {
+  const map = new Map<string, string | null>();
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (!unique.length) return map;
+  const ph = unique.map(() => '?').join(',');
+  const rows = await raw.select<Array<{ id: string; category_id: string | null }>>(
+    `SELECT id, category_id FROM streak_activities WHERE id IN (${ph})`,
+    unique
+  );
+  for (const row of rows ?? []) map.set(row.id, row.category_id ?? null);
+  return map;
+};
+
+const prepareStreakActivityRowForApply = (
+  row: Record<string, unknown>,
+  localById: Map<string, string | null>
+): Record<string, unknown> => {
+  const id = String(row.id ?? '');
+  const resolved = resolveIncomingCategoryId(
+    row as { category_id?: string | null },
+    localById.get(id)
+  );
+  return { ...row, category_id: resolved };
+};
+
 const applyOneChange = async (raw: SqlDatabase, change: SyncChange): Promise<void> => {
   const s = schemaByField[change.entity as keyof typeof schemaByField];
   if (!s) return;
   if (change.op === 'upsert' && change.row) {
-    await raw.execute(upsertSqlFor(s), s.bind(change.row as never));
+    let row = change.row as Record<string, unknown>;
+    if (s.sqlTable === 'streak_activities') {
+      const local = await localCategoryIdsByActivityId(raw, [String(row.id ?? '')]);
+      row = prepareStreakActivityRowForApply(row, local);
+    }
+    await raw.execute(upsertSqlFor(s), s.bind(row as never));
     return;
   }
   if (change.op === 'delete') await applyDeleteChange(raw, s, change);
@@ -131,8 +165,13 @@ const executeChunkChanges = async (raw: SqlDatabase, chunk: SyncChange[]): Promi
         rows.push(chunk[j]!.row!);
         j++;
       }
-      const binds = rows.flatMap((r) => s.bind(r as never) as unknown[]);
-      await raw.execute(groupedUpsertSqlFor(s, rows.length), binds);
+      let prepared = rows;
+      if (s.sqlTable === 'streak_activities') {
+        const local = await localCategoryIdsByActivityId(raw, rows.map((r) => String(r.id ?? '')));
+        prepared = rows.map((r) => prepareStreakActivityRowForApply(r, local));
+      }
+      const binds = prepared.flatMap((r) => s.bind(r as never) as unknown[]);
+      await raw.execute(groupedUpsertSqlFor(s, prepared.length), binds);
       i = j;
       continue;
     }

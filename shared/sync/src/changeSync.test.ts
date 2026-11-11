@@ -155,6 +155,46 @@ describe('applySyncChanges', () => {
     expect(cursors[cursors.length - 1]).toBe('1');
   });
 
+  it('keeps local streak category_id when an incoming upsert omits or nulls it', async () => {
+    const db = makeDb('0');
+    (db.select as ReturnType<typeof vi.fn>).mockImplementation(async <T>(q: string): Promise<T> => {
+      if (q.includes('FROM sync_state')) return [] as T;
+      if (q.includes('FROM streak_activities') && q.includes('category_id')) {
+        return [{ id: 'run', category_id: 'french' }] as T;
+      }
+      return [] as T;
+    });
+    const base = {
+      id: 'run', name: 'Run', description: null, frequency: 'daily', weekly_target: null,
+      scheduled_days_json: null, can_fail: 0, necessary: 0, archived_at: null, sort_order: 0,
+      linked_staple_id: null, linked_water: 0, linked_movement_burst: 0,
+      extra_calories: null, extra_protein: null, extra_water_ml: null,
+      automatic_kind: null, enabled: 1, updated_at: '2026-07-08T18:00:00.000Z'
+    };
+    await applySyncChanges(db, [{
+      seq: 1, entity: 'streakActivities', rowKey: 'run', op: 'upsert',
+      row: { ...base, category_id: null }
+    }], 1);
+    const upsert = execs(db).find((c) => c.q.includes('streak_activities'));
+    // category_id is the 19th bind (index 18); preserved local value is rebound as 'french'
+    expect(upsert?.bind?.[18]).toBe('french');
+
+    const db2 = makeDb('0');
+    (db2.select as ReturnType<typeof vi.fn>).mockImplementation(async <T>(q: string): Promise<T> => {
+      if (q.includes('FROM sync_state')) return [] as T;
+      if (q.includes('FROM streak_activities') && q.includes('category_id')) {
+        return [{ id: 'run', category_id: 'french' }] as T;
+      }
+      return [] as T;
+    });
+    await applySyncChanges(db2, [{
+      seq: 2, entity: 'streakActivities', rowKey: 'run', op: 'upsert',
+      row: { ...base, category_id: '' }
+    }], 2);
+    const cleared = execs(db2).find((c) => c.q.includes('streak_activities'));
+    expect(cleared?.bind?.[18]).toBeNull();
+  });
+
   it('does not advance the cursor when a change fails (no ROLLBACK — pool-safe)', async () => {
     const db = makeDb('3');
     (db.execute as ReturnType<typeof vi.fn>).mockImplementation(async (q: string, bind?: unknown[]) => {

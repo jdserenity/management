@@ -87,7 +87,8 @@ const activityBinds = (a: StreakActivity, archived: boolean, sortOrder: number, 
     null, 0, 0, null, null, null,
     a.trackerLinkedKind ?? null,
     a.enabled === false ? 0 : 1,
-    a.categoryId ?? null,
+    // '' = intentional uncategorized so sync can clear; null alone is treated as sticky-keep on the server.
+    a.categoryId ?? '',
     updatedAt
   ];
 };

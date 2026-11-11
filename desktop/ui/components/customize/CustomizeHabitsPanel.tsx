@@ -243,12 +243,8 @@ export default function CustomizeHabitsPanel() {
 
   const renderCategoryHeader = (category: StreakCategory, memberCount: number, asBlock: boolean) => {
     const key = `c:${category.id}`;
-    const isDragging = drag?.kind === 'block' && drag.key === key;
     return (
-      <div
-        data-block-key={asBlock ? key : undefined}
-        className={`flex flex-wrap items-center gap-2 border-b border-border pb-2${isDragging ? ' opacity-40' : ''}`}
-      >
+      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-2">
         {asBlock ? (
           <button
             type="button"
@@ -319,8 +315,13 @@ export default function CustomizeHabitsPanel() {
         </div>
       );
     }
+    const isDragging = drag?.kind === 'block' && drag.key === key;
     return (
-      <div key={key} className="relative space-y-2 rounded-md border border-border/60 p-2">
+      <div
+        key={key}
+        data-block-key={key}
+        className={`relative space-y-2 rounded-md border border-border/60 p-2${isDragging ? ' opacity-40' : ''}`}
+      >
         {insertLine(showLineBeforeKey(key))}
         {renderCategoryHeader(block.category, block.activities.length, true)}
         {block.activities.map((activity) => {

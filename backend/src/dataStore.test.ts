@@ -148,6 +148,30 @@ describe('SqliteDataStore.putData', () => {
     db.close();
   });
 
+  it('keeps category_id sticky when a newer patch sends null, and clears on empty string', () => {
+    const db = openServerDb(':memory:');
+    seedOwnerUser(db, 'owner');
+    const store = new SqliteDataStore(db);
+    store.putData('owner', {
+      ...emptyData(),
+      streakActivities: [streakRow('a1', 'Run', null, { updated_at: '2026-07-07T12:00:00Z', category_id: 'french' })]
+    });
+    store.putDataPatch('owner', {
+      streakActivities: {
+        upserts: [streakRow('a1', 'Run', null, { updated_at: '2026-07-08T18:00:00Z', category_id: null })]
+      }
+    });
+    expect(store.getData('owner').streakActivities[0]?.category_id).toBe('french');
+    store.putDataPatch('owner', {
+      streakActivities: {
+        upserts: [streakRow('a1', 'Run', null, { updated_at: '2026-07-09T18:00:00Z', category_id: '' })]
+      }
+    });
+    const cleared = store.getData('owner').streakActivities[0]?.category_id;
+    expect(cleared == null || cleared === '').toBe(true);
+    db.close();
+  });
+
   it('applies tombstone + delete so hard-deleted streaks stay gone', () => {
     const db = openServerDb(':memory:');
     seedOwnerUser(db, 'owner');

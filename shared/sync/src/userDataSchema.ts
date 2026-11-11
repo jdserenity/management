@@ -20,6 +20,7 @@ import type {
   WaterEntry,
   WorkoutLogRow
 } from './userData';
+import { categoryIdForSyncBind, serverCategoryIdUpsertExpression } from './streakCategoryId';
 
 export type TableMergeKind = 'append_only' | 'row_lww' | 'singleton';
 
@@ -171,7 +172,7 @@ const streakActivities: UserDataTableSchema<StreakActivity, { id: string }> = {
     r.id, r.name, r.description ?? null, r.frequency, r.weekly_target ?? null, r.scheduled_days_json ?? null,
     r.can_fail, r.necessary ?? 0, r.archived_at ?? null, r.sort_order, r.linked_staple_id ?? null,
     r.linked_water ?? 0, r.linked_movement_burst ?? 0, r.extra_calories ?? null, r.extra_protein ?? null,
-    r.extra_water_ml ?? null, r.automatic_kind ?? null, r.enabled ?? 1, r.category_id ?? null, r.updated_at
+    r.extra_water_ml ?? null, r.automatic_kind ?? null, r.enabled ?? 1, categoryIdForSyncBind(r.category_id), r.updated_at
   ],
   bindDeleteKey: (k) => [k.id],
   getRows: (d) => d.streakActivities
@@ -349,10 +350,14 @@ export const serverPatchUpsertSql = (s: AnyUserDataTableSchema): string => {
   }
   const updatable = s.columns.filter((c) => !s.rowKey.includes(c));
   // Sticky archive: never clear archived_at via a newer active-only upsert (reorder/edit race).
+  // Sticky category_id: null keeps existing; '' clears; otherwise assigns (see streakCategoryId.ts).
   const sets = updatable
     .map((c) => {
       if (s.sqlTable === 'streak_activities' && c === 'archived_at') {
         return `archived_at=COALESCE(excluded.archived_at, ${s.sqlTable}.archived_at)`;
+      }
+      if (s.sqlTable === 'streak_activities' && c === 'category_id') {
+        return serverCategoryIdUpsertExpression(s.sqlTable);
       }
       return `${c}=excluded.${c}`;
     })

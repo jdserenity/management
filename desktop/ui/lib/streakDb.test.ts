@@ -237,7 +237,7 @@ describe('streakDb row-level saves', () => {
     const cleared = await deleteStreakCategory(state, 'french');
     expect(cleared.config.categories).toEqual([]);
     expect(cleared.config.activities[0]?.categoryId).toBeUndefined();
-    expect(activityRows.get('run')?.category_id).toBeNull();
+    expect(activityRows.get('run')?.category_id === '' || activityRows.get('run')?.category_id == null).toBe(true);
     expect(categoryRows.has('french')).toBe(false);
   });
 });
