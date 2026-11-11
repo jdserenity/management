@@ -132,19 +132,12 @@ export default function StreakSection({ refreshKey, onUnbrokenChainModeChange, t
     />
   );
 
-  const doneCount = (acts: StreakActivity[]): number => {
-    if (!state) return 0;
-    return acts.filter((a) => state.data.logs[state.currentDay]?.[a.id]?.state === 'success').length;
-  };
-
   const renderBlocks = (blocks: TaskListBlock[]) =>
     blocks.map((block) => {
       if (block.type === 'activity') return renderActivity(block.activity);
       const collapsed = collapsedIds.has(block.category.id);
-      const done = doneCount(block.activities);
-      const total = block.activities.length;
       return (
-        <div key={`cat-${block.category.id}`} className="streak-category">
+        <div key={`cat-${block.category.id}`} className={`streak-category${collapsed ? ' streak-category--collapsed' : ''}`}>
           <button
             type="button"
             className="streak-category-toggle"
@@ -153,7 +146,6 @@ export default function StreakSection({ refreshKey, onUnbrokenChainModeChange, t
           >
             <span className="streak-category-chevron" aria-hidden>{collapsed ? '▸' : '▾'}</span>
             <span className="streak-category-name">{block.category.name}</span>
-            <span className="streak-category-progress">{done}/{total}</span>
           </button>
           {collapsed ? null : (
             <div className="streak-category-body">
