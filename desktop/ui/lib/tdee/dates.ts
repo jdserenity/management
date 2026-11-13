@@ -22,3 +22,23 @@ export const getCurrentLogDay = (
   }
   return formatLogDay(now);
 };
+
+/** Parse YYYY-MM-DD as a local calendar date (avoids UTC midnight shifting the day). */
+export const parseLocalLogDay = (day: string): Date => {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+/** Inclusive window of log days ending at `endDay`, oldest → newest. */
+export const recentLogDays = (endDay: string, count: number): string[] => {
+  const n = Math.max(0, Math.floor(count));
+  if (!n) return [];
+  const end = parseLocalLogDay(endDay);
+  const out: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(end);
+    d.setDate(end.getDate() - i);
+    out.push(formatLogDay(d));
+  }
+  return out;
+};

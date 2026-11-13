@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { getCurrentLogDay, formatLogDay } from '@/lib/tdee/dates';
+import { getCurrentLogDay, formatLogDay, recentLogDays } from '@/lib/tdee/dates';
 import { activeEntries, isStapleLogged, makeEntry, makeTombstone } from '@/lib/tdee/entries';
 import { mergeEntries } from '@/lib/tdee/merge';
 import { formatCount, formatIngredientsList, mealTotalsFromIngredients, normalizeCount } from '@/lib/tdee/ingredients';
 import { filterRegulars, hasCustomFoodInput, mealIdFromName, regularFromSearch, removeMeal, upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
 import {
+  averageDailyCalories,
   entryCalories,
   entryProtein,
   formatChipMacros,
@@ -153,6 +154,45 @@ describe('tdee dates', () => {
 
   it('formatLogDay pads month and day', () => {
     expect(formatLogDay(new Date(2026, 0, 5))).toBe('2026-01-05');
+  });
+
+  it('recentLogDays walks back inclusive of end day', () => {
+    expect(recentLogDays('2026-11-13', 3)).toEqual(['2026-11-11', '2026-11-12', '2026-11-13']);
+  });
+
+  it('recentLogDays crosses month boundaries', () => {
+    expect(recentLogDays('2026-03-01', 2)).toEqual(['2026-02-28', '2026-03-01']);
+  });
+});
+
+describe('tdee calorie average', () => {
+  it('returns null when no days have food', () => {
+    expect(averageDailyCalories([], { windowDays: 14, tdee: 2200 })).toBeNull();
+    expect(averageDailyCalories([{ day: '2026-11-01', calories: 0 }], { windowDays: 14 })).toBeNull();
+  });
+
+  it('averages only days with food logged and reports surplus vs TDEE', () => {
+    const summary = averageDailyCalories(
+      [
+        { day: '2026-11-01', calories: 2000 },
+        { day: '2026-11-02', calories: 0 },
+        { day: '2026-11-03', calories: 2600 }
+      ],
+      { windowDays: 14, tdee: 2200 }
+    );
+    expect(summary).toEqual({
+      average: 2300,
+      daysLogged: 2,
+      windowDays: 14,
+      tdee: 2200,
+      vsTdee: 100
+    });
+  });
+
+  it('leaves vsTdee null when target is unset', () => {
+    const summary = averageDailyCalories([{ day: '2026-11-01', calories: 1800 }], { windowDays: 14, tdee: 0 });
+    expect(summary?.average).toBe(1800);
+    expect(summary?.vsTdee).toBeNull();
   });
 });
 

@@ -43,3 +43,33 @@ export const proteinRemainingDisplay = (total: number, target: number): { text: 
 
 export const formatChipMacros = (calories: number, protein: number): string =>
   `${normalizeCalories(calories)} / ${formatIngredientProtein(protein)}g`;
+
+export type DailyCalorieTotal = { day: string; calories: number };
+
+export type CalorieAverageSummary = {
+  average: number;
+  daysLogged: number;
+  windowDays: number;
+  tdee: number;
+  /** average − TDEE; null when TDEE is unset. Positive = surplus. */
+  vsTdee: number | null;
+};
+
+/** Mean daily calories over days that have food logged (zeros skipped). */
+export const averageDailyCalories = (
+  dayTotals: readonly DailyCalorieTotal[],
+  opts: { windowDays: number; tdee?: number }
+): CalorieAverageSummary | null => {
+  const withFood = dayTotals.filter((d) => d.calories > 0);
+  if (!withFood.length) return null;
+  const sum = withFood.reduce((acc, d) => acc + d.calories, 0);
+  const average = normalizeCalories(sum / withFood.length);
+  const tdee = normalizeCalories(opts.tdee ?? 0);
+  return {
+    average,
+    daysLogged: withFood.length,
+    windowDays: Math.max(0, Math.floor(opts.windowDays)),
+    tdee,
+    vsTdee: tdee > 0 ? average - tdee : null
+  };
+};
