@@ -2,6 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StatsPeriodExplorer from '@/components/stats/StatsPeriodExplorer';
 import { useSession } from '@/context/SessionContext';
+import { formatCalories } from '@/lib/tdee/totals';
+import { loadRecentCalorieAverage } from '@/lib/tdeeDb';
+import { useAppDataLoad } from '@/lib/useAppDataLoad';
 import { cn } from '@/lib/utils';
 import {
   fillPeriodSeries,
@@ -47,42 +50,97 @@ const AllTimeStat = ({ emoji, value, label }: { emoji: string; value: string; la
   </div>
 );
 
+const FoodAverageSection = () => {
+  const { data, loadError, storageReady } = useAppDataLoad(
+    loadRecentCalorieAverage,
+    'Failed to load calorie average',
+    { intervalMs: null }
+  );
+  if (!storageReady) return null;
+  if (loadError) {
+    return (
+      <section className="plugin-panel">
+        <h3 className="plugin-panel-title">🍽️ Food — last 2 weeks</h3>
+        <p className="plugin-muted text-sm">Could not load calorie average.</p>
+      </section>
+    );
+  }
+  if (!data) {
+    return (
+      <section className="plugin-panel">
+        <h3 className="plugin-panel-title">🍽️ Food — last 2 weeks</h3>
+        <p className="plugin-muted text-sm">Loading…</p>
+      </section>
+    );
+  }
+  const summary = data.summary;
+  if (!summary) {
+    return (
+      <section className="plugin-panel">
+        <h3 className="plugin-panel-title">🍽️ Food — last 2 weeks</h3>
+        <p className="plugin-muted text-sm">Log some food and your daily average will show up here.</p>
+      </section>
+    );
+  }
+  const vs =
+    summary.vsTdee == null
+      ? null
+      : summary.vsTdee >= 0
+        ? { text: `💪 +${formatCalories(summary.vsTdee)} vs target`, className: 'text-emerald-500 font-semibold' }
+        : { text: `−${formatCalories(Math.abs(summary.vsTdee))} vs target`, className: '' };
+  return (
+    <section className="plugin-panel">
+      <h3 className="plugin-panel-title">🍽️ Food — last 2 weeks</h3>
+      <div className="grid grid-cols-2 gap-2">
+        <AllTimeStat emoji="🔥" value={`${formatCalories(summary.average)} kcal`} label="Daily average" />
+        <AllTimeStat emoji="📅" value={`${summary.daysLogged}/${summary.windowDays}`} label="Days with food" />
+      </div>
+      {vs && <p className={cn('mt-2 text-center text-sm', vs.className)}>{vs.text}</p>}
+    </section>
+  );
+};
+
 const AllTimeView = ({ point, exercises }: { point: PeriodStatsPoint; exercises: ReturnType<typeof listNonZeroExerciseTotals> }) => {
   const empty = !point.pomodoros && !point.deepWork && !point.focusMinutes && !point.timedSeconds && !point.workouts && exercises.length === 0;
-  if (empty) {
-    return <p className="plugin-panel-flat border-dashed plugin-empty py-12 text-center">🌱 Your all-time stats will show up here once you log some work!</p>;
-  }
 
   return (
     <div className="space-y-4">
-      <section className="plugin-panel">
-        <h3 className="plugin-panel-title">🧠 Focus — all time</h3>
-        <div className="grid grid-cols-3 gap-2">
-          <AllTimeStat emoji="🍅" value={String(point.pomodoros)} label="Pomodoros" />
-          <AllTimeStat emoji="🎯" value={String(point.deepWork)} label="Deep work" />
-          <AllTimeStat emoji="⏳" value={focusMinutesLabel(point.focusMinutes)} label="Focus time" />
-        </div>
-      </section>
+      <FoodAverageSection />
 
-      <section className="plugin-panel">
-        <h3 className="plugin-panel-title">💪 Movement — all time</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <AllTimeStat emoji="⏱️" value={formatTimedMovementHeadline(point.timedSeconds)} label="Move time" />
-          <AllTimeStat emoji="🏋️" value={String(point.workouts)} label="Workouts logged" />
-        </div>
-      </section>
+      {empty ? (
+        <p className="plugin-panel-flat border-dashed plugin-empty py-12 text-center">🌱 Your all-time stats will show up here once you log some work!</p>
+      ) : (
+        <>
+          <section className="plugin-panel">
+            <h3 className="plugin-panel-title">🧠 Focus — all time</h3>
+            <div className="grid grid-cols-3 gap-2">
+              <AllTimeStat emoji="🍅" value={String(point.pomodoros)} label="Pomodoros" />
+              <AllTimeStat emoji="🎯" value={String(point.deepWork)} label="Deep work" />
+              <AllTimeStat emoji="⏳" value={focusMinutesLabel(point.focusMinutes)} label="Focus time" />
+            </div>
+          </section>
 
-      {exercises.length > 0 && (
-        <section className="plugin-panel">
-          <h3 className="plugin-panel-title">📝 Every exercise</h3>
-          <ul className="space-y-0">
-            {exercises.map((agg) => (
-              <li key={agg.id} className="plugin-row text-sm font-medium">
-                <span>{exerciseEmoji(agg.id)} {formatExerciseRunAggLine(agg)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+          <section className="plugin-panel">
+            <h3 className="plugin-panel-title">💪 Movement — all time</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <AllTimeStat emoji="⏱️" value={formatTimedMovementHeadline(point.timedSeconds)} label="Move time" />
+              <AllTimeStat emoji="🏋️" value={String(point.workouts)} label="Workouts logged" />
+            </div>
+          </section>
+
+          {exercises.length > 0 && (
+            <section className="plugin-panel">
+              <h3 className="plugin-panel-title">📝 Every exercise</h3>
+              <ul className="space-y-0">
+                {exercises.map((agg) => (
+                  <li key={agg.id} className="plugin-row text-sm font-medium">
+                    <span>{exerciseEmoji(agg.id)} {formatExerciseRunAggLine(agg)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
       )}
     </div>
   );

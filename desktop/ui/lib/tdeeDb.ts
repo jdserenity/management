@@ -1,11 +1,16 @@
 import { dbExecute, dbSelect, dbDeleteExceptIds, dbDeleteDayExceptIds, syncNow } from '@/lib/sqlWrite';
 import { loadCurrentFeatureDay } from '@/lib/featureDay';
+import { recentLogDays } from '@/lib/tdee/dates';
 import { activeEntries, ensureCurrentDay, makeEntry, makeTombstone } from '@/lib/tdee/entries';
 import { DEFAULT_TDEE_FILE } from '@/lib/tdee/types';
 import { normalizeCalories, normalizeMacro } from '@/lib/tdee/ingredients';
 import { upsertMeal } from '@/lib/tdee/meals';
 import { normalizeFile, normalizeMealDef } from '@/lib/tdee/normalize';
+import { averageDailyCalories, totalCalories, type CalorieAverageSummary } from '@/lib/tdee/totals';
 import type { TdeeFile, TdeeLogEntry, TdeeMealDef, TdeeStoredEntry } from '@/lib/tdee/types';
+
+/** Rolling window used by Stats → Food daily average. */
+export const CALORIE_AVERAGE_WINDOW_DAYS = 14;
 
 type ConfigRow = { tdee: number; protein: number; log_day: string; updated_at: string };
 type MealRow = { id: string; name: string; calories: number; protein: number; ingredients_json: string | null; sort_order: number; updated_at: string };
@@ -284,5 +289,37 @@ export const isTdeeEmpty = (file: TdeeFile): boolean =>
   file.staples.length === 0 &&
   file.regulars.length === 0 &&
   activeEntries(file.entries).length === 0;
+
+export type RecentCalorieAverageResult = { summary: CalorieAverageSummary | null };
+
+/** Mean daily calories over the last `windowDays` stats days (days with no food skipped). */
+export const loadRecentCalorieAverage = async (
+  windowDays = CALORIE_AVERAGE_WINDOW_DAYS
+): Promise<RecentCalorieAverageResult> => {
+  await ensureConfigRow();
+  const { day: currentDay } = await loadCurrentFeatureDay();
+  const days = recentLogDays(currentDay, windowDays);
+  if (!days.length) return { summary: null };
+  const startDay = days[0];
+  const endDay = days[days.length - 1];
+  const configRows = await dbSelect<ConfigRow[]>('SELECT tdee, protein, log_day, updated_at FROM nutrition_config WHERE id = 1');
+  const tdee = configRows[0]?.tdee ?? 0;
+  const rows = await dbSelect<(EntryRow & { log_day: string })[]>(
+    `SELECT id, log_day, kind, ref_id, label, calories, protein, count, updated_at, deleted
+     FROM nutrition_entries
+     WHERE log_day >= $1 AND log_day <= $2
+     ORDER BY log_day, updated_at`,
+    [startDay, endDay]
+  );
+  const byDay = new Map<string, TdeeStoredEntry[]>();
+  for (const day of days) byDay.set(day, []);
+  for (const row of rows) {
+    const list = byDay.get(row.log_day);
+    if (!list) continue;
+    list.push(entryFromRow(row));
+  }
+  const dayTotals = days.map((day) => ({ day, calories: totalCalories(byDay.get(day) ?? []) }));
+  return { summary: averageDailyCalories(dayTotals, { windowDays, tdee }) };
+};
 
 export { DEFAULT_TDEE_FILE };
